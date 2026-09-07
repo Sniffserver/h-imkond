@@ -28,7 +28,7 @@ import {
 import {
   pathfinderScanner,
   PathfinderActiveState,
-} from '../services/pathfinderScanner';
+} from '../services/scanner/pathfinderScanner';
 import {
   getLoadedPathfinderData,
   initPathfinderDB,

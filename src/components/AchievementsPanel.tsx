@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { UserProfile, JournalEntry, DaoProposal } from '../types';
-import { achievementService, Achievement } from '../services/achievementService';
+import { achievementService, Achievement } from '../services/game/achievementService';
 import {
   Award,
   Sparkles,

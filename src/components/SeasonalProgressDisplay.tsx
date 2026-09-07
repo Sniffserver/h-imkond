@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile } from '../types';
-import { seasonalChallengeService, SeasonalChallenge } from '../services/seasonalChallengeService';
-import { mapRevealService } from '../services/mapRevealService';
+import { seasonalChallengeService, SeasonalChallenge } from '../services/game/seasonalChallengeService';
+import { mapRevealService } from '../services/map/mapRevealService';
 import { Sparkles, Trophy, Award, Leaf, Sun, Snowflake, CheckCircle2, ChevronRight, Zap } from 'lucide-react';
 
 interface SeasonalProgressDisplayProps {

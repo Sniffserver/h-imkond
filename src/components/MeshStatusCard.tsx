@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BatteryManagerStatus, MeshNode } from '../types';
 import { calculateMeshHealthScore } from '../utils/meshHealthCalculator';
 import { Radio, Sun, Zap, BatteryCharging, RefreshCw, ShieldAlert, Cpu, Activity, Gauge, Signal, Clock, Network, Info, MessageSquare } from 'lucide-react';
-import { getUnreadCount, subscribeToMessages } from '../services/messageService';
+import { getUnreadCount, subscribeToMessages } from '../services/comms/messageService';
 
 interface MeshStatusCardProps {
   peerCount: number;

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Siren, AlertTriangle } from 'lucide-react';
-import { broadcastSOS } from '../services/sosService';
+import { broadcastSOS } from '../services/utils/sosService';
 
 interface SosButtonProps {
   userCallsign?: string;

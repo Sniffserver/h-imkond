@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { personalStatsService, PersonalRecords, DailyStatPoint } from '../services/personalStatsService';
-import { pedometerService } from '../services/pedometerService';
-import { mapRevealService } from '../services/mapRevealService';
+import { personalStatsService, PersonalRecords, DailyStatPoint } from '../services/game/personalStatsService';
+import { pedometerService } from '../services/utils/pedometerService';
+import { mapRevealService } from '../services/map/mapRevealService';
 import {
   Trophy,
   Flame,

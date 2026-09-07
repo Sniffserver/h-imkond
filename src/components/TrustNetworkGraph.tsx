@@ -1,21 +1,21 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as d3 from 'd3';
 import { UserProfile, MeshNode, TrustEndorsement, Transaction } from '../types';
+import { soundFeedback } from '../services/utils/soundFeedback';
 import {
   ShieldCheck,
-  Lock,
   Sparkles,
   Users,
   Activity,
-  ZoomIn,
-  ZoomOut,
   RotateCcw,
-  Info,
-  Award,
-  Fingerprint,
-  Share2,
   CheckCircle2,
-  Filter,
+  Repeat,
+  Compass,
+  ArrowRight,
+  Fingerprint,
+  Link as LinkIcon,
+  Layers,
+  Zap,
 } from 'lucide-react';
 
 export interface TrustGraphNode extends d3.SimulationNodeDatum {
@@ -24,12 +24,15 @@ export interface TrustGraphNode extends d3.SimulationNodeDatum {
   isUser: boolean;
   trustScore: number;
   role: string;
-  degree: number; // 0 = self, 1 = direct endorsement, 2 = 2nd degree
+  degree: number; // 0 = self, 1 = direct endorsement/transaction, 2 = 2nd degree
   endorsementsCount: number;
   bioregion?: string;
   color: string;
   radius: number;
   publicKey?: string;
+  connectionType?: 'direct_endorsement' | 'mutual_exchange' | 'dual_attestation' | 'relay_trust';
+  directTransactionCount?: number;
+  directEndorsementCount?: number;
 }
 
 export interface TrustGraphLink extends d3.SimulationLinkDatum<TrustGraphNode> {
@@ -37,7 +40,7 @@ export interface TrustGraphLink extends d3.SimulationLinkDatum<TrustGraphNode> {
   source: string | TrustGraphNode;
   target: string | TrustGraphNode;
   weight: number;
-  type: 'direct_endorsement' | 'mutual_exchange' | 'relay_trust';
+  type: 'direct_endorsement' | 'mutual_exchange' | 'dual_attestation' | 'relay_trust';
   comment?: string;
   signatureVerified: boolean;
 }
@@ -62,24 +65,33 @@ export const TrustNetworkGraph: React.FC<TrustNetworkGraphProps> = ({
   const svgRef = useRef<SVGSVGElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
+  const [graphViewMode, setGraphViewMode] = useState<'chain' | 'force'>('chain');
   const [selectedNode, setSelectedNode] = useState<TrustGraphNode | null>(null);
   const [filterMode, setFilterMode] = useState<'all' | 'direct' | 'high_trust'>('all');
   const [zoomLevel, setZoomLevel] = useState<number>(1);
 
-  // 1. Build Nodes & Links Graph Model
+  // 1. Build Nodes & Links Graph Model using actual endorsements and transactions
   const graphData = useMemo(() => {
     const nodesMap = new Map<string, TrustGraphNode>();
     const links: TrustGraphLink[] = [];
 
-    // Add Root User Node
+    // Count user's direct connections
+    const userEndorsements = endorsements.filter(
+      (e) => e.endorserCallsign === user.callsign || e.recipientCallsign === user.callsign
+    );
+    const userTransactions = transactions.filter(
+      (t) => t.providerCallsign === user.callsign || t.requesterCallsign === user.callsign
+    );
+
+    // Add Root User Node (Degree 0)
     const userNode: TrustGraphNode = {
       id: 'user_self',
-      callsign: user.callsign || 'You (Node-01)',
+      callsign: user.callsign || 'You (Sovereign Node)',
       isUser: true,
       trustScore: Math.min(100, Math.round((user.symbiosisScore || 78) * 1.15)),
-      role: 'Local Self-Sovereign Steward',
+      role: 'Local Self-Sovereign Identity',
       degree: 0,
-      endorsementsCount: (user.skills?.length || 3) + endorsements.length + 4,
+      endorsementsCount: (user.skills?.length || 3) + userEndorsements.length + 2,
       bioregion: user.bioregion || 'Cascadia-44N',
       color: '#E9C46A',
       radius: 26,
@@ -87,36 +99,72 @@ export const TrustNetworkGraph: React.FC<TrustNetworkGraphProps> = ({
     };
     nodesMap.set(userNode.id, userNode);
 
-    // Add Peers
+    // Process Peers
     peers.forEach((peer, idx) => {
-      const isDirectEndorsed = endorsements.some(
-        (e) => e.endorserCallsign === peer.callsign || e.recipientCallsign === peer.callsign
-      );
-      const hasMutualTx = transactions.some(
-        (t) => t.providerCallsign === peer.callsign || t.requesterCallsign === peer.callsign
+      const peerEndorsements = endorsements.filter(
+        (e) =>
+          (e.endorserCallsign === peer.callsign && e.recipientCallsign === user.callsign) ||
+          (e.endorserCallsign === user.callsign && e.recipientCallsign === peer.callsign)
       );
 
-      const degree = isDirectEndorsed || hasMutualTx ? 1 : (idx % 2 === 0 ? 1 : 2);
-      const trustScore = peer.reputationScore 
-        ? Math.min(100, Math.round(peer.reputationScore * 10)) 
+      const peerTransactions = transactions.filter(
+        (t) =>
+          (t.providerCallsign === peer.callsign && t.requesterCallsign === user.callsign) ||
+          (t.providerCallsign === user.callsign && t.requesterCallsign === peer.callsign)
+      );
+
+      const isDirectEndorsed = peerEndorsements.length > 0;
+      const hasMutualTx = peerTransactions.length > 0;
+
+      let degree = 2;
+      let connectionType: 'direct_endorsement' | 'mutual_exchange' | 'dual_attestation' | 'relay_trust' =
+        'relay_trust';
+
+      if (isDirectEndorsed && hasMutualTx) {
+        degree = 1;
+        connectionType = 'dual_attestation';
+      } else if (isDirectEndorsed) {
+        degree = 1;
+        connectionType = 'direct_endorsement';
+      } else if (hasMutualTx) {
+        degree = 1;
+        connectionType = 'mutual_exchange';
+      } else if (idx < 3) {
+        // Fallback for demo peer network bootstrap: first 3 peers are 1st degree
+        degree = 1;
+        connectionType = 'direct_endorsement';
+      }
+
+      const trustScore = peer.reputationScore
+        ? Math.min(100, Math.round(peer.reputationScore * 10))
         : Math.min(98, 70 + (peer.endorsementsCount || 2) * 4);
 
-      const nodeColor = degree === 1 
-        ? (trustScore >= 85 ? '#2A9D8F' : '#588157') 
-        : '#87A878';
+      let nodeColor = '#87A878';
+      if (degree === 1) {
+        if (connectionType === 'dual_attestation') nodeColor = '#E9C46A';
+        else if (connectionType === 'direct_endorsement') nodeColor = '#2A9D8F';
+        else nodeColor = '#588157';
+      }
 
       const pNode: TrustGraphNode = {
         id: peer.id,
         callsign: peer.callsign,
         isUser: false,
         trustScore,
-        role: peer.role || (degree === 1 ? 'Endorsed Peer Relay' : 'Community Witness'),
+        role:
+          peer.role ||
+          (degree === 1 ? '1st-Degree Verified Peer' : '2nd-Degree Mesh Witness'),
         degree,
-        endorsementsCount: peer.endorsementsCount || (degree === 1 ? 5 : 2),
+        endorsementsCount: peer.endorsementsCount || (degree === 1 ? 4 : 2),
         bioregion: peer.cityId ? `Bioregion ${peer.cityId.toUpperCase()}` : 'Emajõe Luht',
         color: nodeColor,
-        radius: degree === 1 ? 19 : 14,
-        publicKey: peer.publicKey || `ed25519:${peer.callsign.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
+        radius: degree === 1 ? 18 : 13,
+        publicKey:
+          peer.publicKey ||
+          `ed25519:${peer.callsign.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
+        connectionType,
+        directTransactionCount: peerTransactions.length,
+        directEndorsementCount: peerEndorsements.length,
       };
       nodesMap.set(pNode.id, pNode);
 
@@ -127,28 +175,33 @@ export const TrustNetworkGraph: React.FC<TrustNetworkGraphProps> = ({
           source: userNode.id,
           target: pNode.id,
           weight: trustScore > 85 ? 3 : 2,
-          type: isDirectEndorsed ? 'direct_endorsement' : 'mutual_exchange',
-          comment: isDirectEndorsed 
-            ? 'Cryptographically signed direct trust endorsement.' 
-            : 'Verified mutual exchange interaction.',
+          type: connectionType,
+          comment:
+            connectionType === 'dual_attestation'
+              ? 'Signed Ed25519 endorsement & verified mutual exchange'
+              : connectionType === 'direct_endorsement'
+              ? 'Cryptographically signed direct trust endorsement'
+              : 'Verified mutual exchange interaction',
           signatureVerified: true,
         });
       }
     });
 
-    // Add Inter-peer links for community cluster depth
+    // Add Inter-peer links for 2nd degree depth
     const peerArray = Array.from(nodesMap.values()).filter((n) => !n.isUser);
     for (let i = 0; i < peerArray.length; i++) {
       for (let j = i + 1; j < peerArray.length; j++) {
-        // Form link if they share close index or simulated high mutual trust
-        if ((i + j) % 3 === 0 || (peerArray[i].degree === 1 && peerArray[j].degree === 2 && (i + j) % 2 === 0)) {
+        if (
+          (peerArray[i].degree === 1 && peerArray[j].degree === 2 && (i + j) % 2 === 0) ||
+          (i + j) % 4 === 0
+        ) {
           links.push({
             id: `link-${peerArray[i].id}-${peerArray[j].id}`,
             source: peerArray[i].id,
             target: peerArray[j].id,
             weight: 1.5,
             type: 'relay_trust',
-            comment: 'Cross-relay cryptographic mesh attestation.',
+            comment: 'Transitive cryptographic relay endorsement',
             signatureVerified: true,
           });
         }
@@ -173,27 +226,35 @@ export const TrustNetworkGraph: React.FC<TrustNetworkGraphProps> = ({
     return { nodes: filteredNodes, links: filteredLinks };
   }, [user, peers, endorsements, transactions, filterMode]);
 
-  // 2. Compute Graph Metrics
-  const graphMetrics = useMemo(() => {
-    const totalNodes = graphData.nodes.length;
-    const totalLinks = graphData.links.length;
-    if (totalNodes <= 1) return { density: '0%', avgDegree: 0, totalSignatures: 0, clusterIndex: '100%' };
+  // 2. Compute Connection Depth & Influence Metrics
+  const trustMetrics = useMemo(() => {
+    const directPeers = graphData.nodes.filter((n) => !n.isUser && n.degree === 1);
+    const secondDegreePeers = graphData.nodes.filter((n) => !n.isUser && n.degree === 2);
+    const totalPeers = graphData.nodes.filter((n) => !n.isUser).length;
 
-    // Density = 2 * |E| / (|V| * (|V| - 1))
-    const maxPossibleLinks = (totalNodes * (totalNodes - 1)) / 2;
-    const densityNum = maxPossibleLinks > 0 ? (totalLinks / maxPossibleLinks) * 100 : 0;
-    const avgDegree = (2 * totalLinks) / totalNodes;
-    const totalSignatures = totalLinks * 2 + endorsements.length;
+    // Influence = Direct peers + 50% weight of 2nd degree reachable peers
+    const reachablePeers = directPeers.length + secondDegreePeers.length;
+    const influencePercent =
+      totalPeers > 0
+        ? Math.min(100, Math.round(((directPeers.length * 1.0 + secondDegreePeers.length * 0.5) / Math.max(1, totalPeers)) * 100))
+        : 85;
+
+    const maxDepth = secondDegreePeers.length > 0 ? 2 : (directPeers.length > 0 ? 1 : 0);
+    const totalEndorsements = endorsements.length;
+    const totalTransactions = transactions.length;
 
     return {
-      density: `${densityNum.toFixed(1)}%`,
-      avgDegree: avgDegree.toFixed(1),
-      totalSignatures,
-      clusterIndex: `${Math.min(96, Math.round(55 + densityNum * 0.7))}%`,
+      influencePercent,
+      reachablePeers,
+      directCount: directPeers.length,
+      secondDegreeCount: secondDegreePeers.length,
+      maxDepth,
+      totalEndorsements,
+      totalTransactions,
     };
-  }, [graphData, endorsements]);
+  }, [graphData, endorsements, transactions]);
 
-  // 3. D3 Force Simulation & Rendering Effect
+  // 3. D3 SVG Rendering (Supports both Simplified Radial Orbit Graph & Force Simulation)
   useEffect(() => {
     if (!svgRef.current || !containerRef.current) return;
 
@@ -201,28 +262,29 @@ export const TrustNetworkGraph: React.FC<TrustNetworkGraphProps> = ({
     const height = 400;
 
     const svg = d3.select(svgRef.current);
-    svg.selectAll('*').remove(); // Clean previous render
+    svg.selectAll('*').remove();
 
     svg.attr('viewBox', [0, 0, width, height]);
 
-    // Definitions (Gradients & Glow Filters)
+    // Definitions
     const defs = svg.append('defs');
 
     // Glow filter
-    const filter = defs.append('filter').attr('id', 'trust-glow').attr('x', '-30%').attr('y', '-30%').attr('width', '160%').attr('height', '160%');
-    filter.append('feGaussianBlur').attr('stdDeviation', '4').attr('result', 'blur');
+    const filter = defs
+      .append('filter')
+      .attr('id', 'trust-glow')
+      .attr('x', '-30%')
+      .attr('y', '-30%')
+      .attr('width', '160%')
+      .attr('height', '160%');
+    filter.append('feGaussianBlur').attr('stdDeviation', '3').attr('result', 'blur');
     filter.append('feComposite').attr('in', 'SourceGraphic').attr('in2', 'blur').attr('operator', 'over');
 
-    // Radial gradient for user node
-    const userGrad = defs.append('radialGradient').attr('id', 'user-node-grad');
-    userGrad.append('stop').attr('offset', '0%').attr('stop-color', '#F4A261');
-    userGrad.append('stop').attr('offset', '100%').attr('stop-color', '#E76F51');
-
-    // Main zoomable container
+    // Root Group with Zoom
     const g = svg.append('g').attr('class', 'trust-graph-root');
 
-    // Setup d3 Zoom
-    const zoomBehavior = d3.zoom<SVGSVGElement, unknown>()
+    const zoomBehavior = d3
+      .zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.4, 3.5])
       .on('zoom', (event) => {
         g.attr('transform', event.transform);
@@ -231,7 +293,9 @@ export const TrustNetworkGraph: React.FC<TrustNetworkGraphProps> = ({
 
     svg.call(zoomBehavior);
 
-    // Deep clones to prevent simulation mutations on immutable React data
+    const centerX = width / 2;
+    const centerY = height / 2;
+
     const nodes: TrustGraphNode[] = graphData.nodes.map((d) => ({ ...d }));
     const links: TrustGraphLink[] = graphData.links.map((d) => ({
       ...d,
@@ -239,234 +303,307 @@ export const TrustNetworkGraph: React.FC<TrustNetworkGraphProps> = ({
       target: typeof d.target === 'object' ? (d.target as TrustGraphNode).id : d.target,
     }));
 
-    // Setup Force Simulation
-    const simulation = d3.forceSimulation(nodes)
-      .force('link', d3.forceLink<TrustGraphNode, TrustGraphLink>(links).id((d) => d.id).distance((d) => (d.type === 'direct_endorsement' ? 85 : 120)).strength(0.6))
-      .force('charge', d3.forceManyBody().strength((d: any) => (d.isUser ? -380 : -180)))
-      .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide<TrustGraphNode>().radius((d) => d.radius + 18));
+    if (graphViewMode === 'chain') {
+      // ===== SIMPLIFIED CONNECTION GRAPH (RADIAL CONCENTRIC ORBITS) =====
+      const RADIUS_DEPTH_1 = 110;
+      const RADIUS_DEPTH_2 = 195;
 
-    // Draw Links (Trust Edges)
-    const linkGroup = g.append('g').attr('class', 'links');
-    const link = linkGroup
-      .selectAll('line')
-      .data(links)
-      .enter()
-      .append('line')
-      .attr('stroke', (d) => {
-        if (d.type === 'direct_endorsement') return isNightMode ? '#2A9D8F' : '#2A9D8F';
-        if (d.type === 'mutual_exchange') return isNightMode ? '#E9C46A' : '#588157';
-        return isNightMode ? '#364E30' : '#87A878';
-      })
-      .attr('stroke-opacity', (d) => (d.type === 'direct_endorsement' ? 0.85 : 0.45))
-      .attr('stroke-width', (d) => (d.type === 'direct_endorsement' ? 2.5 : 1.5))
-      .attr('stroke-dasharray', (d) => (d.type === 'relay_trust' ? '4,3' : 'none'));
+      // Draw Orbit Track Circles
+      const orbitGroup = g.append('g').attr('class', 'orbit-tracks');
 
-    // Animated particles travelling along direct endorsement links
-    const particleGroup = g.append('g').attr('class', 'particles');
-    const directLinks = links.filter((l) => l.type === 'direct_endorsement');
-    const particles = particleGroup
-      .selectAll('circle')
-      .data(directLinks)
-      .enter()
-      .append('circle')
-      .attr('r', 2.5)
-      .attr('fill', '#E9C46A')
-      .attr('opacity', 0.8);
+      // Orbit 1 Ring
+      orbitGroup
+        .append('circle')
+        .attr('cx', centerX)
+        .attr('cy', centerY)
+        .attr('r', RADIUS_DEPTH_1)
+        .attr('fill', 'none')
+        .attr('stroke', isNightMode ? '#2A3B26' : '#87A878')
+        .attr('stroke-width', 1.5)
+        .attr('stroke-dasharray', '4 4')
+        .attr('opacity', 0.6);
 
-    // Draw Nodes
-    const nodeGroup = g.append('g').attr('class', 'nodes');
-    const node = nodeGroup
-      .selectAll('g')
-      .data(nodes)
-      .enter()
-      .append('g')
-      .attr('class', 'node')
-      .style('cursor', 'pointer')
-      .call(
-        d3.drag<SVGGElement, TrustGraphNode>()
-          .on('start', (event, d) => {
-            if (!event.active) simulation.alphaTarget(0.3).restart();
-            d.fx = d.x;
-            d.fy = d.y;
-          })
-          .on('drag', (event, d) => {
-            d.fx = event.x;
-            d.fy = event.y;
-          })
-          .on('end', (event, d) => {
-            if (!event.active) simulation.alphaTarget(0);
-            d.fx = null;
-            d.fy = null;
-          })
-      )
-      .on('click', (event, d) => {
-        event.stopPropagation();
-        setSelectedNode(d);
-        if (!d.isUser && onSelectPeer) {
-          const matchedPeer = peers.find((p) => p.id === d.id);
-          if (matchedPeer) onSelectPeer(matchedPeer);
+      // Orbit 1 Label
+      orbitGroup
+        .append('text')
+        .attr('x', centerX)
+        .attr('y', centerY - RADIUS_DEPTH_1 - 6)
+        .attr('text-anchor', 'middle')
+        .attr('fill', '#2A9D8F')
+        .attr('font-size', '9px')
+        .attr('font-family', 'monospace')
+        .attr('font-weight', 'bold')
+        .text('DEPTH 1 • DIRECT ATTESTATION');
+
+      // Orbit 2 Ring
+      orbitGroup
+        .append('circle')
+        .attr('cx', centerX)
+        .attr('cy', centerY)
+        .attr('r', RADIUS_DEPTH_2)
+        .attr('fill', 'none')
+        .attr('stroke', isNightMode ? '#1F2C1C' : '#C5D6BF')
+        .attr('stroke-width', 1.5)
+        .attr('stroke-dasharray', '6 6')
+        .attr('opacity', 0.5);
+
+      // Orbit 2 Label
+      orbitGroup
+        .append('text')
+        .attr('x', centerX)
+        .attr('y', centerY - RADIUS_DEPTH_2 - 6)
+        .attr('text-anchor', 'middle')
+        .attr('fill', '#588157')
+        .attr('font-size', '9px')
+        .attr('font-family', 'monospace')
+        .attr('font-weight', 'bold')
+        .text('DEPTH 2 • TRANSITIVE MESH WITNESSES');
+
+      // Position Nodes on Radial Orbits
+      const userNode = nodes.find((n) => n.isUser);
+      if (userNode) {
+        userNode.x = centerX;
+        userNode.y = centerY;
+      }
+
+      const depth1Nodes = nodes.filter((n) => !n.isUser && n.degree === 1);
+      depth1Nodes.forEach((node, idx) => {
+        const angle = (idx / Math.max(1, depth1Nodes.length)) * 2 * Math.PI - Math.PI / 2;
+        node.x = centerX + Math.cos(angle) * RADIUS_DEPTH_1;
+        node.y = centerY + Math.sin(angle) * RADIUS_DEPTH_1;
+      });
+
+      const depth2Nodes = nodes.filter((n) => !n.isUser && n.degree === 2);
+      depth2Nodes.forEach((node, idx) => {
+        const angle = (idx / Math.max(1, depth2Nodes.length)) * 2 * Math.PI - Math.PI / 4;
+        node.x = centerX + Math.cos(angle) * RADIUS_DEPTH_2;
+        node.y = centerY + Math.sin(angle) * RADIUS_DEPTH_2;
+      });
+
+      // Draw Links
+      const linkGroup = g.append('g').attr('class', 'links');
+      const nodeMap = new Map<string, TrustGraphNode>();
+      nodes.forEach((n) => nodeMap.set(n.id, n));
+
+      links.forEach((link) => {
+        const src = nodeMap.get(link.source as string);
+        const tgt = nodeMap.get(link.target as string);
+        if (!src || !tgt || src.x === undefined || src.y === undefined || tgt.x === undefined || tgt.y === undefined)
+          return;
+
+        const isUserLink = src.isUser || tgt.isUser;
+        let strokeColor = isNightMode ? '#364E30' : '#87A878';
+        let strokeWidth = 1.5;
+
+        if (link.type === 'dual_attestation') {
+          strokeColor = '#E9C46A';
+          strokeWidth = 2.5;
+        } else if (link.type === 'direct_endorsement') {
+          strokeColor = '#2A9D8F';
+          strokeWidth = 2;
+        } else if (link.type === 'mutual_exchange') {
+          strokeColor = '#588157';
+          strokeWidth = 2;
         }
+
+        linkGroup
+          .append('line')
+          .attr('x1', src.x)
+          .attr('y1', src.y)
+          .attr('x2', tgt.x)
+          .attr('y2', tgt.y)
+          .attr('stroke', strokeColor)
+          .attr('stroke-width', strokeWidth)
+          .attr('stroke-opacity', isUserLink ? 0.85 : 0.4)
+          .attr('stroke-dasharray', link.type === 'relay_trust' ? '4 4' : 'none');
       });
 
-    // Outer Aura Ring for high trust & User
-    node
-      .append('circle')
-      .attr('r', (d) => d.radius + (d.isUser ? 6 : 4))
-      .attr('fill', 'none')
-      .attr('stroke', (d) => (d.isUser ? '#E9C46A' : d.color))
-      .attr('stroke-width', (d) => (d.isUser ? 2 : 1))
-      .attr('stroke-opacity', 0.5)
-      .attr('stroke-dasharray', (d) => (d.isUser ? '3,2' : 'none'));
+      // Draw Nodes
+      const nodeGroup = g.append('g').attr('class', 'nodes');
 
-    // Main Node Circle
-    node
-      .append('circle')
-      .attr('r', (d) => d.radius)
-      .attr('fill', (d) => (d.isUser ? 'url(#user-node-grad)' : d.color))
-      .attr('stroke', isNightMode ? '#182315' : '#FAF6EE')
-      .attr('stroke-width', 2.5)
-      .attr('filter', (d) => (d.isUser || d.trustScore >= 90 ? 'url(#trust-glow)' : 'none'));
+      const nodeElements = nodeGroup
+        .selectAll('g.node')
+        .data(nodes)
+        .enter()
+        .append('g')
+        .attr('class', 'node')
+        .attr('transform', (d) => `translate(${d.x}, ${d.y})`)
+        .style('cursor', 'pointer')
+        .on('click', (_, d) => {
+          soundFeedback.playClick();
+          setSelectedNode(d);
+          if (!d.isUser && onSelectPeer) {
+            const matchedPeer = peers.find((p) => p.id === d.id);
+            if (matchedPeer) onSelectPeer(matchedPeer);
+          }
+        });
 
-    // Inner Icon or Trust Score
-    node
-      .append('text')
-      .attr('text-anchor', 'middle')
-      .attr('dy', (d) => (d.isUser ? '0.35em' : '0.35em'))
-      .attr('fill', '#FFFFFF')
-      .attr('font-size', (d) => (d.isUser ? '12px' : '9px'))
-      .attr('font-weight', 'bold')
-      .attr('font-family', 'ui-monospace, monospace')
-      .attr('pointer-events', 'none')
-      .text((d) => (d.isUser ? 'YOU' : `${d.trustScore}%`));
+      // Outer rings
+      nodeElements
+        .append('circle')
+        .attr('r', (d) => d.radius + (d.isUser ? 6 : 4))
+        .attr('fill', 'none')
+        .attr('stroke', (d) => d.color)
+        .attr('stroke-width', (d) => (d.isUser ? 2 : 1.5))
+        .attr('stroke-opacity', 0.4);
 
-    // Label under node
-    node
-      .append('text')
-      .attr('text-anchor', 'middle')
-      .attr('dy', (d) => d.radius + 14)
-      .attr('fill', isNightMode ? '#F0F5EE' : '#203A2A')
-      .attr('font-size', '10px')
-      .attr('font-weight', (d) => (d.isUser ? 'bold' : '600'))
-      .attr('font-family', 'sans-serif')
-      .attr('pointer-events', 'none')
-      .text((d) => d.callsign);
+      // Main Circle
+      nodeElements
+        .append('circle')
+        .attr('r', (d) => d.radius)
+        .attr('fill', (d) => (d.isUser ? '#E9C46A' : d.color))
+        .attr('stroke', '#FAF6EE')
+        .attr('stroke-width', 2)
+        .attr('filter', (d) => (d.isUser ? 'url(#trust-glow)' : null));
 
-    // Degree badge indicator
-    node
-      .filter((d) => !d.isUser && d.degree === 1)
-      .append('circle')
-      .attr('cx', (d) => d.radius - 3)
-      .attr('cy', (d) => -d.radius + 3)
-      .attr('r', 4.5)
-      .attr('fill', '#2A9D8F')
-      .attr('stroke', isNightMode ? '#182315' : '#FAF6EE')
-      .attr('stroke-width', 1.5);
+      // Labels
+      nodeElements
+        .append('text')
+        .attr('y', (d) => d.radius + 12)
+        .attr('text-anchor', 'middle')
+        .attr('fill', isNightMode ? '#F0F5EE' : '#203A2A')
+        .attr('font-size', (d) => (d.isUser ? '11px' : '9px'))
+        .attr('font-weight', 'bold')
+        .text((d) => d.callsign);
+    } else {
+      // ===== FORCE SIMULATION VIEW =====
+      const simulation = d3
+        .forceSimulation(nodes)
+        .force(
+          'link',
+          d3
+            .forceLink<TrustGraphNode, TrustGraphLink>(links)
+            .id((d) => d.id)
+            .distance((d) => (d.type === 'direct_endorsement' ? 85 : 120))
+            .strength(0.6)
+        )
+        .force('charge', d3.forceManyBody().strength((d: any) => (d.isUser ? -380 : -180)))
+        .force('center', d3.forceCenter(width / 2, height / 2))
+        .force('collision', d3.forceCollide<TrustGraphNode>().radius((d) => d.radius + 18));
 
-    // Particle Animation Loop
-    let particleProgress = 0;
-    const timer = d3.timer(() => {
-      particleProgress = (particleProgress + 0.008) % 1;
-      particles.attr('cx', (d: any) => {
-        const sx = d.source.x || 0;
-        const tx = d.target.x || 0;
-        return sx + (tx - sx) * particleProgress;
-      }).attr('cy', (d: any) => {
-        const sy = d.source.y || 0;
-        const ty = d.target.y || 0;
-        return sy + (ty - sy) * particleProgress;
+      const linkElements = g
+        .append('g')
+        .selectAll('line')
+        .data(links)
+        .enter()
+        .append('line')
+        .attr('stroke', (d) =>
+          d.type === 'direct_endorsement'
+            ? '#2A9D8F'
+            : d.type === 'mutual_exchange'
+            ? '#588157'
+            : '#87A878'
+        )
+        .attr('stroke-width', (d) => (d.type === 'direct_endorsement' ? 2 : 1))
+        .attr('stroke-opacity', 0.6);
+
+      const nodeElements = g
+        .append('g')
+        .selectAll('g.node')
+        .data(nodes)
+        .enter()
+        .append('g')
+        .attr('class', 'node')
+        .style('cursor', 'pointer')
+        .on('click', (_, d) => {
+          soundFeedback.playClick();
+          setSelectedNode(d);
+          if (!d.isUser && onSelectPeer) {
+            const matchedPeer = peers.find((p) => p.id === d.id);
+            if (matchedPeer) onSelectPeer(matchedPeer);
+          }
+        });
+
+      nodeElements
+        .append('circle')
+        .attr('r', (d) => d.radius)
+        .attr('fill', (d) => d.color)
+        .attr('stroke', '#FAF6EE')
+        .attr('stroke-width', 2);
+
+      nodeElements
+        .append('text')
+        .attr('y', (d) => d.radius + 11)
+        .attr('text-anchor', 'middle')
+        .attr('fill', isNightMode ? '#F0F5EE' : '#203A2A')
+        .attr('font-size', '9px')
+        .attr('font-weight', 'bold')
+        .text((d) => d.callsign);
+
+      simulation.on('tick', () => {
+        linkElements
+          .attr('x1', (d: any) => d.source.x)
+          .attr('y1', (d: any) => d.source.y)
+          .attr('x2', (d: any) => d.target.x)
+          .attr('y2', (d: any) => d.target.y);
+
+        nodeElements.attr('transform', (d) => `translate(${d.x}, ${d.y})`);
       });
-    });
-
-    // Simulation Tick
-    simulation.on('tick', () => {
-      link
-        .attr('x1', (d: any) => d.source.x)
-        .attr('y1', (d: any) => d.source.y)
-        .attr('x2', (d: any) => d.target.x)
-        .attr('y2', (d: any) => d.target.y);
-
-      node.attr('transform', (d: any) => `translate(${d.x},${d.y})`);
-    });
-
-    return () => {
-      simulation.stop();
-      timer.stop();
-    };
-  }, [graphData, isNightMode]);
+    }
+  }, [graphData, graphViewMode, isNightMode, peers, onSelectPeer]);
 
   const handleResetZoom = () => {
+    soundFeedback.playClick();
     if (!svgRef.current) return;
     const svg = d3.select(svgRef.current);
-    svg.transition().duration(500).call(d3.zoom<SVGSVGElement, unknown>().transform, d3.zoomIdentity);
+    svg.transition().duration(400).call(d3.zoom<SVGSVGElement, unknown>().transform, d3.zoomIdentity);
+    setZoomLevel(1);
   };
 
   return (
-    <div
-      id="trust-network-visualization"
-      className={`rounded-3xl border p-5 sm:p-6 space-y-4 transition-colors duration-200 ${
-        isNightMode
-          ? 'bg-[#182315] border-[#364E30] text-[#F0F5EE]'
-          : 'bg-[#FAF6EE] border-[#87A878]/40 text-[#203A2A] shadow-xs'
-      }`}
-    >
-      {/* Header Row */}
-      <div className="flex flex-wrap items-start sm:items-center justify-between gap-3 pb-3 border-b border-current/10">
-        <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-2xl bg-[#2A9D8F]/20 border border-[#2A9D8F]/40 flex items-center justify-center text-[#2A9D8F] shadow-xs shrink-0">
-            <Fingerprint className="w-5 h-5" />
+    <div className="space-y-4">
+      {/* Header & Mode Controls */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#2A9D8F]/15 text-[#2A9D8F] text-[10px] font-semibold border border-[#2A9D8F]/30 mb-1">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            Chain of Trust • Ed25519 Cryptographic Provenance
           </div>
-          <div>
-            <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#2A9D8F]/20 text-[#2A9D8F] text-[10px] font-mono font-bold mb-0.5">
-              <Lock className="w-3 h-3" />
-              D3 Community Trust Topology & Cryptographic Mesh Graph
-            </div>
-            <h3 className="font-display font-bold text-lg">Kogukonna Usaldusvõrk / Trust Graph</h3>
-            <p className="text-xs text-[#637062] dark:text-[#A8BDA5]">
-              Otsesed ja kaudsed Ed25519 usalduskinnitused kasutaja ja peer-sõlmede vahel ilma kesksüsteemideta.
-            </p>
-          </div>
+          <h3
+            className={`font-display font-bold text-lg ${
+              isNightMode ? 'text-[#F0F5EE]' : 'text-[#203A2A]'
+            }`}
+          >
+            Connection Depth & Influence Graph
+          </h3>
         </div>
 
-        {/* Filter Controls & Reset */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* View Mode Toggle: Simplified Connection Graph vs Force Mesh */}
           <div
-            className={`p-1 rounded-xl border flex items-center gap-1 text-xs ${
+            className={`p-1 rounded-2xl border flex items-center gap-1 text-xs ${
               isNightMode ? 'bg-[#121A10] border-[#2A3B26]' : 'bg-white border-[#87A878]/30'
             }`}
           >
             <button
               type="button"
-              onClick={() => setFilterMode('all')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                filterMode === 'all'
+              onClick={() => {
+                soundFeedback.playClick();
+                setGraphViewMode('chain');
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                graphViewMode === 'chain'
                   ? 'bg-[#2A9D8F] text-white shadow-xs'
                   : 'text-[#637062] dark:text-[#A8BDA5] hover:text-[#203A2A]'
               }`}
             >
-              Kõik ({graphData.nodes.length})
+              <Compass className="w-3.5 h-3.5" />
+              <span>Chain of Trust (Depth)</span>
             </button>
             <button
               type="button"
-              onClick={() => setFilterMode('direct')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                filterMode === 'direct'
+              onClick={() => {
+                soundFeedback.playClick();
+                setGraphViewMode('force');
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                graphViewMode === 'force'
                   ? 'bg-[#2A9D8F] text-white shadow-xs'
                   : 'text-[#637062] dark:text-[#A8BDA5] hover:text-[#203A2A]'
               }`}
             >
-              1st Degree
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterMode('high_trust')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                filterMode === 'high_trust'
-                  ? 'bg-[#2A9D8F] text-white shadow-xs'
-                  : 'text-[#637062] dark:text-[#A8BDA5] hover:text-[#203A2A]'
-              }`}
-            >
-              Kõrge Usaldus (&gt;85%)
+              <Activity className="w-3.5 h-3.5" />
+              <span>Force Mesh</span>
             </button>
           </div>
 
@@ -478,14 +615,14 @@ export const TrustNetworkGraph: React.FC<TrustNetworkGraphProps> = ({
                 ? 'bg-[#121A10] border-[#2A3B26] text-[#A8BDA5] hover:bg-[#1E2B1A]'
                 : 'bg-white border-[#87A878]/30 text-[#637062] hover:bg-[#FAF6EE]'
             }`}
-            title="Lähtesta vaade (Reset Zoom & Pan)"
+            title="Reset Zoom & Pan"
           >
             <RotateCcw className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {/* 4 Graph Density & Topology Metrics HUD */}
+      {/* User Influence & Connection Depth Scorecard */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <div
           className={`p-3 rounded-2xl border ${
@@ -493,12 +630,14 @@ export const TrustNetworkGraph: React.FC<TrustNetworkGraphProps> = ({
           }`}
         >
           <span className="text-[10px] font-mono text-[#637062] dark:text-[#87A878] block">
-            Võrgu Tihedus (Density)
+            Mesh Influence Reach
           </span>
-          <span className="font-mono font-bold text-base text-[#2A9D8F] mt-0.5 block">
-            {graphMetrics.density}
+          <span className="font-mono font-bold text-lg text-[#2A9D8F] mt-0.5 block">
+            {trustMetrics.influencePercent}%
           </span>
-          <span className="text-[9px] text-[#637062] block">Aktiivsed usalduslingid</span>
+          <span className="text-[9px] text-[#637062] dark:text-[#A8BDA5] block">
+            {trustMetrics.reachablePeers} peers in 1–2 hops
+          </span>
         </div>
 
         <div
@@ -507,12 +646,14 @@ export const TrustNetworkGraph: React.FC<TrustNetworkGraphProps> = ({
           }`}
         >
           <span className="text-[10px] font-mono text-[#637062] dark:text-[#87A878] block">
-            Klasterduvus (Clustering)
+            Max Connection Depth
           </span>
-          <span className="font-mono font-bold text-base text-[#E9C46A] mt-0.5 block">
-            {graphMetrics.clusterIndex}
+          <span className="font-mono font-bold text-lg text-[#E9C46A] mt-0.5 block">
+            {trustMetrics.maxDepth} Degrees
           </span>
-          <span className="text-[9px] text-[#637062] block">Kogukonna sidusus</span>
+          <span className="text-[9px] text-[#637062] dark:text-[#A8BDA5] block">
+            {trustMetrics.directCount} direct • {trustMetrics.secondDegreeCount} attested
+          </span>
         </div>
 
         <div
@@ -521,12 +662,14 @@ export const TrustNetworkGraph: React.FC<TrustNetworkGraphProps> = ({
           }`}
         >
           <span className="text-[10px] font-mono text-[#637062] dark:text-[#87A878] block">
-            Keskmine Astmelisus
+            Signed Endorsements
           </span>
-          <span className="font-mono font-bold text-base text-[#588157] mt-0.5 block">
-            {graphMetrics.avgDegree} ühendust / sõlm
+          <span className="font-mono font-bold text-lg text-[#588157] mt-0.5 block">
+            {trustMetrics.totalEndorsements} Vouchers
           </span>
-          <span className="text-[9px] text-[#637062] block">Otsene kättesaadavus</span>
+          <span className="text-[9px] text-[#637062] dark:text-[#A8BDA5] block">
+            Ed25519 signature proof
+          </span>
         </div>
 
         <div
@@ -535,111 +678,88 @@ export const TrustNetworkGraph: React.FC<TrustNetworkGraphProps> = ({
           }`}
         >
           <span className="text-[10px] font-mono text-[#637062] dark:text-[#87A878] block">
-            Krüptoallkirjad (Ed25519)
+            Mutual Aid Exchanges
           </span>
-          <span className="font-mono font-bold text-base text-[#E76F51] mt-0.5 block">
-            {graphMetrics.totalSignatures} Kinnitust
+          <span className="font-mono font-bold text-lg text-[#E76F51] mt-0.5 block">
+            {trustMetrics.totalTransactions} Completed
           </span>
-          <span className="text-[9px] text-[#637062] block">Võltsimiskindel ahel</span>
+          <span className="text-[9px] text-[#637062] dark:text-[#A8BDA5] block">
+            Handshake verified
+          </span>
         </div>
       </div>
+
+      {/* Interactive Trust Path Trace Inspector (when a node is selected) */}
+      {selectedNode && !selectedNode.isUser && (
+        <div
+          className={`p-3 rounded-2xl border flex items-center justify-between gap-3 text-xs animate-in fade-in duration-200 ${
+            isNightMode
+              ? 'bg-[#182315] border-[#364E30] text-[#F0F5EE]'
+              : 'bg-[#FAF6EE] border-[#87A878]/40 text-[#203A2A]'
+          }`}
+        >
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <span className="font-mono font-bold text-[10px] text-[#588157]">
+              CHAIN OF TRUST PATH:
+            </span>
+            <span className="px-2 py-0.5 rounded-lg bg-[#E9C46A]/20 text-[#9A6A12] dark:text-[#E9C46A] font-mono font-bold text-[10px]">
+              {user.callsign || 'You'} (Depth 0)
+            </span>
+            <ArrowRight className="w-3.5 h-3.5 text-[#588157]" />
+            <span className="px-2 py-0.5 rounded-lg bg-[#2A9D8F]/20 text-[#2A9D8F] font-mono font-bold text-[10px] flex items-center gap-1">
+              <ShieldCheck className="w-3 h-3" />
+              {selectedNode.degree === 1 ? 'Direct Trust' : 'Relay Hop'}
+            </span>
+            <ArrowRight className="w-3.5 h-3.5 text-[#588157]" />
+            <span className="px-2 py-0.5 rounded-lg bg-black/10 dark:bg-white/10 font-mono font-bold text-[10px]">
+              {selectedNode.callsign} (Depth {selectedNode.degree})
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setSelectedNode(null)}
+            className="text-[10px] font-mono text-[#637062] dark:text-[#A8BDA5] hover:underline shrink-0 cursor-pointer"
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       {/* SVG Canvas Container */}
       <div
         ref={containerRef}
-        className={`relative w-full h-[400px] rounded-2xl border overflow-hidden transition-colors ${
+        className={`relative w-full h-[400px] rounded-3xl border overflow-hidden transition-colors ${
           isNightMode ? 'bg-[#0E150D] border-[#2A3B26]' : 'bg-[#F4F9F2] border-[#87A878]/35'
         }`}
       >
         <svg ref={svgRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
 
         {/* Legend Overlay at Bottom-Left */}
-        <div className="absolute bottom-3 left-3 p-2.5 rounded-xl bg-black/55 backdrop-blur-xs text-white text-[10px] space-y-1.5 border border-white/10 pointer-events-none">
+        <div className="absolute bottom-3 left-3 p-2.5 rounded-2xl bg-black/60 backdrop-blur-md text-white text-[10px] space-y-1 border border-white/10 pointer-events-none">
           <div className="font-bold font-mono text-[#E9C46A] flex items-center gap-1">
-            <ShieldCheck className="w-3 h-3" /> Usaldusgraafi Tingmärgid
+            <ShieldCheck className="w-3 h-3" /> Chain of Trust Legend
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#E76F51]" />
-            <span>Sina (Sovereign Root)</span>
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#E9C46A]" />
+            <span>You (Sovereign Root • Depth 0)</span>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-[#2A9D8F]" />
-            <span>1st Degree Otsene Kinnitus</span>
+            <span>Depth 1: Direct Endorsement / Tx</span>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-[#87A878]" />
-            <span>2nd Degree Kogukonnaliige</span>
+            <span>Depth 2: Attested Mesh Witness</span>
           </div>
         </div>
 
-        {/* Floating Zoom Controls at Bottom-Right */}
-        <div className="absolute bottom-3 right-3 flex items-center gap-1 bg-black/40 backdrop-blur-xs p-1 rounded-xl border border-white/10">
-          <span className="text-[10px] font-mono text-white px-1.5">{Math.round(zoomLevel * 100)}%</span>
+        {/* Zoom Indicator */}
+        <div className="absolute bottom-3 right-3 flex items-center gap-1 bg-black/50 backdrop-blur-xs px-2 py-1 rounded-xl border border-white/10">
+          <span className="text-[10px] font-mono text-white">{Math.round(zoomLevel * 100)}%</span>
         </div>
       </div>
-
-      {/* Selected Node Inspector Drawer/Card */}
-      {selectedNode && (
-        <div
-          className={`p-4 rounded-2xl border space-y-2.5 animate-in fade-in slide-in-from-top-2 duration-200 ${
-            isNightMode ? 'bg-[#121A10] border-[#2A3B26]' : 'bg-white border-[#87A878]/35 shadow-xs'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div
-                className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs text-white shadow-xs"
-                style={{ backgroundColor: selectedNode.color }}
-              >
-                {selectedNode.isUser ? 'YOU' : `${selectedNode.trustScore}%`}
-              </div>
-              <div>
-                <h4 className="font-display font-bold text-sm flex items-center gap-1.5">
-                  <span>{selectedNode.callsign}</span>
-                  {selectedNode.isUser && (
-                    <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-[#E9C46A]/20 text-[#E9C46A] border border-[#E9C46A]/30">
-                      Sina
-                    </span>
-                  )}
-                  {selectedNode.degree === 1 && !selectedNode.isUser && (
-                    <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-[#2A9D8F]/20 text-[#2A9D8F] border border-[#2A9D8F]/30">
-                      1st Degree Endorsed
-                    </span>
-                  )}
-                </h4>
-                <p className="text-[11px] text-[#637062] dark:text-[#87A878] font-mono">
-                  {selectedNode.role} • {selectedNode.bioregion}
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setSelectedNode(null)}
-              className="text-xs text-[#637062] hover:underline cursor-pointer"
-            >
-              Sulge
-            </button>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] pt-1 border-t border-current/10">
-            <div className="p-2 rounded-xl bg-[#FAF6EE] dark:bg-[#182315]">
-              <span className="text-[#637062] block text-[10px]">Usaldusväärsuse skoor</span>
-              <span className="font-mono font-bold text-[#2A9D8F]">{selectedNode.trustScore}% Verified</span>
-            </div>
-            <div className="p-2 rounded-xl bg-[#FAF6EE] dark:bg-[#182315]">
-              <span className="text-[#637062] block text-[10px]">Kinnitatud soovitusi</span>
-              <span className="font-mono font-bold text-[#588157]">{selectedNode.endorsementsCount} Peers</span>
-            </div>
-            <div className="p-2 rounded-xl bg-[#FAF6EE] dark:bg-[#182315] col-span-2 sm:col-span-1">
-              <span className="text-[#637062] block text-[10px]">Avalik Krüptovõti</span>
-              <span className="font-mono font-bold text-[#E76F51] truncate block">
-                {selectedNode.publicKey || 'ed25519:verified'}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
+export default TrustNetworkGraph;

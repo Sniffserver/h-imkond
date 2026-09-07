@@ -16,9 +16,9 @@ import {
   PathfinderFilter,
   SOSPacket,
 } from '../types';
-import { getActiveSosAlerts } from '../services/sosService';
+import { getActiveSosAlerts } from '../services/utils/sosService';
 import { CITY_MAPS } from '../data/cityMaps';
-import { mapRevealService, localGridToGeoPoint, geoPointToLocalGrid } from '../services/mapRevealService';
+import { mapRevealService, localGridToGeoPoint, geoPointToLocalGrid } from '../services/map/mapRevealService';
 import { cacheCityMapData, getCustomPerimeters, saveCustomPerimeter, CustomPerimeterZone, calculateFocalPointZoom } from '../utils/mapTileCache';
 import { clusterResourcePins, ResourceCluster, CATEGORY_COLORS, clusterPeerNodes, PeerCluster, RawPeerPosition } from '../utils/resourceClustering';
 import { computeD3BioregionalHeatmap, drawD3HeatmapOnCanvas, HeatmapMode, BioregionalHeatmapResult } from '../utils/d3BioregionalHeatmap';

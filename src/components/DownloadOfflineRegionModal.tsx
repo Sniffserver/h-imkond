@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { OfflineMapRegion, MeshNode, ResourceItem, CityMapData } from '../types';
-import { offlineMapService } from '../services/offlineMapService';
-import { downloadRasterTilesForRegion } from '../services/rasterTileCacheService';
-import { localGridToGeoPoint } from '../services/mapRevealService';
+import { offlineMapService } from '../services/map/offlineMapService';
+import { downloadRasterTilesForRegion } from '../services/map/rasterTileCacheService';
+import { localGridToGeoPoint } from '../services/map/mapRevealService';
 import {
   X,
   Download,

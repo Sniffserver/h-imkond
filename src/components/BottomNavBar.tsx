@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Radio, MapPin, Footprints, Sprout, BookOpen, User } from 'lucide-react';
 import { NavTab } from '../types';
-import { pathfinderScanner } from '../services/pathfinderScanner';
-import { soundFeedback } from '../services/soundFeedback';
+import { pathfinderScanner } from '../services/scanner/pathfinderScanner';
+import { soundFeedback } from '../services/utils/soundFeedback';
 
 interface BottomNavBarProps {
   activeTab: NavTab;

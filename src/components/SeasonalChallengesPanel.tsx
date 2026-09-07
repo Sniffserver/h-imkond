@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile } from '../types';
-import { seasonalChallengeService, SeasonalChallenge } from '../services/seasonalChallengeService';
-import { mapRevealService } from '../services/mapRevealService';
+import { seasonalChallengeService, SeasonalChallenge } from '../services/game/seasonalChallengeService';
+import { mapRevealService } from '../services/map/mapRevealService';
 import { Calendar, Award, Sparkles, CheckCircle2, ChevronRight, HelpCircle, RefreshCw, Sun, CloudRain, Snowflake, Leaf, Check } from 'lucide-react';
 
 interface SeasonalChallengesPanelProps {

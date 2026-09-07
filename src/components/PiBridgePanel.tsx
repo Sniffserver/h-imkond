@@ -2,14 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { BridgeStatus } from '../types';
 import {
   discoverBridge,
-  getBridgeStatus,
   getCustomBridgeIp,
   setCustomBridgeIp,
+  getClientId,
+  setClientId,
+  startPairing,
+  confirmPairing,
+  revokeDevice,
+  getBridgeAuthToken,
   isMockBridgeMode,
   setMockBridgeMode,
   subscribeBridgeStatus,
   getLastSyncInfo,
-} from '../services/piBridge';
+} from '../services/comms/piBridge';
 import {
   Cpu,
   Sun,
@@ -18,9 +23,11 @@ import {
   Activity,
   XCircle,
   Server,
-  Zap,
   Radio,
-  CheckCircle2,
+  Key,
+  ShieldCheck,
+  ShieldAlert,
+  Trash2,
 } from 'lucide-react';
 
 interface PiBridgePanelProps {
@@ -33,38 +40,85 @@ export const PiBridgePanel: React.FC<PiBridgePanelProps> = ({
   onAddToast,
 }) => {
   const [ipInput, setIpInput] = useState<string>(getCustomBridgeIp());
+  const [clientIdInput, setClientIdInput] = useState<string>(getClientId());
+  const [pairingSessionId, setPairingSessionId] = useState<string | null>(null);
+  const [pinInput, setPinInput] = useState<string>('');
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [status, setStatus] = useState<BridgeStatus | null>(null);
   const [isMock, setIsMock] = useState<boolean>(isMockBridgeMode());
   const [lastSync, setLastSync] = useState<{ timestamp: number | null; peerCount: number }>(getLastSyncInfo());
+  const [hasToken, setHasToken] = useState<boolean>(Boolean(getBridgeAuthToken()));
 
   useEffect(() => {
     const unsubscribe = subscribeBridgeStatus((s) => {
       setStatus(s);
       setLastSync(getLastSyncInfo());
+      setHasToken(Boolean(getBridgeAuthToken()));
     });
     return () => unsubscribe();
   }, []);
 
-  const handlePairWithPi = async () => {
+  const handleStartPairing = async () => {
     setIsScanning(true);
-    const targetIp = ipInput.trim() || '192.168.4.1:5000';
+    const targetIp = ipInput.trim() || '192.168.4.1:8080';
     setCustomBridgeIp(targetIp);
+    setClientId(clientIdInput.trim() || 'HOIMU-CLIENT-APP');
 
     try {
-      const res = await discoverBridge(targetIp);
-      setStatus(res.status);
-      setLastSync(getLastSyncInfo());
-
-      if (res.success) {
-        onAddToast?.('Connected to hoimu-pi', `Raspberry Pi bridge paired at ${res.ip}`, 'success');
+      const startRes = await startPairing(targetIp, clientIdInput);
+      if (startRes.success && startRes.sessionId) {
+        setPairingSessionId(startRes.sessionId);
+        if (startRes.devPin) {
+          setPinInput(startRes.devPin);
+          onAddToast?.('Pairing Initiated', `Session active. Dev PIN: ${startRes.devPin}`, 'info');
+        } else {
+          onAddToast?.('Pairing Initiated', 'Check Pi terminal/systemd logs for 6-digit PIN', 'info');
+        }
       } else {
-        onAddToast?.('Bridge Connection Failed', `Could not reach Pi bridge at ${targetIp}. Using phone native radio.`, 'warning');
+        onAddToast?.('Pairing Failed', startRes.error || 'Could not initiate pairing session', 'warning');
       }
     } catch {
-      onAddToast?.('Scan Error', 'Failed to discover Pi bridge', 'warning');
+      onAddToast?.('Connection Error', 'Failed to reach Pi bridge pairing endpoint', 'warning');
     } finally {
       setIsScanning(false);
+    }
+  };
+
+  const handleConfirmPairing = async () => {
+    if (!pairingSessionId || !pinInput.trim()) {
+      onAddToast?.('Missing PIN', 'Please enter 6-digit pairing PIN', 'warning');
+      return;
+    }
+    setIsScanning(true);
+    try {
+      const confirmRes = await confirmPairing(pairingSessionId, pinInput.trim(), ipInput, clientIdInput);
+      if (confirmRes.success) {
+        setPairingSessionId(null);
+        setPinInput('');
+        setHasToken(true);
+        onAddToast?.('Device Paired', `Scoped credential saved. Device ID: ${confirmRes.deviceId}`, 'success');
+      } else {
+        onAddToast?.('Pairing Failed', confirmRes.error || 'Invalid PIN', 'warning');
+      }
+    } catch {
+      onAddToast?.('Pairing Error', 'Failed to confirm PIN', 'warning');
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  const handleRevokeCredential = async () => {
+    try {
+      const res = await revokeDevice();
+      if (res.success) {
+        setHasToken(false);
+        setPairingSessionId(null);
+        onAddToast?.('Credential Revoked', 'Hardware token cleared from local storage and Pi whitelist', 'info');
+      } else {
+        onAddToast?.('Revocation Error', res.error || 'Could not revoke token', 'warning');
+      }
+    } catch {
+      onAddToast?.('Revocation Error', 'Failed to reach Pi bridge', 'warning');
     }
   };
 
@@ -76,7 +130,7 @@ export const PiBridgePanel: React.FC<PiBridgePanelProps> = ({
     }
     onAddToast?.(
       enabled ? 'Mock Bridge Enabled' : 'Live Hardware Mode',
-      enabled ? 'Simulating Pi Zero 2 W solar telemetry & LoRa radio' : 'Directing requests to live Pi IP',
+      enabled ? 'Simulating Pi Zero 2 W solar telemetry & LoRa radio' : 'Directing requests to live authenticated Pi IP',
       'info'
     );
   };
@@ -112,10 +166,13 @@ export const PiBridgePanel: React.FC<PiBridgePanelProps> = ({
             <Cpu className="w-5 h-5 text-[#33ff00] dark:text-[#33ff00]" />
             <h3 className="font-display font-bold text-base sm:text-lg flex items-center gap-2">
               <span>Raspberry Pi Zero 2 W Hardware Bridge</span>
+              <span className="text-[11px] font-mono font-normal px-2 py-0.5 rounded bg-black/10 dark:bg-white/10">
+                v1.0.0
+              </span>
             </h3>
           </div>
           <p className="text-xs text-[#588157]">
-            Off-grid hardware relay (LoRa 868MHz SX1262, Long-Range BLE 5.2, Solar Telemetry).
+            Authenticated hardware relay (LoRa 868MHz SX1262, Long-Range BLE 5.2, Solar Telemetry).
           </p>
         </div>
 
@@ -129,7 +186,7 @@ export const PiBridgePanel: React.FC<PiBridgePanelProps> = ({
           ) : isScanning ? (
             <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-[#E9C46A]/20 text-[#E9C46A] border border-[#E9C46A]/40 flex items-center gap-1.5">
               <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-              Scanning...
+              Pairing / Connecting...
             </span>
           ) : (
             <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-black/10 text-[#637062] dark:text-[#A8BDA5] border border-current/20 flex items-center gap-1.5">
@@ -248,32 +305,121 @@ export const PiBridgePanel: React.FC<PiBridgePanelProps> = ({
         </label>
       </div>
 
-      {/* Pair with Pi & Manual IP Input */}
-      <div className="flex flex-col sm:flex-row items-center gap-2 pt-2">
-        <div className="flex-1 w-full flex items-center gap-2">
-          <span className="text-xs font-bold text-[#637062] shrink-0 font-mono">Bridge IP:</span>
-          <input
-            type="text"
-            value={ipInput}
-            onChange={(e) => setIpInput(e.target.value)}
-            placeholder="192.168.4.1:5000"
-            className={`flex-1 px-3.5 py-2 border rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-[#2A9D8F] ${
-              isNightMode
-                ? 'bg-[#182315] text-[#F0F5EE] border-[#364E30]'
-                : 'bg-white text-[#203A2A] border-[#87A878]/40'
-            }`}
-          />
+      {/* Dynamic 2-Step Pairing / Credential Controls */}
+      <div className="p-4 rounded-2xl border bg-black/5 dark:bg-white/5 space-y-3">
+        <div className="flex items-center justify-between text-xs font-mono font-bold">
+          <span className="flex items-center gap-1.5 text-[#588157]">
+            {hasToken ? <ShieldCheck className="w-4 h-4 text-[#33ff00]" /> : <ShieldAlert className="w-4 h-4 text-[#E9C46A]" />}
+            <span>PAIRED AUTHENTICATION BOUNDARY</span>
+          </span>
+          <span className="text-[11px] text-[#637062]">
+            Client ID: <strong className="text-[#203A2A] dark:text-[#F0F5EE]">{clientIdInput}</strong>
+          </span>
         </div>
 
-        <button
-          type="button"
-          onClick={handlePairWithPi}
-          disabled={isScanning}
-          className="w-full sm:w-auto px-5 py-2 bg-[#203A2A] hover:bg-[#16271c] text-white text-xs font-bold rounded-xl shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 text-[#33ff00] ${isScanning ? 'animate-spin' : ''}`} />
-          <span>{isScanning ? 'Scanning...' : 'Pair with Pi'}</span>
-        </button>
+        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+          <div className="sm:col-span-5 flex items-center gap-2">
+            <span className="text-xs font-bold text-[#637062] shrink-0 font-mono">Gateway IP:</span>
+            <input
+              type="text"
+              value={ipInput}
+              onChange={(e) => setIpInput(e.target.value)}
+              placeholder="192.168.4.1:8080"
+              className={`w-full px-3 py-1.5 border rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-[#2A9D8F] ${
+                isNightMode
+                  ? 'bg-[#182315] text-[#F0F5EE] border-[#364E30]'
+                  : 'bg-white text-[#203A2A] border-[#87A878]/40'
+              }`}
+            />
+          </div>
+
+          <div className="sm:col-span-4 flex items-center gap-2">
+            <span className="text-xs font-bold text-[#637062] shrink-0 font-mono flex items-center gap-1">
+              <Key className="w-3.5 h-3.5 text-[#E9C46A]" /> Client ID:
+            </span>
+            <input
+              type="text"
+              value={clientIdInput}
+              onChange={(e) => setClientIdInput(e.target.value)}
+              placeholder="HOIMU-CLIENT-APP"
+              className={`w-full px-3 py-1.5 border rounded-xl text-xs font-mono focus:ring-2 focus:ring-[#2A9D8F] ${
+                isNightMode
+                  ? 'bg-[#182315] text-[#F0F5EE] border-[#364E30]'
+                  : 'bg-white text-[#203A2A] border-[#87A878]/40'
+              }`}
+            />
+          </div>
+
+          <div className="sm:col-span-3">
+            {!pairingSessionId ? (
+              <button
+                type="button"
+                onClick={handleStartPairing}
+                disabled={isScanning}
+                className="w-full px-4 py-1.5 bg-[#203A2A] hover:bg-[#16271c] text-white text-xs font-bold rounded-xl shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-[#33ff00] ${isScanning ? 'animate-spin' : ''}`} />
+                <span>{hasToken ? 'Re-Pair Device' : 'Start Pairing'}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleConfirmPairing}
+                disabled={isScanning}
+                className="w-full px-4 py-1.5 bg-[#2A9D8F] hover:bg-[#207a6f] text-white text-xs font-bold rounded-xl shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-white" />
+                <span>Confirm PIN</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Pairing Session Active Subpanel */}
+        {pairingSessionId && (
+          <div className="p-3 rounded-xl border border-[#E9C46A]/50 bg-[#E9C46A]/10 flex flex-wrap items-center justify-between gap-2">
+            <div className="space-y-0.5">
+              <span className="text-xs font-bold text-[#203A2A] dark:text-[#E9C46A] block">
+                Pairing Session Active ({pairingSessionId})
+              </span>
+              <span className="text-[11px] text-[#588157]">Enter 6-digit PIN emitted by Pi terminal</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value)}
+                placeholder="6-digit PIN"
+                maxLength={6}
+                className="w-28 px-3 py-1 border rounded-lg text-xs font-mono font-bold text-center tracking-widest bg-white text-black"
+              />
+              <button
+                type="button"
+                onClick={handleConfirmPairing}
+                className="px-3 py-1 bg-[#203A2A] text-white text-xs font-bold rounded-lg cursor-pointer"
+              >
+                Verify
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Token Revocation Action if Paired */}
+        {hasToken && !pairingSessionId && (
+          <div className="flex items-center justify-between text-xs pt-1 border-t border-current/10">
+            <span className="text-[11px] text-[#588157] font-mono">
+              Status: <strong className="text-[#33ff00]">Paired & Credential Stored Securely</strong>
+            </span>
+            <button
+              type="button"
+              onClick={handleRevokeCredential}
+              className="text-[11px] font-bold text-[#E76F51] hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <Trash2 className="w-3 h-3" />
+              Revoke Device Credential
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

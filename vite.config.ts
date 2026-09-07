@@ -88,17 +88,28 @@ export default defineConfig(() => {
     ],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(process.cwd()),
       },
     },
     build: {
       chunkSizeWarningLimit: 3000,
     },
+    test: {
+      dir: 'src/__tests__',
+      include: ['**/*.{test,spec}.{ts,tsx}'],
+      exclude: ['**/node_modules/**', '**/dist/**', '**/playwright/**', 'e2e/**'],
+    },
     server: {
+      port: 3000,
+      host: '0.0.0.0',
+      strictPort: true,
       // HMR is kept false for AI Studio sandbox compatibility
       hmr: false,
-      // Disable file watching when DISABLE_HMR is true to save CPU during agent edits
-      watch: isHmrDisabled ? null : {},
+      // Explicit watch settings avoiding null object conflict while preventing unnecessary file watching overhead
+      watch: {
+        usePolling: false,
+        ignored: ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/android/**'],
+      },
     },
   };
 });

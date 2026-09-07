@@ -11,7 +11,7 @@ import {
 } from '../types';
 import { SolarpunkAvatarCanvas } from './SolarpunkAvatarCanvas';
 import { SymbiosisScoreBadge } from './SymbiosisScoreBadge';
-import { mapRevealService } from '../services/mapRevealService';
+import { mapRevealService } from '../services/map/mapRevealService';
 import { AchievementsPanel } from './AchievementsPanel';
 import { SeasonalChallengesPanel } from './SeasonalChallengesPanel';
 import { SeasonalProgressDisplay } from './SeasonalProgressDisplay';
@@ -27,7 +27,7 @@ import {
   exportCSVData,
   exportEncryptedArchive,
   downloadFile,
-} from '../services/exportService';
+} from '../services/utils/exportService';
 import {
   User,
   Edit3,

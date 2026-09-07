@@ -8,6 +8,7 @@ import { SymbiosisScoreBadge } from './SymbiosisScoreBadge';
 import { DirectMessageModal } from './DirectMessageModal';
 import { PeerTrustRadarChartD3 } from './PeerTrustRadarChartD3';
 import { RelayReliabilityTrendD3 } from './RelayReliabilityTrendD3';
+import { MeshRssiGraphD3 } from './MeshRssiGraphD3';
 import { Compass, MessageSquare, ShieldCheck, Radio, Activity } from 'lucide-react';
 import { useMeshStore, selectPeersArray } from '../store/meshStore';
 
@@ -15,6 +16,7 @@ interface MeshTabProps {
   peers?: MeshNode[];
   batteryStatus: BatteryManagerStatus;
   userSymbiosisScore: number;
+  userCallsign?: string;
   onToggleSolarAware: () => void;
   onSelectPeer: (peer: MeshNode) => void;
   onOpenReputation: (peer: MeshNode) => void;
@@ -30,6 +32,7 @@ export const MeshTab: React.FC<MeshTabProps> = ({
   peers: propPeers,
   batteryStatus,
   userSymbiosisScore,
+  userCallsign = 'My Station (Local)',
   onToggleSolarAware,
   onSelectPeer,
   onOpenReputation,
@@ -215,6 +218,18 @@ export const MeshTab: React.FC<MeshTabProps> = ({
           </div>
         </div>
       </div>
+
+      {/* D3.js Real-time RSSI Signal Strength Graph Topology */}
+      <MeshRssiGraphD3
+        peers={peers}
+        userCallsign={userCallsign}
+        selectedPeerId={activePeerId}
+        onSelectPeer={handleSelectPeer}
+        onOpenChatWithPeer={(peer) => setActiveDirectMessagePeer(peer)}
+        onOpenReputation={onOpenReputation}
+        isNightMode={isNightMode}
+        isSolarAware={batteryStatus.isSolarAwareActive}
+      />
 
       {/* D3.js Peer Trust Profile Radar Chart */}
       <PeerTrustRadarChartD3

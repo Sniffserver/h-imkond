@@ -15,6 +15,8 @@ interface HoimuAppHeaderProps {
   onToggleFocusMode?: () => void;
   isCrisisMode?: boolean;
   onToggleCrisisMode?: () => void;
+  onOpenToolsModal?: () => void;
+  onOpenQuickGuide?: () => void;
   onOpenCalendar?: () => void;
   onOpenSkills?: () => void;
   onOpenTrust?: () => void;
@@ -41,6 +43,8 @@ export const HoimuAppHeader: React.FC<HoimuAppHeaderProps> = ({
   onToggleFocusMode,
   isCrisisMode = false,
   onToggleCrisisMode,
+  onOpenToolsModal,
+  onOpenQuickGuide,
   onOpenCalendar,
   onOpenSkills,
   onOpenTrust,
@@ -145,18 +149,18 @@ export const HoimuAppHeader: React.FC<HoimuAppHeaderProps> = ({
         </div>
 
         {/* Feature Quick Launch Strip */}
-        <div className="flex items-center gap-1 overflow-x-auto text-xs py-1">
+        <div className="flex items-center gap-1.5 overflow-x-auto text-xs py-1">
           {onOpenCommandPalette && (
             <button
               id="header-search-btn"
               type="button"
               onClick={onOpenCommandPalette}
-              className={`px-2.5 py-1.5 rounded-xl border font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs shrink-0 ${
+              className={`px-3 py-1.5 rounded-xl border font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs shrink-0 ${
                 isNightMode
                   ? 'bg-[#121A10] text-[#A8BDA5] border-[#2A3B26] hover:border-[#87A878] hover:text-[#F0F5EE]'
                   : 'bg-white text-[#637062] border-[#87A878]/30 hover:border-[#87A878] hover:text-[#203A2A]'
               }`}
-              title="Search Mesh or Execute Command (Cmd+K / Ctrl+K)"
+              title="Search Mesh, Resources, or Execute Command (Cmd+K / Ctrl+K)"
             >
               <Search className="w-3.5 h-3.5 text-[#588157] dark:text-[#E9C46A]" />
               <span className="hidden sm:inline">Search</span>
@@ -164,116 +168,49 @@ export const HoimuAppHeader: React.FC<HoimuAppHeaderProps> = ({
             </button>
           )}
 
-          {onOpenLandingPage && (
+          {onOpenToolsModal && (
             <button
-              id="header-landing-btn"
+              id="header-community-tools-btn"
               type="button"
-              onClick={onOpenLandingPage}
-              className={`px-2.5 py-1.5 rounded-xl border font-bold flex items-center gap-1 transition-all cursor-pointer shadow-xs shrink-0 ${
+              onClick={onOpenToolsModal}
+              className={`px-3 py-1.5 rounded-xl border font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs shrink-0 ${
                 isNightMode
-                  ? 'bg-[#182315] text-[#E9C46A] border-[#364E30] hover:bg-[#2A3B26]'
+                  ? 'bg-[#1A2617] text-[#E9C46A] border-[#364E30] hover:bg-[#2A3B26]'
                   : 'bg-[#588157]/15 text-[#203A2A] border-[#588157]/35 hover:bg-[#588157]/25'
               }`}
-              title="View Solarpunk Landing Page & Manifesto"
+              title="Open Community Hub: Calendar, Skills, Trust, DAO & Field Utilities"
             >
               <Globe className="w-3.5 h-3.5 text-[#588157] dark:text-[#E9C46A]" />
-              <span>Landing Page</span>
+              <span>Tools & Hub</span>
             </button>
           )}
 
-          {onOpenCalendar && (
+          {onOpenQuickGuide && (
             <button
+              id="header-guide-btn"
               type="button"
-              onClick={onOpenCalendar}
-              className={`px-2.5 py-1.5 rounded-xl border font-semibold flex items-center gap-1 transition-all cursor-pointer ${
-                isNightMode ? 'bg-[#121A10] text-[#A8BDA5] border-[#2A3B26]' : 'bg-white text-[#637062] border-[#87A878]/30 hover:border-[#87A878]'
+              onClick={onOpenQuickGuide}
+              className={`px-2.5 py-1.5 rounded-xl border font-semibold flex items-center gap-1 transition-all cursor-pointer shrink-0 ${
+                isNightMode
+                  ? 'bg-[#121A10] text-[#A8BDA5] border-[#2A3B26] hover:text-[#F0F5EE]'
+                  : 'bg-white text-[#637062] border-[#87A878]/30 hover:text-[#203A2A]'
               }`}
-            >
-              <Calendar className="w-3.5 h-3.5 text-[#588157]" />
-              <span className="hidden md:inline">Calendar</span>
-            </button>
-          )}
-
-          {onOpenSkills && (
-            <button
-              type="button"
-              onClick={onOpenSkills}
-              className={`px-2.5 py-1.5 rounded-xl border font-semibold flex items-center gap-1 transition-all cursor-pointer ${
-                isNightMode ? 'bg-[#121A10] text-[#A8BDA5] border-[#2A3B26]' : 'bg-white text-[#637062] border-[#87A878]/30 hover:border-[#87A878]'
-              }`}
-            >
-              <GraduationCap className="w-3.5 h-3.5 text-[#E9C46A]" />
-              <span className="hidden md:inline">Skills</span>
-            </button>
-          )}
-
-          {onOpenTrust && (
-            <button
-              type="button"
-              onClick={onOpenTrust}
-              className={`px-2.5 py-1.5 rounded-xl border font-semibold flex items-center gap-1 transition-all cursor-pointer ${
-                isNightMode ? 'bg-[#121A10] text-[#A8BDA5] border-[#2A3B26]' : 'bg-white text-[#637062] border-[#87A878]/30 hover:border-[#87A878]'
-              }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-[#2A9D8F]" />
-              <span className="hidden md:inline">Trust</span>
-            </button>
-          )}
-
-          {onOpenManual && (
-            <button
-              type="button"
-              onClick={onOpenManual}
-              className={`px-2.5 py-1.5 rounded-xl border font-semibold flex items-center gap-1 transition-all cursor-pointer ${
-                isNightMode ? 'bg-[#121A10] text-[#A8BDA5] border-[#2A3B26]' : 'bg-white text-[#637062] border-[#87A878]/30 hover:border-[#87A878]'
-              }`}
+              title="Open Quick Guide & Overview"
             >
               <BookOpen className="w-3.5 h-3.5 text-[#F4A261]" />
-              <span className="hidden md:inline">Manual</span>
+              <span className="hidden md:inline">Guide</span>
             </button>
           )}
 
-          {onOpenSecurityKeys && (
-            <button
-              type="button"
-              onClick={onOpenSecurityKeys}
-              className={`px-2.5 py-1.5 rounded-xl border font-semibold flex items-center gap-1 transition-all cursor-pointer ${
-                isNightMode ? 'bg-[#121A10] text-[#A8BDA5] border-[#2A3B26]' : 'bg-white text-[#637062] border-[#87A878]/30 hover:border-[#87A878]'
-              }`}
-              title="Cryptographic Key & Security Manager"
-            >
-              <Key className="w-3.5 h-3.5 text-[#2A9D8F]" />
-              <span className="hidden lg:inline">Keys</span>
-            </button>
-          )}
-
-          {onOpenDiagnostics && (
-            <button
-              type="button"
-              onClick={onOpenDiagnostics}
-              className={`px-2.5 py-1.5 rounded-xl border font-semibold flex items-center gap-1 transition-all cursor-pointer ${
-                isNightMode ? 'bg-[#121A10] text-[#2A9D8F] border-[#2A3B26]' : 'bg-white text-[#2A9D8F] border-[#87A878]/30 hover:border-[#2A9D8F]'
-              }`}
-              title="Ava detailne võrgudiagnostika vaade"
-            >
-              <Activity className="w-3.5 h-3.5 text-[#2A9D8F]" />
-              <span className="hidden md:inline">Diagnostika</span>
-            </button>
-          )}
-
-          {onToggleCrisisMode && (
+          {isCrisisMode && onToggleCrisisMode && (
             <button
               type="button"
               onClick={onToggleCrisisMode}
-              className={`px-2.5 py-1.5 rounded-xl border font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                isCrisisMode
-                  ? 'bg-red-600 text-white border-red-500 animate-pulse'
-                  : 'bg-red-500/15 text-red-600 border-red-300'
-              }`}
-              title="Toggle Crisis Mode"
+              className="px-2.5 py-1.5 rounded-xl border font-bold flex items-center gap-1 transition-all cursor-pointer bg-red-600 text-white border-red-500 animate-pulse shrink-0"
+              title="Crisis Mode is Active. Click to Manage Crisis Protocol."
             >
               <Siren className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{isCrisisMode ? 'Crisis Mode' : 'Kriis'}</span>
+              <span>Crisis Active</span>
             </button>
           )}
         </div>

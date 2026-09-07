@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Achievement, achievementService } from '../services/achievementService';
+import { Achievement, achievementService } from '../services/game/achievementService';
 import { Award, Sparkles, X } from 'lucide-react';
 
 interface AchievementCelebrationOverlayProps {

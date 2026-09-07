@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Siren, MapPin, Clock, CheckCircle2, Volume2, VolumeX, ShieldAlert } from 'lucide-react';
 import { SOSPacket } from '../types';
-import { acknowledgeSos, subscribeToSos } from '../services/sosService';
+import { acknowledgeSos, subscribeToSos } from '../services/utils/sosService';
 
 interface SosAlertBannerProps {
   userCallsign?: string;

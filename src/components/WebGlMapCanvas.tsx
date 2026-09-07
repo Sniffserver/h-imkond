@@ -4,9 +4,9 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { Layers, Activity, Compass, Shield, Zap } from 'lucide-react';
 import { BioregionalMapCanvas, BioregionalMapCanvasProps } from './BioregionalMapCanvas';
 import { rafScheduler } from '../utils/rafScheduler';
-import { getOfflineMaplibreProtocol } from '../services/rasterTileCacheService';
+import { getOfflineMaplibreProtocol } from '../services/map/rasterTileCacheService';
 import { CITY_MAPS } from '../data/cityMaps';
-import { parseCenterCoords, localGridToGeoPoint } from '../services/mapRevealService';
+import { parseCenterCoords, localGridToGeoPoint } from '../services/map/mapRevealService';
 
 // Ensure protocol is registered only once globally
 try {

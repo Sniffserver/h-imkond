@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BridgeStatus } from '../types';
-import { subscribeBridgeStatus, discoverBridge } from '../services/piBridge';
+import { subscribeBridgeStatus, discoverBridge } from '../services/comms/piBridge';
 import { Cpu, RefreshCw, Radio } from 'lucide-react';
 
 interface PiBridgeStatusBadgeProps {

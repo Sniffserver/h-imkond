@@ -7,8 +7,8 @@ import {
 } from '../types';
 import { CITY_MAPS } from '../data/cityMaps';
 import { useMeshStore, selectPeersArray } from '../store/meshStore';
-import { getActiveSosAlerts } from '../services/sosService';
-import { deadReckoningService, DeadReckoningState } from '../services/deadReckoning';
+import { getActiveSosAlerts } from '../services/utils/sosService';
+import { deadReckoningService, DeadReckoningState } from '../services/utils/deadReckoning';
 import {
   AsciiGridCell,
   unicodeToAscii,

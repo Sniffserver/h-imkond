@@ -29,28 +29,151 @@
 
 ---
 
-## 🚀 Quick Start (Local Development)
+## 🚀 Getting Started
 
 ### Prerequisites
 
-- Node.js 18.x or higher
-- npm or yarn
+- **Node.js**: `v18.x` or higher (or **Bun** `v1.0+`)
+- **Package Manager**: `npm`, `bun`, or `yarn`
 
-### Installation
+### Installation & Local Development
 
+Using `bun`:
 ```bash
-# 1. Clone repository
-git clone https://github.com/hoimu/hoimu-mesh.git
-cd hoimu-mesh
+# 1. Install dependencies
+bun install
 
-# 2. Install dependencies
-npm install
+# 2. Start local development server (Port 3000)
+bun run dev
 
-# 3. Start development server
-npm run dev
+# 3. Production build
+bun run build
+
+# 4. Typecheck & Verification
+bun run verify
 ```
 
-Open your browser at `http://localhost:3000` to interact with the field terminal.
+Or using standard `npm`:
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Start development server
+npm run dev
+
+# 3. Build & Verify
+npm run verify
+```
+
+Open your browser at `http://localhost:3000` to interact with the HÕIMU field terminal.
+
+---
+
+## ⚙️ Environment Configuration
+
+Copy `.env.example` to `.env.local` or configure runtime environment variables:
+
+```bash
+cp .env.example .env.local
+```
+
+### Supported Variables
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `GEMINI_API_KEY` | *(Configured in UI)* | Server-side Gemini AI API key for intelligence features. |
+| `APP_URL` | *(Injected by platform)* | Self-referential origin URL for links and webhooks. |
+| `VITE_PI_BRIDGE_URL` | `http://192.168.4.1:8080` | URL for the Raspberry Pi Zero 2 W hardware gateway daemon. |
+| `VITE_ENABLE_LORA_BRIDGE` | `true` | Enables SX1262 LoRa 868MHz long-range packet relaying. |
+| `VITE_ENABLE_SOLAR_TELEMETRY`| `true` | Enables solar PV voltage and MPPT battery charging telemetry. |
+| `VITE_DEFAULT_LANGUAGE` | `et` | Initial interface locale (`et` or `en`). |
+
+---
+
+## 🍓 Raspberry Pi Hardware Bridge (`pi-bridge`)
+
+The **HÕIMU Pi Bridge** runs as a low-power, solar-assisted headless mesh radio gateway daemon on a Raspberry Pi Zero 2 W with an SX1262 868MHz SPI LoRa HAT and Waveshare e-Paper display.
+
+Detailed hardware wiring diagrams, pinouts, and architecture are documented in [src/pi-bridge/README.md](./src/pi-bridge/README.md).
+
+### Quick Install on Raspberry Pi OS:
+
+```bash
+# On your Raspberry Pi Zero 2 W (Lite 64-bit):
+curl -sSL https://raw.githubusercontent.com/hoimu/pi-bridge/main/install.sh | sudo bash
+```
+
+Or run the local repository script:
+```bash
+sudo bash src/pi-bridge/install.sh
+```
+
+### Service Management
+```bash
+sudo systemctl status hoimu.service
+sudo journalctl -u hoimu.service -f
+```
+
+---
+
+## 📱 Android (Capacitor)
+
+HÕIMU is compiled as an offline-first native Android APK via **Capacitor**:
+
+### Android Development Workflow
+
+```bash
+# 1. Compile web bundle and sync native Android project
+bun run build
+npx cap sync android
+
+# 2. Open project in Android Studio
+npx cap open android
+
+# 3. Or run directly on connected Android device / emulator
+npx cap run android
+```
+
+See [docs/capacitor-android-integration.md](./docs/capacitor-android-integration.md) and [docs/android-native-handoff.md](./docs/android-native-handoff.md) for Bluetooth Low Energy (`BLE 5.0+ Coded PHY`) and Wi-Fi Direct native background service details.
+
+### Android Release Flow
+
+To ensure reproducible builds, the Android version is tied directly to Git tags.
+
+### Release Flow
+
+For detailed instructions on version bumping, tagging, and creating web and Android release artifacts, see [docs/release.md](./docs/release.md).
+
+1. **Update Changelog:** Ensure `CHANGELOG.md` reflects the new version (e.g., `v0.1.0`).
+2. **Tag the Release:** 
+   ```bash
+   git tag -a v0.1.0 -m "Initial modular alpha"
+   git push origin v0.1.0
+   ```
+3. **Build Web & Android Artifacts:**
+   ```bash
+   bun run prepush
+   bun run build
+   npx cap sync android
+   ```
+4. **Build APK/AAB:** Build signed production artifacts with Gradle or Android Studio as documented in [docs/release.md](./docs/release.md).
+
+This flow guarantees that any reported issues can be mapped back to the exact source code state.
+
+---
+
+## 🛠️ Development Scripts
+
+Maintenance and verification scripts are centralized in the `scripts/` directory:
+
+| Script | Command | Purpose |
+| :--- | :--- | :--- |
+| `scripts/verify.sh` | `npm run verify` | Full verification pipeline running TypeScript typecheck (`tsc --noEmit`) and production build. |
+| `scripts/build-android.sh` | `bash scripts/build-android.sh` | Compiles web assets and synchronizes the native Capacitor Android container. |
+
+### Pre-push Git Hook
+
+Run `bun run prepush` before pushing your changes. This script runs lint, typecheck, tests, and a production build locally to ensure everything works before CI runs it.
 
 ---
 

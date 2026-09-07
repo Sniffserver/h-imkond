@@ -6,7 +6,7 @@ import {
   markConversationAsRead,
   subscribeToMessages,
   getPeerPublicKey,
-} from '../services/messageService';
+} from '../services/comms/messageService';
 import { SolarpunkAvatarCanvas } from './SolarpunkAvatarCanvas';
 import {
   X,

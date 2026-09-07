@@ -6,7 +6,7 @@ import {
   meshContributionService,
   ContributionTimeRange,
   ContributionSortMetric,
-} from '../services/meshContributionService';
+} from '../services/mesh/meshContributionService';
 import {
   Radio,
   Award,

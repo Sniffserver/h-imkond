@@ -30,7 +30,7 @@ import {
   X,
 } from 'lucide-react';
 import { NavTab, MeshNode, ResourceItem } from '../types';
-import { soundFeedback } from '../services/soundFeedback';
+import { soundFeedback } from '../services/utils/soundFeedback';
 
 export interface CommandPaletteModalProps {
   isOpen: boolean;

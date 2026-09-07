@@ -1,4 +1,4 @@
-import { estimateTileCountForBounds, downloadRasterTilesForBounds } from '../services/rasterTileCacheService';
+import { estimateTileCountForBounds, downloadRasterTilesForBounds } from '../services/map/rasterTileCacheService';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, useAnimation } from 'motion/react';
 import {
@@ -24,13 +24,13 @@ import { AsciiMap } from './AsciiMap';
 import { CitySelectionModal } from './CitySelectionModal';
 import { PathfinderModal } from './PathfinderModal';
 import { DownloadOfflineRegionModal } from './DownloadOfflineRegionModal';
-import { offlineMapService } from '../services/offlineMapService';
-import { pathfinderScanner, PathfinderActiveState } from '../services/pathfinderScanner';
+import { offlineMapService } from '../services/map/offlineMapService';
+import { pathfinderScanner, PathfinderActiveState } from '../services/scanner/pathfinderScanner';
 import { initPathfinderDB, getLoadedPathfinderData } from '../utils/pathfinderStorage';
 import { CITY_MAPS } from '../data/cityMaps';
-import { pedometerService } from '../services/pedometerService';
-import { deadReckoningService, DeadReckoningState } from '../services/deadReckoning';
-import { mapRevealService, localGridToGeoPoint, geoPointToLocalGrid } from '../services/mapRevealService';
+import { pedometerService } from '../services/utils/pedometerService';
+import { deadReckoningService, DeadReckoningState } from '../services/utils/deadReckoning';
+import { mapRevealService, localGridToGeoPoint, geoPointToLocalGrid } from '../services/map/mapRevealService';
 import { useMeshStore, selectPeersArray } from '../store/meshStore';
 import { StepProgressWidget } from './StepProgressWidget';
 import { SolarpunkAvatarCanvas } from './SolarpunkAvatarCanvas';
@@ -39,6 +39,7 @@ import { MapLegendComponent } from './MapLegendComponent';
 import { D3HeatmapLegend } from './D3HeatmapLegend';
 import { HeatmapMode } from '../utils/d3BioregionalHeatmap';
 import { MeshActivityHubsD3 } from './MeshActivityHubsD3';
+import { NearbyResourcesOverlay } from './NearbyResourcesOverlay';
 import { DynamicScaleRuler } from './DynamicScaleRuler';
 import {
   calculatePolygonArea,
@@ -92,6 +93,7 @@ import {
   Route as RouteIcon,
   Boxes,
   Signal,
+  HeartHandshake,
   Eye,
   EyeOff,
   FolderDown,
@@ -430,6 +432,7 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
   const [copiedToken, setCopiedToken] = useState(false);
   const [showWalkInfo, setShowWalkInfo] = useState(false);
   const [showActivityHubsDrawer, setShowActivityHubsDrawer] = useState(false);
+  const [showNearbyAidOverlay, setShowNearbyAidOverlay] = useState(false);
 
 
   const [isEcoMode, setIsEcoMode] = useState<boolean>(() => localStorage.getItem('hoimu-map-eco-mode') === 'true');
@@ -2165,6 +2168,25 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
               <span>{showPathfinderLayer ? 'Pathfinder Kiht: SEES' : 'Pathfinder Kiht'}</span>
             </button>
 
+            {/* Nearby Aid Clusters Layer Toggle */}
+            <button
+              id="toggle-nearby-aid-overlay-btn"
+              type="button"
+              aria-pressed={showNearbyAidOverlay}
+              onClick={() => setShowNearbyAidOverlay(!showNearbyAidOverlay)}
+              title="Nearby Aid Clusters: Grupeerib läheduses asuvad kogukonna ressursid ja pakub geograafilist ülevaadet"
+              className={`px-2.5 py-1 text-[11px] font-semibold rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 ${
+                showNearbyAidOverlay
+                  ? 'bg-[#2A9D8F] text-white border-[#2A9D8F] shadow-xs'
+                  : isNightMode
+                  ? 'bg-[#182315] text-[#A8BDA5] border-[#2A3B26]'
+                  : 'bg-white text-[#637062] border-[#87A878]/30'
+              }`}
+            >
+              <HeartHandshake className="w-3.5 h-3.5" />
+              <span>{showNearbyAidOverlay ? 'Aid Clusters: SEES' : 'Aid Clusters'}</span>
+            </button>
+
             <button
               type="button"
               aria-pressed={showMeshLinks}
@@ -3241,6 +3263,26 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
             )}
           </button>
 
+          {/* Nearby Aid Resources Overlay Button */}
+          <button
+            id="btn-floating-nearby-aid"
+            type="button"
+            onClick={() => setShowNearbyAidOverlay(!showNearbyAidOverlay)}
+            title={showNearbyAidOverlay ? "Nearby Aid Clusters: ON (Clustering of peer offerings)" : "Nearby Aid Clusters: OFF"}
+            className={`w-9 h-9 rounded-2xl border flex items-center justify-center shadow-md transition-all cursor-pointer relative ${
+              showNearbyAidOverlay
+                ? 'bg-[#2A9D8F] border-[#2A9D8F] text-white shadow-[#2A9D8F]/30 shadow-lg'
+                : isNightMode
+                ? 'bg-[#182315] border-[#364E30] text-[#2A9D8F] hover:bg-[#2A3B26]'
+                : 'bg-white border-[#87A878]/40 text-[#2A9D8F] hover:bg-[#FAF6EE]'
+            }`}
+          >
+            <HeartHandshake className="w-4 h-4" />
+            {showNearbyAidOverlay && (
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#E9C46A] border-2 border-white dark:border-[#182315]" />
+            )}
+          </button>
+
           {/* Download Offline Region Floating Button */}
           <button
             id="btn-floating-download-offline"
@@ -3440,6 +3482,24 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
             />
           </div>
         )}
+
+        {/* NEARBY RESOURCES VISUALIZATION OVERLAY */}
+        <NearbyResourcesOverlay
+          resources={resources}
+          selectedCity={activeCity}
+          onSelectResource={handleSelectResource}
+          onFocusCoordinates={(coords, targetScale = 2.2) => {
+            setTransform((prev) => ({
+              ...prev,
+              offsetX: -coords.x * targetScale,
+              offsetY: -coords.y * targetScale,
+              scale: targetScale,
+            }));
+          }}
+          isNightMode={isNightMode}
+          isOpen={showNearbyAidOverlay}
+          onToggle={() => setShowNearbyAidOverlay((prev) => !prev)}
+        />
 
         {/* OFFLINE STREET ROUTE PLANNER FLOATING CARD */}
         {(isRouteMode || routeStart || routeDestination) && (

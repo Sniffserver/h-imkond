@@ -1,6 +1,15 @@
 {
   "host": "0.0.0.0",
-  "port": 5000,
+  "port": 8080,
+  "auth_token": "hoimu_secret_token",
+  "allowed_commands": [
+    "scan",
+    "status",
+    "broadcast",
+    "ascii_map",
+    "set_gps",
+    "sync_peers"
+  ],
   "relay_cadence_sec": 15,
   "solar_threshold_watts": 1.5,
   "night_sleep_multiplier": 3,

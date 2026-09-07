@@ -42,17 +42,21 @@ The **HÕIMU Pi Bridge** is a low-power, solar-assisted headless mesh radio rela
 
 ---
 
-## 2. API Endpoints Specification
+## 2. API Endpoints & Dynamic Pairing
 
-| Method | Endpoint | Description | Sample Output |
+| Method | Endpoint | Description | Auth & Security |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/health` / `/api/status` | Quick health and voltage check | `{"status": "ok", "battery": 3.92, "solar": 5.24}` |
-| `GET` | `/mesh/peers` | List heard BLE / LoRa mesh nodes | `[{"id": "TARTU-LORA-01", "rssi": -68, "protocol": "lora"}]` |
-| `POST` | `/mesh/broadcast` | Broadcast JSON packet over hardware | `{"success": true, "txId": "tx-pi-1757152000"}` |
-| `GET` | `/map/ascii` | Text/plain monospace viewport grid | `80x40 text grid string` |
-| `GET` | `/telemetry` | Full system, CPU, battery, and radio state | `{"piBatteryPercent": 94, "cpuTempC": 42.5, ...}` |
-| `POST` | `/gps` | Push phone GPS reference position | `{"success": true, "gps": {"lat": 58.378, "lng": 26.729}}` |
-| `POST` | `/config` | Update relay cadence and thresholds | `{"relay_cadence_sec": 15, ...}` |
+| `GET` | `/health` / `/api/v1/health` | Public health check | Unauthenticated |
+| `POST` | `/api/v1/pair/start` | Start 2-step PIN pairing | Rate limited (5/min), Public |
+| `POST` | `/api/v1/pair/confirm` | Confirm 6-digit PIN & mint token | Rate limited (5/min), Public |
+| `POST` | `/api/v1/devices/revoke` | Revoke device pairing credential | Bearer Auth Required |
+| `GET` | `/api/v1/status` / `/telemetry` | System, battery, solar state | Bearer Auth Required |
+| `GET` | `/api/v1/peers` / `/mesh/peers` | List heard BLE / LoRa nodes | Bearer Auth Required |
+| `POST` | `/api/v1/broadcast` | Broadcast JSON packet | Bearer Auth Required, Rate Limited |
+| `POST` | `/api/v1/command` | Universal command handler | Bearer Auth Required, Rate Limited |
+| `GET` | `/api/v1/map/ascii` | Monospace ASCII map grid | Bearer Auth Required |
+
+> **Security Note**: Never embed static secrets in client environment variables prefixed `VITE_` (e.g. `VITE_PI_BRIDGE_TOKEN`). Instead, supply `VITE_PI_BRIDGE_CLIENT_ID="HOIMU-CLIENT-APP"` and obtain dynamic scoped device tokens via `/api/v1/pair`.
 
 ---
 
