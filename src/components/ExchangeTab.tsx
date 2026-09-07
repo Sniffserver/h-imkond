@@ -3,6 +3,7 @@ import { ResourceItem, Transaction, ResourceCategory, MeshNode } from '../types'
 import { CategoryFilterChips } from './CategoryFilterChips';
 import { ResourceCard } from './ResourceCard';
 import { SymbiosisScoreBadge } from './SymbiosisScoreBadge';
+import { ExchangeEmptyState } from './EmptyStates/ExchangeEmptyState';
 import { Search, SlidersHorizontal, PackageOpen, Plus, Landmark, BellRing, QrCode, Zap, X } from 'lucide-react';
 import { LightweightSearchIndex, SearchMatchResult } from '../utils/offlineSearchIndex';
 
@@ -272,7 +273,13 @@ export const ExchangeTab: React.FC<ExchangeTabProps> = ({
       />
 
       {/* Resources Grid or Empty State */}
-      {filteredAndSortedResources.length === 0 ? (
+      {resources.length === 0 ? (
+        <ExchangeEmptyState
+          onOpenCreateOffering={onOpenCreateOffering}
+          onOpenWishlist={onOpenWishlist}
+          isNightMode={isNightMode}
+        />
+      ) : filteredAndSortedResources.length === 0 ? (
         <div className="bg-[#F0F5EE] rounded-3xl border border-[#87A878]/30 p-10 text-center space-y-2">
           <PackageOpen className="w-10 h-10 text-[#87A878] mx-auto opacity-75" />
           <h3 className="font-display font-bold text-base text-[#203A2A]">

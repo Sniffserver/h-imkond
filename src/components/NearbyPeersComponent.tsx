@@ -4,6 +4,7 @@ import { MeshNode, ConnectionState, ReputationTier } from '../types';
 import { SolarpunkAvatarCanvas } from './SolarpunkAvatarCanvas';
 import { ReputationPill, getReputationTier } from './ReputationPill';
 import { PeerSignalPulseSVG, SignalStrengthMeterSVG } from './PeerSignalPulseSVG';
+import { MeshEmptyState } from './EmptyStates/MeshEmptyState';
 import {
   Radio,
   MessageSquare,
@@ -493,7 +494,14 @@ export const NearbyPeersComponent: React.FC<NearbyPeersComponentProps> = ({
       </div>
 
       {/* Peer Cards List */}
-      {filteredAndSortedPeers.length === 0 ? (
+      {peers.length === 0 ? (
+        <MeshEmptyState
+          isScanning={isScanning}
+          onRefreshScan={onRefreshScan}
+          onDiscoverPeer={onDiscoverPeer}
+          isNightMode={isNightMode}
+        />
+      ) : filteredAndSortedPeers.length === 0 ? (
         <div
           className={`text-center py-8 rounded-2xl border text-xs font-mono ${
             isNightMode

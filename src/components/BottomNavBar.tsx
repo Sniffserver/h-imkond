@@ -76,7 +76,11 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
           : 'bg-[#FAF6EE]/95 border-[#87A878]/30 shadow-[0_-4px_20px_rgba(32,58,42,0.06)]'
       }`}
     >
-      <div className="max-w-md md:max-w-xl mx-auto px-2 py-2 flex items-center justify-around">
+      <div
+        role="tablist"
+        aria-label="Field Terminal Navigation Tabs"
+        className="max-w-md md:max-w-xl mx-auto px-2 py-2 flex items-center justify-around"
+      >
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -85,6 +89,11 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
             <button
               key={tab.id}
               id={`nav-btn-${tab.id}`}
+              role="tab"
+              aria-selected={isActive}
+              aria-label={`${tab.label} tab - ${tab.sublabel}${
+                tab.id === 'mesh' && unreadCount > 0 ? `, ${unreadCount} unread messages` : ''
+              }`}
               onClick={() => {
                 soundFeedback.playClick();
                 onTabChange(tab.id);
@@ -113,13 +122,16 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
                 />
                 {tab.id === 'mesh' && unreadCount > 0 && (
                   <span
-                    className={`absolute -top-1 -right-2 w-2.5 h-2.5 rounded-full bg-[#E76F51] ring-2 ${
+                    className={`absolute -top-1.5 -right-2 px-1 py-0.2 text-[9px] font-bold font-mono rounded-full bg-[#E76F51] text-white ring-2 ${
                       isNightMode ? 'ring-[#182315]' : 'ring-[#FAF6EE]'
                     }`}
-                  />
+                  >
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
                 )}
                 {tab.id === 'pathfinder' && tab.badge && (
                   <span
+                    aria-label="Pathfinder walk active"
                     className={`absolute -top-1 -right-2 w-2.5 h-2.5 rounded-full bg-[#E76F51] animate-ping ring-2 ${
                       isNightMode ? 'ring-[#182315]' : 'ring-[#FAF6EE]'
                     }`}

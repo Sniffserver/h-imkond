@@ -17,6 +17,8 @@ import {
 import { QuickTip } from './QuickTip';
 import { QuickStartGuide } from './QuickStartGuide';
 import { CrisisModeBar } from './CrisisModeBar';
+import { FeatureOnboarding } from './FeatureOnboarding';
+import { StartHereDashboard } from './StartHereDashboard';
 import { MeshTab } from './MeshTab';
 import { MapViewTab } from './MapViewTab';
 import { PathfinderTab } from './PathfinderTab';
@@ -130,14 +132,26 @@ export const AppMainContent: React.FC<AppMainContentProps> = ({
 
   return (
     <main className="flex-1 max-w-4xl mx-auto w-full px-4 pt-4 pb-28 md:pb-24 space-y-4">
-      {/* Solarpunk Quick Start Helper Guide (Dismissable) */}
-      <QuickStartGuide
-        onNavigateTab={setActiveTab}
-        onOpenQuickAdd={onOpenQuickAdd}
-        isNightMode={isNightMode}
-        onOpenToolsModal={onOpenToolsModal}
-        onOpenManual={onOpenManual}
-      />
+      {/* Screen reader live announcements */}
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {`${peers.length} peers nearby. Active tab is ${activeTab}.`}
+      </div>
+
+      {/* Start Here Field Readiness Guide (Shown on Mesh Home view) */}
+      {activeTab === 'mesh' && (
+        <StartHereDashboard
+          onNavigateTab={setActiveTab}
+          onOpenPiBridge={onOpenDiagnostics}
+          onOpenChat={() => onOpenChatWithPeer(null)}
+          onOpenSos={onToggleCrisisMode}
+          peerCount={peers.length}
+          messageCount={messages.length}
+          isNightMode={isNightMode}
+        />
+      )}
+
+      {/* Contextual Feature Onboarding Banner */}
+      <FeatureOnboarding tab={activeTab} isNightMode={isNightMode} />
 
       {/* Crisis Mode Emergency Bar */}
       {(isCrisisMode || crisisAlerts.some((a) => !a.resolved)) && (
