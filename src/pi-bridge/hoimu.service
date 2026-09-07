@@ -1,0 +1,22 @@
+[Unit]
+Description=HÕIMU Pi Zero 2 W Mesh Radio & Solar Gateway Daemon
+After=network.target systemd-resolved.service
+Wants=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/hoimu
+ExecStart=/opt/hoimu/env/bin/python3 /opt/hoimu/hoimu_daemon.py
+Restart=always
+RestartSec=5
+Environment=HOIMU_CONFIG=/etc/hoimu/config.json
+Environment=HOIMU_DB=/var/lib/hoimu/sparse_map.db
+
+# Security & Sandboxing
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/var/lib/hoimu /etc/hoimu /var/log
+
+[Install]
+WantedBy=multi-user.target

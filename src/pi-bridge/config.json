@@ -1,0 +1,18 @@
+{
+  "host": "0.0.0.0",
+  "port": 5000,
+  "relay_cadence_sec": 15,
+  "solar_threshold_watts": 1.5,
+  "night_sleep_multiplier": 3,
+  "grid_cols": 80,
+  "grid_rows": 40,
+  "grid_scale_m": 10,
+  "spi_bus": 0,
+  "spi_device": 0,
+  "eink_enabled": false,
+  "radio_modules": [
+    "ble",
+    "lora_868",
+    "wifi_direct"
+  ]
+}

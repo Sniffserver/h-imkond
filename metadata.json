@@ -1,0 +1,10 @@
+{
+  "name": "Remix HÕIMU",
+  "description": "Offline mutual-aid mesh for resilient local communities. A privacy-first, local-first solarpunk field terminal for peer-to-peer resource sharing, skill exchanges, and community resilience.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

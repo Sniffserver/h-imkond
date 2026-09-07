@@ -1,0 +1,18 @@
+--- src/components/MapViewTab.tsx
++++ src/components/MapViewTab.tsx
+@@ -647,6 +647,15 @@
+               console.warn('Audio chime skipped', e);
+             }
+             playedBeep = true;
++            
++            // Check if within ~50 meters (RSSI > -75dBm or similar as proxy)
++            if (spot.rssi > -75) {
++              if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate) {
++                try {
++                  window.navigator.vibrate([200, 100, 200]);
++                } catch(err) {}
++              }
++            }
+           }
+           
+           if (onAddToast) {

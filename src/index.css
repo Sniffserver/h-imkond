@@ -1,0 +1,255 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Inter', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: 'Space Grotesk', 'Outfit', sans-serif;
+  }
+
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+.font-inter {
+  font-family: 'Inter', sans-serif;
+}
+
+.font-space {
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.font-fraunces {
+  font-family: 'Fraunces', Georgia, serif;
+}
+
+/* Accessibility Focus Ring Styles */
+:focus-visible {
+  outline: 2px solid #87A878;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.dark :focus-visible,
+body.dark :focus-visible {
+  outline: 2px solid #E9C46A;
+  outline-offset: 2px;
+}
+
+/* Solarpunk Glassmorphism & Organic Utilities */
+.solar-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(135, 168, 120, 0.25);
+  box-shadow: 0 8px 32px 0 rgba(43, 58, 40, 0.06);
+}
+
+.solar-card-dark {
+  background: rgba(24, 35, 21, 0.95);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(233, 196, 106, 0.25);
+  box-shadow: 0 10px 30px 0 rgba(0, 0, 0, 0.3);
+}
+
+.solar-gradient {
+  background: linear-gradient(135deg, #87A878 0%, #E9C46A 60%, #F4A261 100%);
+}
+
+.solar-gradient-subtle {
+  background: linear-gradient(145deg, #F0F4ED 0%, #FAF6EE 50%, #FBF1EB 100%);
+}
+
+/* Dark Mode Smooth Color Overrides */
+html.dark body {
+  background-color: #141F12;
+  color: #F0F5EE;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(135, 168, 120, 0.3);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(135, 168, 120, 0.6);
+}
+
+/* Keyframe Animations */
+@keyframes fab-breathing {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes breathing {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+.animate-fab-breathing,
+.animate-breathing {
+  animation: fab-breathing 3.2s ease-in-out infinite;
+}
+
+.animate-fab-breathing:hover,
+.animate-breathing:hover {
+  animation-play-state: paused;
+}
+
+@keyframes active-ripple {
+  0% {
+    box-shadow: 0 0 0 0 rgba(135, 168, 120, 0.7);
+  }
+  100% {
+    box-shadow: 0 0 0 20px rgba(135, 168, 120, 0);
+  }
+}
+
+.animate-active-ripple {
+  animation: active-ripple 0.6s ease-out !important;
+}
+
+/* ADHD Focus Mode & Reduced Motion Overrides */
+body.focus-mode .animate-fab-breathing,
+body.focus-mode .animate-breathing,
+body.focus-mode .animate-pulse,
+body.focus-mode .animate-ping,
+body.focus-mode .animate-bounce,
+body.focus-mode .animate-spin,
+@media (prefers-reduced-motion: reduce) {
+  .animate-fab-breathing,
+  .animate-breathing,
+  .animate-pulse,
+  .animate-ping,
+  .animate-bounce,
+  .animate-spin {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* 1. Glove Mode Accessibility (Large Touch Targets & 20% Font Boost) */
+body.glove-mode {
+  font-size: 120% !important;
+}
+
+body.glove-mode button,
+body.glove-mode [role="button"],
+body.glove-mode input,
+body.glove-mode select,
+body.glove-mode a.button-style {
+  min-height: 56px !important;
+  min-width: 56px !important;
+  padding-top: 0.75rem !important;
+  padding-bottom: 0.75rem !important;
+  margin-top: 0.25rem !important;
+  margin-bottom: 0.25rem !important;
+}
+
+body.glove-mode .canvas-tap-target,
+body.glove-mode .radar-node-target,
+body.glove-mode .map-node-target {
+  min-width: 72px !important;
+  min-height: 72px !important;
+}
+
+/* 2. High Contrast Mode (Thick borders, no transparency, prefers-contrast) */
+@media (prefers-contrast: more) {
+  :root {
+    --border-width: 2px;
+  }
+  body {
+    filter: contrast(130%);
+  }
+  button, input, select, .border, [class*="border"] {
+    border-width: 2px !important;
+    backdrop-filter: none !important;
+  }
+}
+
+body.high-contrast,
+body.high-contrast * {
+  backdrop-filter: none !important;
+  background-image: none !important;
+}
+
+body.high-contrast {
+  filter: contrast(135%);
+}
+
+body.high-contrast button,
+body.high-contrast [role="button"],
+body.high-contrast input,
+body.high-contrast select,
+body.high-contrast .border,
+body.high-contrast [class*="border"] {
+  border-width: 2px !important;
+  border-color: #000000 !important;
+}
+
+body.dark.high-contrast button,
+body.dark.high-contrast [role="button"],
+body.dark.high-contrast input,
+body.dark.high-contrast select,
+body.dark.high-contrast .border,
+body.dark.high-contrast [class*="border"] {
+  border-width: 2px !important;
+  border-color: #ffffff !important;
+}
+
+/* 3. Direct Sun Mode (Maximum outdoor sunlight readability) */
+body.direct-sun {
+  background-color: #ffffff !important;
+  background-image: none !important;
+  color: #000000 !important;
+}
+
+body.direct-sun *,
+body.dark.direct-sun * {
+  background-color: #ffffff !important;
+  background-image: none !important;
+  color: #000000 !important;
+  border-color: #000000 !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+body.direct-sun button,
+body.direct-sun [role="button"],
+body.direct-sun input,
+body.direct-sun select {
+  border: 2px solid #000000 !important;
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  font-weight: 700 !important;
+}
+
+body.direct-sun .bg-\[\#203A2A\],
+body.direct-sun .bg-\[\#2A9D8F\],
+body.direct-sun .bg-\[\#588157\],
+body.direct-sun .bg-\[\#87A878\] {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+

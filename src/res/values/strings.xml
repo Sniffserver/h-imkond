@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Core Application Identity -->
+    <string name="app_name">HÕIMU</string>
+    <string name="app_tagline">Bioregionaalne Päikesepunk Võrgukogukond</string>
+    <string name="app_description">Võrguühenduseta P2P raadiovõrk, vastastikune abi ja maastiku avastamine</string>
+    <string name="package_name">ee.hoimu.app</string>
+    <string name="custom_url_scheme">ee.hoimu.app</string>
+    <string name="title_activity_main">HÕIMU</string>
+
+    <!-- Navigation Tabs -->
+    <string name="nav_mesh">Võrk</string>
+    <string name="nav_map">Kaart</string>
+    <string name="nav_exchange">Vahetus</string>
+    <string name="nav_logbook">Päevik</string>
+    <string name="nav_profile">Profiil</string>
+
+    <!-- Onboarding Step 1: Welcome & Solarpunk Philosophy -->
+    <string name="onboarding_welcome_badge">Samm 1 / 5 • Tere tulemast</string>
+    <string name="onboarding_welcome_title">Võrguühenduseta Bioregionaalne Kogukonnavõrk</string>
+    <string name="onboarding_welcome_subtitle">Päikesepunk side, hajutatud vastastikune abi ja kohalik autonoomia</string>
+    <string name="onboarding_welcome_desc">HÕIMU on avatud lähtekoodiga vastupanuvõimeline väli-tarkvara, mis töötab 100% ilma interneti, mobiilimastide ja keskserveriteta. Seadmed suhtlevad vahetult raadiolainete (BLE ja Wi-Fi Direct) kaudu.</string>
+    <string name="solarpunk_core_title">Päikesepunki Aluspõhimõtted</string>
+    <string name="solarpunk_concept_offline_title">100% Sõltumatu ja Võrguvaba</string>
+    <string name="solarpunk_concept_offline_desc">Side ja andmevahetus toimib ka siis, kui üleriigiline elektrivõrk või internet on maas.</string>
+    <string name="solarpunk_concept_crypto_title">Privaatsus ja Ed25519 Krüptoidentiteet</string>
+    <string name="solarpunk_concept_crypto_desc">Puuduvad kasutajakontod pilves või telefoninumbriga sidumine. Sinu seade loob lokaalse krüptovõtme.</string>
+    <string name="solarpunk_concept_mutual_aid_title">Mitte-rahaline Kinkemajandus</string>
+    <string name="solarpunk_concept_mutual_aid_desc">Vaheta seemneid, päikeseenergiat, tööriistu ja oskusi ilma rahaliste vahendajateta.</string>
+
+    <!-- Onboarding Step 2: User Profile Creation -->
+    <string name="onboarding_profile_badge">Samm 2 / 5 • Loo Identiteet</string>
+    <string name="onboarding_profile_title">Loo Oma Hõimu Raadioprofiil</string>
+    <string name="onboarding_profile_subtitle">Kutsung, bioregionaalne tutvustus ja esmased oskused</string>
+    <string name="onboarding_profile_desc">See profiil edastatakse sinu läheduses olevatele hõimlastele raadiomajaka (BLE Beacon) kaudu. Sa võid igal ajal andmeid muuta või pseudonüümi kasutada.</string>
+    <string name="field_callsign_label">Raadiokutsung (Callsign)</string>
+    <string name="field_callsign_placeholder">nt. Kullerkupp, Männikäbi, Rändur-42</string>
+    <string name="field_callsign_helper">Võrgusõlme unikaalne hüüdnimi eetris (3-24 tähemärki)</string>
+    <string name="field_callsign_error">Kutsung peab olema vähemalt 3 sümbolit pikk</string>
+    <string name="field_callsign_random">Juhuslik Kutsung</string>
+    <string name="field_bio_label">Bioregionaalne Enesetutvustus</string>
+    <string name="field_bio_placeholder">Kirjelda lühidalt oma asukohta, tausta või mida kogukonnaga jagada soovid...</string>
+    <string name="field_bio_helper">Lokaalselt allkirjastatud enesekirjeldus lähedalasuvatele naabritele</string>
+    <string name="field_skills_label">Sinu Oskused ja Teadmised</string>
+    <string name="field_skills_helper">Vali valdkonnad, milles saad kriisis või igapäevaelus naabreid abistada</string>
+    <string name="avatar_seed_label">Avatari Geneetiline Kood</string>
+    <string name="avatar_seed_helper">Iga kutsung genereerib unikaalse päikesepunk orgaanilise avatari</string>
+    <string name="btn_dice_avatar">Uus avatar</string>
+    <string name="btn_add_custom_skill">Lisa oskus</string>
+    <string name="custom_skill_prompt">Sisesta oskuse nimi</string>
+
+    <!-- Predefined Skills -->
+    <string name="skill_solar_energy">Päikeseenergia &amp; Akud</string>
+    <string name="skill_permaculture">Permakultuur &amp; Aiandus</string>
+    <string name="skill_radio_comms">Raadioside &amp; Antennid</string>
+    <string name="skill_first_aid">Esmaabi &amp; Ravimtaimed</string>
+    <string name="skill_bicycle_repair">Rattamehaanika &amp; Tööriistad</string>
+    <string name="skill_foraging">Seened, Marjad &amp; Korilus</string>
+    <string name="skill_woodworking">Puutöö &amp; Varjualused</string>
+    <string name="skill_seed_saving">Seemnepank &amp; Paljundus</string>
+    <string name="skill_fermentation">Hoidised &amp; Käärimine</string>
+    <string name="skill_water_purification">Vee Puhastamine</string>
+
+    <!-- Onboarding Step 3: Mesh Networking & Privacy Deep Dive -->
+    <string name="onboarding_mesh_privacy_badge">Samm 3 / 5 • Võrgu Arhitektuur</string>
+    <string name="onboarding_mesh_privacy_title">Kuidas HÕIMU Võrk ja Privaatsus Töötavad?</string>
+    <string name="onboarding_mesh_privacy_subtitle">Tsentraalivaba relee, hüppelt-hüppele levik ja turvalisus</string>
+    <string name="onboarding_mesh_privacy_desc">Tutvu sellega, kuidas teated liiguvad seadmest seadmesse ilma telekommunikatsiooniettevõtete või riikliku taristuta.</string>
+    <string name="mesh_concept_p2p_title">Hüppelt-hüppele Levi (Store &amp; Forward)</string>
+    <string name="mesh_concept_p2p_desc">Kui sihtkoht on kaugel, kannavad vahepealsed telefonid sõnumit edasi kui usaldusväärsed releed, tagades suurema leviala.</string>
+    <string name="mesh_concept_zero_cloud_title">Null-Pilve Salvestus (Zero-Cloud)</string>
+    <string name="mesh_concept_zero_cloud_desc">Ühtegi faili, asukohta ega sõnumit ei saadeta tsentraalsesse serverisse. Kõik andmed elavad ainult sinu seadme kohalikus mälus.</string>
+    <string name="mesh_concept_ed25519_title">Asümmeetriline Krüpteering</string>
+    <string name="mesh_concept_ed25519_desc">Otsesõnumid naabritega krüpteeritakse vastuvõtja avaliku võtmega – isegi releesõlmed ei näe sõnumi sisu.</string>
+    <string name="mesh_concept_sybil_title">Kogukondlik Usaldusvõrk (Web-of-Trust)</string>
+    <string name="mesh_concept_sybil_desc">Usaldusskoor põhineb reaalsetel silmast-silma vahetustel ja teiste sõlmede kinnitustel, kaitstes võrku rünnakute eest.</string>
+
+    <!-- Onboarding Step 4: Initial Mesh Visibility Preferences -->
+    <string name="onboarding_visibility_badge">Samm 4 / 5 • Nähtavus &amp; Raadio</string>
+    <string name="onboarding_visibility_title">Määra Esialgsed Võrgu Nähtavuse Eelistused</string>
+    <string name="onboarding_visibility_subtitle">Vali kuidas ja millal sinu seade raadiolaineid levitab</string>
+    <string name="onboarding_visibility_desc">Saad igal hetkel lülituda stealth-režiimi või piirata asukoha täpsust, et kaitsta oma privaatsust või säästa akut.</string>
+    <string name="visibility_mode_label">Võrgusõlme Nähtavusrežiim</string>
+    <string name="visibility_public_title">Avalik Majakas (Avatud Koostöö)</string>
+    <string name="visibility_public_desc">Sinu kutsung ja valitud oskused on nähtavad teistele lähedalasuvatele hõimlastele.</string>
+    <string name="visibility_stealth_title">Relee Režiim (Stealth Helper)</string>
+    <string name="visibility_stealth_desc">Aitad edastada võrgupakette, kuid ei kuuluta aktiivselt oma identiteeti ega oskusi.</string>
+    <string name="visibility_listen_title">Ainult Kuulamine (Incognito)</string>
+    <string name="visibility_listen_desc">Võtad vastu ainult hädaabiteateid ja kaardiuuendusi ilma raadiosignaali välja saatmata.</string>
+    <string name="pref_ble_title">Bluetooth Low Energy (BLE 5.0)</string>
+    <string name="pref_ble_desc">Ülimadal energiakulu, 30–80 meetrit leviala, sobib pidevaks taustal majakaks.</string>
+    <string name="pref_wifi_direct_title">Wi-Fi Direct P2P</string>
+    <string name="pref_wifi_direct_desc">Kiirem andmevahetus suuremate failide ja kaartide sünkroonimiseks (kuni 150m).</string>
+    <string name="pref_location_precision_label">Asukohakoordinaatide Täpsus Kaardil</string>
+    <string name="pref_loc_obfuscated">Hajutatud (±500m Raadius) • Soovitatav</string>
+    <string name="pref_loc_exact">Täpne GPS Koordinaat</string>
+    <string name="pref_loc_none">Peidetud (Ainult Raadiosignaali Kaugus)</string>
+    <string name="pref_beacon_interval_label">Majaka Kuulutamise Intervall</string>
+    <string name="pref_interval_balanced">Tasakaalustatud (Iga 30s)</string>
+    <string name="pref_interval_powersave">Akusäästlik (Iga 120s)</string>
+    <string name="pref_interval_realtime">Reaalajas (Iga 5s)</string>
+    <string name="pref_sos_relay_title">Automaatne Hädaabi (SOS) Vahendamine</string>
+    <string name="pref_sos_relay_desc">Edasta automaatselt kriisi- ja hädaabisõnumeid ka siis, kui telefon on unerežiimis.</string>
+
+    <!-- Onboarding Step 5: Review & Node Activation -->
+    <string name="onboarding_review_badge">Samm 5 / 5 • Valmis Tööks</string>
+    <string name="onboarding_review_title">Kinnita ja Käivita Oma Hõimusõlm</string>
+    <string name="onboarding_review_subtitle">Sinu kohalik identiteet on loodud ja krüptovõtmed genereeritud</string>
+    <string name="onboarding_review_desc">Oled valmis astuma kohalikku päikesepunk võrgustikku. Kõik seadistused salvestatakse turvaliselt seadme kohalikku mällu.</string>
+    <string name="summary_identity_card">Identiteedikaart</string>
+    <string name="summary_callsign_label">Kutsung</string>
+    <string name="summary_skills_label">Valitud Oskused</string>
+    <string name="summary_visibility_label">Võrgurežiim</string>
+    <string name="summary_location_label">Asukoha Privaatsus</string>
+    <string name="summary_crypto_key_label">Ed25519 Avalik Sõrmejälg</string>
+    <string name="btn_activate_node">Käivita HÕIMU Sõlm</string>
+    <string name="btn_next_step">Järgmine Samm</string>
+    <string name="btn_prev_step">Eelmine Samm</string>
+    <string name="btn_skip">Jäta Vahele</string>
+    <string name="step_indicator">Samm %1$d / %2$d</string>
+
+    <!-- D3.js Radar Chart & Trust Profile Strings -->
+    <string name="trust_profile_title">Usaldusprofiil (D3 Radar)</string>
+    <string name="trust_profile_subtitle">Mitmemõõtmeline P2P usaldusmõõdikute polar-radar</string>
+    <string name="metric_completed_exchanges">Teostatud vahetused</string>
+    <string name="metric_community_endorsements">Kogukonna soovitused</string>
+    <string name="metric_relay_reliability">Relee usaldusväärsus</string>
+    <string name="metric_trust_score">Usaldusindeks</string>
+    <string name="metric_signal_quality">RF signaali kvaliteet</string>
+    <string name="metric_relayed_packets">Edastatud paketid</string>
+    <string name="community_baseline_label">Kogukonna baastase</string>
+    <string name="node_profile_legend">Sõlme tegelik tase</string>
+    <string name="btn_trust_ledger">Usaldusraamat</string>
+    <string name="btn_send_p2p_message">Saada P2P Sõnum</string>
+    <string name="toast_onboarding_completed_title">🎉 Hõimusõlm Edukalt Aktiveeritud!</string>
+    <string name="toast_onboarding_completed_desc">Tere tulemast HÕIMU võrku, @%1$s! Sinu seade kuulab ja levitab kohalikku raadiosignaali.</string>
+</resources>
