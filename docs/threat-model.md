@@ -61,6 +61,7 @@ The HÕIMU Field Terminal is designed for resilient communication, mutual aid, a
 - **Risk Level**: **MEDIUM**
 - **Mitigations Implemented in Code**:
   - **Separation of Export Paths**: The UI provides a clear distinction between unencrypted settings (`hoimu_settings.json` — zero secrets) and full state archives (`.hoimu-archive` — strictly password encrypted).
+  - **Frontend Environment Variables Audit**: Frontend env vars (e.g., `VITE_PI_BRIDGE_CLIENT_ID`) act strictly as non-secret client pairing identifiers. No static master credentials, bearer tokens, or secrets are ever compiled into the frontend build bundle (`dist/`). Per-device authorization tokens are dynamically minted via `/api/v1/pair` endpoints and stored in device secure storage (`secureStorage.ts`).
   - **Checksum Verification**: Archives contain SHA-256 header checksums (`validateArchiveHeader`) preventing restoration of corrupted or tampered export files.
 - **Residual Risk & Field Operator Advice**:
   - Operators must choose strong, high-entropy passwords when creating `.hoimu-archive` files.

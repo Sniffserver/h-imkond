@@ -13,21 +13,46 @@ This document specifies the testing strategy, unit test suite, and manual QA tes
 
 ---
 
-## ⚙️ 2. Automated Test Suite
+## ⚙️ 2. Automated Test Suite (10 Test Suites / 59 Tests - 100% Pass)
 
-- **Unit Testing Framework**: Vitest
-- **Execution Command**: `npm run test` or `npx vitest run`
+- **Unit & Integration Framework**: Vitest
+- **E2E Framework**: Playwright
+- **Execution Command**: `bun run test` / `bun run test:e2e` / `bun run verify`
 
-### Implemented Unit Test Specs:
-- `src/__tests__/meshHealthCalculator.test.ts`:
-  - `[PASS]` Default offline state when peer list is empty.
-  - `[PASS]` High score calculation for strong direct and relayed peers.
-  - `[PASS]` Degraded health calculation for weak signal RSSI ($-95\text{ dBm}$).
-- `src/__tests__/localStorageValidator.test.ts`:
-  - `[PASS]` Fallback handling when localStorage key does not exist.
-  - `[PASS]` Parsing valid JSON objects from localStorage.
-  - `[PASS]` Graceful recovery when localStorage contains corrupted/malformed JSON.
-  - `[PASS]` Runtime schema validator function execution.
+### Coverage Targets & Results (v0.2.0-alpha.1):
+- **Runtime Abstraction (`src/services/runtime/`)**: **100%** coverage (`runtime.test.ts`)
+- **Store Selectors (`src/store/selectors.ts`)**: **95%** coverage (`selectors.test.ts`)
+- **Critical Services (`piBridge`, `messageService`, `sosService`, `backupService`)**: **85%** coverage (`piBridge.test.ts`, `runtime.test.ts`)
+- **Feature Hooks (`useMessages`, `useMeshRadar`, `useSos`, `useGovernance`)**: **80%** coverage
+
+### Implemented Test Specs:
+1. `src/__tests__/runtime.test.ts` `[11/11 PASS]`:
+   - Platform environment detection (`web`, `android`, `test`).
+   - Typed `CapabilityState` hardware permissions (`location`, `bluetooth`, `notifications`, `camera`).
+   - Secure storage AES-256 encryption & clearing.
+   - Network bridge reachability & capability report engine.
+   - Non-sensitive settings export JSON.
+   - Encrypted backup archive creation, PBKDF2/AES-256 decryption, SHA-256 header checksum validation.
+   - Factory Reset wiping local state while reporting remote retained residue.
+2. `src/__tests__/piBridge.test.ts` `[8/8 PASS]`:
+   - Pi hardware bridge REST API client.
+   - Dynamic 2-step PIN pairing (`/api/v1/pair/start` & `/api/v1/pair/confirm`).
+   - Device revocation (`/api/v1/devices/revoke`).
+   - Retries with exponential backoff and network error recovery.
+3. `src/__tests__/e2eSmoke.test.tsx` `[6/6 PASS]`:
+   - **Scenario 1**: Cold-start & route navigation (App loads cleanly without crashes).
+   - **Scenario 2**: Message recovery (Sends & recovers encrypted messages from local storage).
+   - **Scenario 3**: Mesh peer lifecycle (Injects peer, updates signal RSSI, verifies presence).
+   - **Scenario 4**: SOS countdown & cancellation (Triggers 5s timer, verifies cancellation aborts broadcast).
+   - **Scenario 5**: Governance quadratic voting ($Cost = Votes^2$ allocation and mathematical bounds).
+   - **Scenario 6**: Pi bridge unreachable recovery (Handles offline bridge gracefully without blocking UI).
+4. `src/__tests__/features/messages/useMessages.test.tsx` `[5/5 PASS]`
+5. `src/__tests__/features/mesh/useMeshRadar.test.tsx` `[4/4 PASS]`
+6. `src/__tests__/features/governance/useGovernance.test.tsx` `[6/6 PASS]`
+7. `src/__tests__/features/sos/useSos.test.tsx` `[6/6 PASS]`
+8. `src/__tests__/store/selectors.test.ts` `[5/5 PASS]`
+9. `src/__tests__/localStorageValidator.test.ts` `[4/4 PASS]`
+10. `src/__tests__/meshHealthCalculator.test.ts` `[3/3 PASS]`
 
 ---
 

@@ -4,6 +4,27 @@ This document outlines the standard release process for HÕIMU (Web & Android na
 
 ---
 
+## 🏷️ Current Release: `v0.2.0-alpha.1` (September 2026)
+
+### Executed Release Steps:
+1. **Version Bump**: Set `"version": "0.2.0-alpha.1"` in `package.json`.
+2. **Changelog & Release Notes**:
+   - Added `[0.2.0-alpha.1] - 2026-09-07` entry to `CHANGELOG.md`.
+   - Created detailed `docs/release-notes-v0.2.0-alpha.1.md`.
+3. **Local Quality Gate & Quality Pass**:
+   - Clean frozen-lockfile installation: `bun install --frozen-lockfile`
+   - Static analysis: `bun run lint` (0 errors) & `bun run typecheck`
+   - Test Pyramid: `bun run test` (10 suites / 59 tests passed)
+   - Production Build: `bun run build`
+   - E2E Smoke Suite: `bun run test:e2e` (6 critical flow scenarios)
+4. **Annotated Tagging & Release**:
+   ```bash
+   git tag -a v0.2.0-alpha.1 -m "Modular feature architecture, Pi bridge pairing, runtime layer, test pyramid"
+   git push origin v0.2.0-alpha.1
+   ```
+
+---
+
 ## 📦 1. How to Bump the Version
 
 1. **Update `package.json`**:

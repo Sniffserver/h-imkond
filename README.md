@@ -1,6 +1,15 @@
 # 🌿 HÕIMU – Zero-Cloud Bioregional Mutual Aid Mesh Network
 
+[![CI Workflow](https://github.com/hoimu/hoimu-terminal/actions/workflows/ci.yml/badge.svg)](https://github.com/hoimu/hoimu-terminal/actions/workflows/ci.yml)
+[![Latest Release](https://img.shields.io/badge/release-v0.2.0--alpha.1-emerald)](./docs/release-notes-v0.2.0-alpha.1.md)
+
 > **HÕIMU** (Estonian for *"Tribe" / "Kinship"*) is a zero-cloud, privacy-first, offline mutual aid field terminal built for resilient local communities, permaculture hubs, and eco-villages.
+
+---
+
+## 📰 Latest Release: v0.2.0-alpha.1
+
+For complete release details, architecture overview, security model, and Android verification instructions, see [Release Notes v0.2.0-alpha.1](./docs/release-notes-v0.2.0-alpha.1.md).
 
 ---
 
