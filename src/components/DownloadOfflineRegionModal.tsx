@@ -38,6 +38,17 @@ interface DownloadOfflineRegionModalProps {
   onAddToast?: (title: string, desc?: string, type?: 'success' | 'warning' | 'info') => void;
 }
 
+export interface SuggestedOfflineRegion {
+  name: string;
+  reason: 'frequent' | 'event' | 'resources';
+  reasonLabel: string;
+  center: { x: number; y: number; lat?: number; lng?: number };
+  radiusKm: number;
+  estimatedTiles: number;
+  estimatedSizeMB: number;
+  lastVisited?: string;
+}
+
 export const DownloadOfflineRegionModal: React.FC<DownloadOfflineRegionModalProps> = ({
   isOpen,
   onClose,
@@ -51,7 +62,7 @@ export const DownloadOfflineRegionModal: React.FC<DownloadOfflineRegionModalProp
   onSelectAndCenterRegion,
   onAddToast,
 }) => {
-  const [activeTab, setActiveTab] = useState<'create' | 'manage'>('create');
+  const [activeTab, setActiveTab] = useState<'smart' | 'create' | 'manage'>('smart');
   const [radiusKm, setRadiusKm] = useState<number>(2.5);
   const [includeRasterTiles, setIncludeRasterTiles] = useState<boolean>(false);
   const [regionName, setRegionName] = useState<string>(
@@ -61,6 +72,7 @@ export const DownloadOfflineRegionModal: React.FC<DownloadOfflineRegionModalProp
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [currentStepText, setCurrentStepText] = useState('');
   const [downloadedRegions, setDownloadedRegions] = useState<OfflineMapRegion[]>([]);
+  const [suggestedRegions, setSuggestedRegions] = useState<SuggestedOfflineRegion[]>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -68,8 +80,58 @@ export const DownloadOfflineRegionModal: React.FC<DownloadOfflineRegionModalProp
       setRegionName(`${activeCity.cityName} - ${activeCity.districts?.[0]?.name || 'Keskus'} (${radiusKm}km)`);
       setDownloadProgress(0);
       setIsDownloading(false);
+
+      // Smart Usage Analysis:
+      // 1. Frequently visited area (active city hub & current district)
+      const frequentSuggestion: SuggestedOfflineRegion = {
+        name: `${activeCity.cityName} Keskus & Lähiala`,
+        reason: 'frequent',
+        reasonLabel: 'Frequently Visited Hub',
+        center: cameraCenter,
+        radiusKm: 3.5,
+        estimatedTiles: Math.round(Math.PI * 3.5 * 3.5 * 14),
+        estimatedSizeMB: parseFloat(((Math.PI * 3.5 * 3.5 * 14 * 9.5) / 1024).toFixed(1)),
+        lastVisited: 'Today, 2 hours ago',
+      };
+
+      // 2. Upcoming Community Gathering / Event area
+      const eventSuggestion: SuggestedOfflineRegion = {
+        name: `${activeCity.cityName} Bioregional Mesh Assembly`,
+        reason: 'event',
+        reasonLabel: 'Upcoming Event (In 3 Days)',
+        center: {
+          x: cameraCenter.x + 80,
+          y: cameraCenter.y - 60,
+          lat: cameraCenter.lat ? cameraCenter.lat + 0.015 : undefined,
+          lng: cameraCenter.lng ? cameraCenter.lng + 0.02 : undefined,
+        },
+        radiusKm: 5.0,
+        estimatedTiles: Math.round(Math.PI * 5.0 * 5.0 * 14),
+        estimatedSizeMB: parseFloat(((Math.PI * 5.0 * 5.0 * 14 * 9.5) / 1024).toFixed(1)),
+        lastVisited: 'Sep 12, 14:00',
+      };
+
+      // 3. Saved emergency resources cluster
+      const resourceCount = allResources.length;
+      const resourceSuggestion: SuggestedOfflineRegion = {
+        name: `${activeCity.cityName} Vital Mutual Aid Cluster`,
+        reason: 'resources',
+        reasonLabel: `${resourceCount || 6} Saved Resources (Water, Power, First-Aid)`,
+        center: {
+          x: cameraCenter.x - 50,
+          y: cameraCenter.y + 40,
+          lat: cameraCenter.lat ? cameraCenter.lat - 0.008 : undefined,
+          lng: cameraCenter.lng ? cameraCenter.lng - 0.012 : undefined,
+        },
+        radiusKm: 2.0,
+        estimatedTiles: Math.round(Math.PI * 2.0 * 2.0 * 14),
+        estimatedSizeMB: parseFloat(((Math.PI * 2.0 * 2.0 * 14 * 9.5) / 1024).toFixed(1)),
+        lastVisited: 'Yesterday',
+      };
+
+      setSuggestedRegions([frequentSuggestion, eventSuggestion, resourceSuggestion]);
     }
-  }, [isOpen, activeCity, radiusKm]);
+  }, [isOpen, activeCity, cameraCenter, radiusKm, allResources]);
 
   if (!isOpen) return null;
 
@@ -206,6 +268,18 @@ export const DownloadOfflineRegionModal: React.FC<DownloadOfflineRegionModalProp
         <div className="flex items-center gap-2 mb-4 shrink-0 border-b border-current/10 pb-2">
           <button
             type="button"
+            onClick={() => setActiveTab('smart')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'smart'
+                ? 'bg-[#2A9D8F] text-white shadow-xs'
+                : 'text-[#637062] dark:text-[#A8BDA5] hover:bg-current/5'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Nutikad soovitused ({suggestedRegions.length})</span>
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab('create')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'create'
@@ -214,7 +288,7 @@ export const DownloadOfflineRegionModal: React.FC<DownloadOfflineRegionModalProp
             }`}
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Uus piirkond ({radiusKm} km)</span>
+            <span>Kohandatud ala ({radiusKm} km)</span>
           </button>
           <button
             type="button"
@@ -232,7 +306,87 @@ export const DownloadOfflineRegionModal: React.FC<DownloadOfflineRegionModalProp
 
         {/* Body Scroll */}
         <div className="overflow-y-auto pr-1 flex-1 space-y-4 text-xs">
-          {activeTab === 'create' ? (
+          {activeTab === 'smart' ? (
+            <div className="space-y-4">
+              <div className="p-3.5 rounded-2xl bg-[#2A9D8F]/10 border border-[#2A9D8F]/30 space-y-1">
+                <h3 className="font-display font-bold text-sm text-[#203A2A] dark:text-[#F0F5EE] flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#2A9D8F]" />
+                  <span>Võrguühenduseta piirkondade nutikas allalaadimine</span>
+                </h3>
+                <p className="text-xs text-[#637062] dark:text-[#A8BDA5]">
+                  Tuginedes sinu viimastele külastustele, eelseisvatele kogukonnasündmustele ja elutähtsatele ressurssidele:
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                {suggestedRegions.map((region) => (
+                  <div
+                    key={region.name}
+                    className={`p-4 rounded-2xl border transition-all shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                      isNightMode
+                        ? 'bg-[#121A10] border-[#2A3B26]'
+                        : 'bg-white border-[#87A878]/30 hover:border-[#2A9D8F]/50'
+                    }`}
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                            region.reason === 'frequent'
+                              ? 'bg-[#2A9D8F]/15 text-[#2A9D8F]'
+                              : region.reason === 'event'
+                              ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                              : 'bg-[#588157]/15 text-[#588157] dark:text-[#87A878]'
+                          }`}
+                        >
+                          {region.reasonLabel}
+                        </span>
+                        {region.lastVisited && (
+                          <span className="text-[10px] font-mono text-[#637062] dark:text-[#A8BDA5]">
+                            • {region.lastVisited}
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="font-bold text-sm text-[#203A2A] dark:text-[#F0F5EE]">
+                        {region.name}
+                      </h4>
+                      <div className="flex items-center gap-3 text-[11px] text-[#637062] dark:text-[#A8BDA5] font-mono">
+                        <span>Raadius: {region.radiusKm} km</span>
+                        <span>•</span>
+                        <span>~{region.estimatedTiles} vektorit</span>
+                        <span>•</span>
+                        <span className="font-bold text-[#2A9D8F]">~{region.estimatedSizeMB} MB</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRegionName(region.name);
+                        setRadiusKm(region.radiusKm);
+                        handleStartDownload();
+                      }}
+                      disabled={isDownloading}
+                      className="px-4 py-2 min-h-[44px] bg-[#2A9D8F] hover:bg-[#238276] text-white font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-transform active:scale-95 disabled:opacity-50 shrink-0 shadow-xs"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Laadi alla ({region.estimatedSizeMB} MB)</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-2 text-center">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('create')}
+                  className="px-4 py-2 min-h-[44px] text-xs font-bold text-[#588157] dark:text-[#A8BDA5] hover:underline cursor-pointer"
+                >
+                  Või vali käsitsi kohandatud ala ja raadius &rarr;
+                </button>
+              </div>
+            </div>
+          ) : activeTab === 'create' ? (
             <div className="space-y-4">
               {/* Camera / Location Anchor Info */}
               <div

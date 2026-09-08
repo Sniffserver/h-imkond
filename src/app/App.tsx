@@ -12,6 +12,7 @@ import { AppRoutes } from './routes';
 import { AppModalsContainer } from '../components/AppModalsContainer';
 import { HoimuLandingPage } from '../components/HoimuLandingPage';
 import { OfflineIndicator } from '../components/OfflineIndicator';
+import { OfflineTransitionIndicator } from '../components/OfflineTransitionIndicator';
 import { OfflineSyncProgress } from '../components/OfflineSyncProgress';
 import { SosAlertBanner } from '../components/SosAlertBanner';
 import { useAppToasts, AppProviders } from './providers';
@@ -422,6 +423,12 @@ export function AppContent() {
       />
 
       <OfflineIndicator onAddToast={addToast} />
+      <OfflineTransitionIndicator
+        isNightMode={isNightMode}
+        onReconnect={() => {
+          addToast('Checking Mesh & Network', 'Re-evaluating gateway status...', 'info');
+        }}
+      />
       <OfflineSyncProgress
         messages={messages}
         transactions={transactions}

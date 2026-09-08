@@ -1,2 +1,11 @@
 export * from './useMapLayers';
 export * from './MapScreen';
+export * from './mapEngine';
+export * from './UnifiedTileCache';
+export * from './MapSkeleton';
+export * from './components/SmartZoomLayerController';
+export * from './components/MapLayerControls';
+export * from './components/MapGestures';
+export * from './qualityManager';
+export { LocationIndicator } from '../../components/LocationIndicator';
+export { MapPerformanceOverlay } from '../../components/MapPerformanceOverlay';

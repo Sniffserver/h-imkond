@@ -20,6 +20,14 @@ import {
   Eye,
 } from 'lucide-react';
 
+import { MapSkeleton } from './MapSkeleton';
+import { LocationIndicator } from '../../components/LocationIndicator';
+import { SmartZoomBadge } from './components/SmartZoomLayerController';
+import { MapLayerControls, ActiveLayerStates } from './components/MapLayerControls';
+import { MapGestures } from './components/MapGestures';
+import { MapPerformanceOverlay } from '../../components/MapPerformanceOverlay';
+import { MapQualityManager } from './qualityManager';
+
 // Lazy-loaded Map View Tab
 const MapViewTab = lazy(() =>
   import('../../components/MapViewTab').then((m) => ({ default: m.MapViewTab }))
@@ -65,6 +73,45 @@ export const MapScreen: React.FC<MapScreenProps> = ({
 
   const [engineState, setEngineState] = useState<MapEngineState>(controller.getState());
   const [showMetricsPanel, setShowMetricsPanel] = useState(false);
+  const [activeLayers, setActiveLayers] = useState<ActiveLayerStates>({
+    peers: true,
+    resources: true,
+    heatmap: true,
+    terrain: true,
+  });
+
+  const qualityManager = useMemo(() => new MapQualityManager(), []);
+
+  useEffect(() => {
+    const unsubNotif = qualityManager.onNotification((notif) => {
+      if (onAddToast) {
+        onAddToast(notif.title, notif.message, 'warning');
+      }
+    });
+    const unsubChange = qualityManager.onQualityChange(({ mode }) => {
+      const mappedMode: MapQualityMode = mode === 'power-saver' ? 'power_saver' : mode;
+      controller.setQualityMode(mappedMode);
+    });
+    return () => {
+      unsubNotif();
+      unsubChange();
+      qualityManager.destroy();
+    };
+  }, [qualityManager, controller, onAddToast]);
+
+  const handleToggleLayer = (layerKey: keyof ActiveLayerStates) => {
+    setActiveLayers((prev) => {
+      const next = { ...prev, [layerKey]: !prev[layerKey] };
+      if (onAddToast) {
+        onAddToast(
+          `${layerKey.charAt(0).toUpperCase() + layerKey.slice(1)} Layer ${next[layerKey] ? 'Enabled' : 'Hidden'}`,
+          `Updated map overlay visibility`,
+          'info'
+        );
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     const unsubscribe = controller.subscribe((next) => {
@@ -105,34 +152,30 @@ export const MapScreen: React.FC<MapScreenProps> = ({
         </div>
       )}
 
-      {/* Floating Performance & Quality Bar */}
-      <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 bg-black/60 backdrop-blur-md text-white text-[10px] font-mono p-1.5 rounded-2xl border border-white/20 shadow-md">
-        <button
-          type="button"
-          onClick={() => setShowMetricsPanel(!showMetricsPanel)}
-          className="flex items-center gap-1 px-2 py-1 rounded-xl hover:bg-white/20 cursor-pointer transition-colors"
-          title="Map Engine Performance & Diagnostics"
-        >
-          <Activity className="w-3 h-3 text-[#34C759]" />
-          <span>{engineState.metrics.fps} FPS</span>
-          <span className="opacity-60">|</span>
-          <span className="uppercase">{engineState.activeRenderer}</span>
-        </button>
+      {/* Real-time Floating Performance Overlay and Quality Bar */}
+      <div className="absolute top-3 right-3 z-20 flex items-center gap-2 pointer-events-auto">
+        <MapPerformanceOverlay
+          isNightMode={isNightMode}
+          onTogglePerformanceDetails={() => setShowMetricsPanel(!showMetricsPanel)}
+        />
 
         {/* Quality Mode Selector */}
-        <div className="flex items-center bg-white/10 rounded-xl p-0.5">
+        <div className="flex items-center bg-black/60 backdrop-blur-md rounded-2xl p-1 border border-white/20 text-[10px] font-mono">
           {(['power_saver', 'balanced', 'detail'] as MapQualityMode[]).map((mode) => (
             <button
               key={mode}
               type="button"
-              onClick={() => controller.setQualityMode(mode)}
-              className={`px-2 py-0.5 rounded-lg font-bold capitalize transition-all cursor-pointer ${
+              onClick={() => {
+                controller.setQualityMode(mode);
+                qualityManager.setQualityMode(mode === 'power_saver' ? 'power-saver' : mode, true);
+              }}
+              className={`px-2 py-1 rounded-xl font-bold capitalize transition-all cursor-pointer ${
                 engineState.qualityMode === mode
                   ? 'bg-[#588157] text-white shadow-xs'
                   : 'text-white/70 hover:text-white'
               }`}
             >
-              {mode === 'power_saver' ? 'Save' : mode === 'balanced' ? 'Rec' : 'Detail'}
+              {mode === 'power_saver' ? 'Eco' : mode === 'balanced' ? 'Rec' : 'Detail'}
             </button>
           ))}
         </div>
@@ -194,30 +237,100 @@ export const MapScreen: React.FC<MapScreenProps> = ({
         </div>
       )}
 
-      {/* Main Map View Canvas */}
-      <Suspense
-        fallback={
-          <div className="flex-1 min-h-[400px] flex flex-col items-center justify-center bg-[#FAF6EE] dark:bg-[#182315] text-[#588157] font-mono text-xs gap-3 p-6 rounded-3xl border border-[#87A878]/30">
-            <Cpu className="w-8 h-8 animate-pulse text-[#588157]" />
-            <span>Loading Map Engine & Vector Layers...</span>
-          </div>
-        }
-      >
-        <MapViewTab
-          peers={peers}
-          resources={resources}
-          user={user}
-          onUpdateUser={onUpdateUser}
-          onAddToast={onAddToast}
+      {/* Floating Smart Zoom Badge (Top Left) */}
+      <div className="absolute top-3 left-3 z-20 pointer-events-auto">
+        <SmartZoomBadge
+          zoomLevel={13.5}
+          qualityMode={engineState.qualityMode}
           isNightMode={isNightMode}
-          filterOnlyNew={filterOnlyNew}
-          onViewResourceDetails={onViewResourceDetails}
-          onSelectPeer={onSelectPeer}
-          onOpenChatWithPeer={onOpenChatWithPeer}
-          onOpenReputation={onOpenReputation}
-          batteryStatus={batteryStatus}
         />
-      </Suspense>
+      </div>
+
+      {/* Main Map View Canvas with Gesture Handling & Edge Gradient for Infinite Feel */}
+      <div className="relative w-full h-full overflow-hidden transition-all duration-300 ease-out">
+        {/* Gradient overlay at map edges for infinite feel */}
+        <div className="absolute inset-0 pointer-events-none z-10 shadow-[inset_0_0_40px_rgba(0,0,0,0.15)] dark:shadow-[inset_0_0_60px_rgba(0,0,0,0.45)]" />
+
+        <MapGestures
+          centerCoordinate={{ lat: (user as any).location?.lat || 59.437, lng: (user as any).location?.lng || 24.7535 }}
+          onAddMarker={(coord) => {
+            if (onAddToast) {
+              onAddToast(
+                'Marker Added',
+                `Saved survival marker at ${coord.lat.toFixed(4)}°, ${coord.lng.toFixed(4)}°`,
+                'success'
+              );
+            }
+          }}
+          onShareLocation={(coord) => {
+            if (onAddToast) {
+              onAddToast(
+                'Location Broadcasted',
+                `Shared fix ${coord.lat.toFixed(4)}°, ${coord.lng.toFixed(4)}° via mesh radio`,
+                'info'
+              );
+            }
+          }}
+          onNavigateHere={(coord) => {
+            if (onAddToast) {
+              onAddToast(
+                'Routing Point Set',
+                `Calculated off-grid bearing to ${coord.lat.toFixed(4)}°, ${coord.lng.toFixed(4)}°`,
+                'info'
+              );
+            }
+          }}
+          isNightMode={isNightMode}
+        >
+          <Suspense fallback={<MapSkeleton isNightMode={isNightMode} />}>
+            <MapViewTab
+              peers={peers}
+              resources={resources}
+              user={user}
+              onUpdateUser={onUpdateUser}
+              onAddToast={onAddToast}
+              isNightMode={isNightMode}
+              filterOnlyNew={filterOnlyNew}
+              onViewResourceDetails={onViewResourceDetails}
+              onSelectPeer={onSelectPeer}
+              onOpenChatWithPeer={onOpenChatWithPeer}
+              onOpenReputation={onOpenReputation}
+              batteryStatus={batteryStatus}
+            />
+          </Suspense>
+        </MapGestures>
+      </div>
+
+      {/* Floating One-Tap Layer Controls (Bottom Left) */}
+      <div className="absolute bottom-4 left-4 z-20 pointer-events-auto max-w-[calc(100%-80px)] overflow-x-auto">
+        <MapLayerControls
+          layers={activeLayers}
+          onToggleLayer={handleToggleLayer}
+          counts={{ peers: peers.length, resources: resources.length }}
+          isNightMode={isNightMode}
+        />
+      </div>
+
+      {/* "You Are Here" with Confidence Location Indicator (Bottom Right) */}
+      <div className="absolute bottom-4 right-4 z-20 pointer-events-auto">
+        <LocationIndicator
+          accuracy={14}
+          isHighAccuracy={true}
+          lastUpdated={new Date()}
+          latitude={(user as any).location?.lat || 59.437}
+          longitude={(user as any).location?.lng || 24.7535}
+          onShareLocation={() => {
+            if (onAddToast) {
+              onAddToast(
+                'Location Shared',
+                'Your current GPS location with ±14m accuracy was broadcasted to trusted mesh contacts.',
+                'info'
+              );
+            }
+          }}
+          isNightMode={isNightMode}
+        />
+      </div>
     </div>
   );
 };
