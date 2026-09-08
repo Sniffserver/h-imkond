@@ -15,7 +15,20 @@ export type TransactionStatus = 'pending' | 'active' | 'completed';
 
 export type ConnectionState = 'direct' | 'relayed' | 'store_forward';
 
-export type NavTab = 'mesh' | 'map' | 'pathfinder' | 'exchange' | 'journal' | 'profile';
+export type NavTab = 
+  | 'home' 
+  | 'nearby' 
+  | 'messages' 
+  | 'sos' 
+  | 'more' 
+  | 'connect' 
+  | 'help' 
+  | 'mesh' 
+  | 'map' 
+  | 'pathfinder' 
+  | 'exchange' 
+  | 'journal' 
+  | 'profile';
 
 export type AppLanguage = 'ET' | 'EN';
 

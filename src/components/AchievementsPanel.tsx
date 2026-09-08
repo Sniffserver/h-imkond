@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { UserProfile, JournalEntry, DaoProposal } from '../types';
 import { achievementService, Achievement } from '../services/game/achievementService';
+import { progressTracksService, ProgressTrackData } from '../services/game/progressTracksService';
 import {
   Award,
   Sparkles,
@@ -19,6 +20,13 @@ import {
   ChevronRight,
   Sun,
   Flame,
+  Sprout,
+  HelpCircle,
+  Download,
+  RotateCcw,
+  Shield,
+  Clock,
+  ExternalLink,
 } from 'lucide-react';
 
 export interface AchievementsPanelProps {
@@ -60,6 +68,17 @@ export const AchievementsPanel: React.FC<AchievementsPanelProps> = ({
   const [selectedMilestone, setSelectedMilestone] = useState<Achievement | null>(null);
   const [isChimePlaying, setIsChimePlaying] = useState(false);
   const [copiedBadgeId, setCopiedBadgeId] = useState<string | null>(null);
+
+  // Private Progress Tracks State
+  const [tracksState, setTracksState] = useState<ProgressTrackData>(progressTracksService.getState());
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = progressTracksService.subscribe((updated) => {
+      setTracksState(updated);
+    });
+    return unsubscribe;
+  }, []);
 
   // Filter list by selected tab & category
   const displayedBadges = useMemo(() => {
@@ -179,34 +198,111 @@ export const AchievementsPanel: React.FC<AchievementsPanelProps> = ({
               <Award className="w-4 h-4" />
             </div>
             <h3 className="font-display font-bold text-base sm:text-lg flex items-center gap-2">
-              Isiklikud Saavutused & Verstapostid
+              Meaningful Private Progress
             </h3>
           </div>
           <p className="text-xs text-[#588157]">
-            Tähistame sinu panust kohalikku kogukonda, võrgu loomist, liikumist ja vastastikust abi.
+            Private, outcome-based progress tracking. No streak loss, no vanity rank grinding, and fully exportable.
           </p>
         </div>
 
-        {/* Celebrate All Button & Audio Chime */}
+        {/* Export & History controls */}
         <div className="flex items-center gap-2">
           <button
             type="button"
-            id="celebrate-milestones-btn"
-            onClick={() => handleCelebrate()}
-            disabled={isChimePlaying}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 ${
-              isChimePlaying
-                ? 'bg-[#E9C46A] text-[#203A2A] scale-105'
-                : isNightMode
-                ? 'bg-[#253821] hover:bg-[#2e4629] text-[#E9C46A] border border-[#E9C46A]/40'
-                : 'bg-white hover:bg-[#FAF6EE] text-[#D6A23B] border border-[#E9C46A]/50'
-            }`}
-            title="Mängi päikesepunk helinat verstapostide tähistamiseks"
+            onClick={() => setShowHistoryModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/5 dark:bg-white/10 hover:bg-black/10 text-xs font-semibold cursor-pointer text-[#588157] dark:text-[#A8BDA5]"
           >
-            <Sparkles className={`w-3.5 h-3.5 ${isChimePlaying ? 'animate-spin' : 'text-[#E9C46A]'}`} />
-            <span>{isChimePlaying ? 'Tähistame!' : 'Tähista verstaposte'}</span>
-            <Volume2 className="w-3 h-3 text-[#588157]" />
+            <Clock className="w-3.5 h-3.5" />
+            <span>Why did this change?</span>
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              const data = progressTracksService.exportDataJSON();
+              const blob = new Blob([data], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `hoimu-progress-backup-${Date.now()}.json`;
+              a.click();
+              if (onAddToast) onAddToast('Progress Exported', 'Downloaded private progress tracks backup JSON.', 'info');
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#87A878]/30 hover:border-[#588157] text-xs font-semibold cursor-pointer text-[#588157]"
+            title="Export private progress JSON"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export</span>
+          </button>
+        </div>
+      </div>
+
+      {/* THREE PRIVATE PROGRESS TRACKS CARDS */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+        {/* Track 1: Preparedness */}
+        <div className={`p-4 rounded-2xl border space-y-3 ${isNightMode ? 'bg-[#182315] border-[#E76F51]/30' : 'bg-white border-[#E76F51]/25'}`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-[#E76F51]/15 text-[#E76F51]">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="font-display font-bold text-sm">Preparedness</h4>
+                <p className="text-[10px] text-[#637062] dark:text-[#A8BDA5]">Offline readiness & survival security</p>
+              </div>
+            </div>
+            <span className="font-mono font-bold text-sm text-[#E76F51]">{tracksState.preparednessLevel}%</span>
+          </div>
+          <div className="w-full h-2 bg-black/5 dark:bg-white/5 rounded-full overflow-hidden">
+            <div className="h-full bg-[#E76F51] rounded-full transition-all duration-500" style={{ width: `${tracksState.preparednessLevel}%` }} />
+          </div>
+          <p className="text-[11px] text-[#588157] dark:text-[#A8BDA5] leading-relaxed">
+            Ready for power outages, off-grid navigation, and emergency protocol coordination.
+          </p>
+        </div>
+
+        {/* Track 2: Connection */}
+        <div className={`p-4 rounded-2xl border space-y-3 ${isNightMode ? 'bg-[#182315] border-[#2A9D8F]/30' : 'bg-white border-[#2A9D8F]/25'}`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-[#2A9D8F]/15 text-[#2A9D8F]">
+                <Users className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="font-display font-bold text-sm">Connection</h4>
+                <p className="text-[10px] text-[#637062] dark:text-[#A8BDA5]">Trusted local people & radio links</p>
+              </div>
+            </div>
+            <span className="font-mono font-bold text-sm text-[#2A9D8F]">{tracksState.connectionLevel}%</span>
+          </div>
+          <div className="w-full h-2 bg-black/5 dark:bg-white/5 rounded-full overflow-hidden">
+            <div className="h-full bg-[#2A9D8F] rounded-full transition-all duration-500" style={{ width: `${tracksState.connectionLevel}%` }} />
+          </div>
+          <p className="text-[11px] text-[#588157] dark:text-[#A8BDA5] leading-relaxed">
+            Linked with trusted neighborhood peers, local mesh radios, and chain of trust signatures.
+          </p>
+        </div>
+
+        {/* Track 3: Contribution */}
+        <div className={`p-4 rounded-2xl border space-y-3 ${isNightMode ? 'bg-[#182315] border-[#588157]/30' : 'bg-white border-[#588157]/25'}`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-[#588157]/15 text-[#588157]">
+                <Sprout className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="font-display font-bold text-sm">Contribution</h4>
+                <p className="text-[10px] text-[#637062] dark:text-[#A8BDA5]">Voluntary community aid & sharing</p>
+              </div>
+            </div>
+            <span className="font-mono font-bold text-sm text-[#588157]">{tracksState.contributionLevel}%</span>
+          </div>
+          <div className="w-full h-2 bg-black/5 dark:bg-white/5 rounded-full overflow-hidden">
+            <div className="h-full bg-[#588157] rounded-full transition-all duration-500" style={{ width: `${tracksState.contributionLevel}%` }} />
+          </div>
+          <p className="text-[11px] text-[#588157] dark:text-[#A8BDA5] leading-relaxed">
+            Strengthening local resilience through mutual aid offers, skill sharing, and civic participation.
+          </p>
         </div>
       </div>
 
@@ -744,6 +840,81 @@ export const AchievementsPanel: React.FC<AchievementsPanelProps> = ({
                     <span>Jaga tõendit</span>
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WHY DID THIS CHANGE? / EXPLANATION LOG MODAL */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div
+            className={`w-full max-w-md rounded-3xl border p-6 space-y-4 shadow-2xl relative ${
+              isNightMode ? 'bg-[#182315] border-[#2A3B26] text-[#F0F5EE]' : 'bg-[#FAF6EE] border-[#87A878]/40 text-[#203A2A]'
+            }`}
+          >
+            <button
+              type="button"
+              onClick={() => setShowHistoryModal(false)}
+              className="absolute top-4 right-4 p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-[#588157] cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-[#588157]/20 text-[#588157]">
+                <Clock className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-display font-bold text-lg">Why Did My Progress Change?</h3>
+                <p className="text-xs text-[#588157]">Full audit log of outcomes that influenced your 3 private tracks.</p>
+              </div>
+            </div>
+
+            <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
+              {tracksState.history.length === 0 ? (
+                <div className="text-center py-6 text-xs text-[#588157]">No recent progress updates recorded yet.</div>
+              ) : (
+                tracksState.history.map((item) => (
+                  <div
+                    key={item.id}
+                    className={`p-3 rounded-2xl border text-xs space-y-1 ${
+                      isNightMode ? 'bg-[#121A10] border-[#2A3B26]' : 'bg-white border-[#87A878]/30'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between font-bold">
+                      <span className="text-[#203A2A] dark:text-[#F0F5EE]">{item.title}</span>
+                      <span className="font-mono text-[#588157]">+{item.deltaPercent}% {item.track}</span>
+                    </div>
+                    <p className="text-[#588157] dark:text-[#A8BDA5] leading-relaxed">{item.explanation}</p>
+                    <div className="text-[10px] text-[#637062] pt-0.5">
+                      {new Date(item.timestamp).toLocaleDateString()}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="pt-2 flex items-center justify-between border-t border-[#87A878]/20">
+              <button
+                type="button"
+                onClick={() => {
+                  progressTracksService.resetProgress();
+                  if (onAddToast) onAddToast('Tracks Reset', 'Your private progress history was cleared.', 'info');
+                  setShowHistoryModal(false);
+                }}
+                className="text-xs text-[#E76F51] hover:underline flex items-center gap-1 cursor-pointer font-semibold"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset Private Progress</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowHistoryModal(false)}
+                className="px-4 py-2 bg-[#588157] text-white text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Close
               </button>
             </div>
           </div>

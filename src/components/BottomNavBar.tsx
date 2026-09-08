@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Radio, MapPin, Footprints, Sprout, BookOpen, User } from 'lucide-react';
+import { Home, Compass, MessageSquare, ShieldAlert, Grid } from 'lucide-react';
 import { NavTab } from '../types';
 import { pathfinderScanner } from '../services/scanner/pathfinderScanner';
 import { soundFeedback } from '../services/utils/soundFeedback';
@@ -28,43 +28,48 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
 
   const tabs = [
     {
-      id: 'mesh' as const,
-      label: 'Mesh',
-      sublabel: 'Radar & Peers',
-      icon: Radio,
+      id: 'mesh' as NavTab, // Today / Home
+      label: 'Today',
+      sublabel: 'What matters now',
+      icon: Home,
     },
     {
-      id: 'map' as const,
-      label: 'Map',
-      sublabel: 'Grid & Density',
-      icon: MapPin,
-    },
-    {
-      id: 'pathfinder' as const,
-      label: 'Pathfinder',
-      sublabel: 'Wardriving & RF',
-      icon: Footprints,
+      id: 'map' as NavTab, // Explore / Nearby
+      label: 'Explore',
+      sublabel: 'Map & Nearby',
+      icon: Compass,
       badge: isWalkActive,
     },
     {
-      id: 'exchange' as const,
-      label: 'Exchange',
-      sublabel: 'Mutual Aid',
-      icon: Sprout,
+      id: 'messages' as NavTab, // Connect / Messages
+      label: 'Connect',
+      sublabel: 'Encrypted Chat',
+      icon: MessageSquare,
+      hasUnread: unreadCount > 0,
     },
     {
-      id: 'journal' as const,
-      label: 'Journal',
-      sublabel: 'Co-Evolution',
-      icon: BookOpen,
+      id: 'sos' as NavTab, // Safety / SOS
+      label: 'Safety',
+      sublabel: 'Emergency & Hub',
+      icon: ShieldAlert,
     },
     {
-      id: 'profile' as const,
-      label: 'Profile',
-      sublabel: 'Skills & Score',
-      icon: User,
+      id: 'more' as NavTab, // More / Tools & Community
+      label: 'More',
+      sublabel: 'Exchange & Tools',
+      icon: Grid,
     },
   ];
+
+  // Helper to determine active tab section
+  const isTabActive = (tabId: NavTab) => {
+    if (tabId === 'mesh') return activeTab === 'mesh' || activeTab === 'home';
+    if (tabId === 'map') return activeTab === 'map' || activeTab === 'nearby' || activeTab === 'pathfinder';
+    if (tabId === 'messages') return activeTab === 'messages' || activeTab === 'connect';
+    if (tabId === 'sos') return activeTab === 'sos' || activeTab === 'help';
+    if (tabId === 'more') return activeTab === 'more' || activeTab === 'exchange' || activeTab === 'journal' || activeTab === 'profile';
+    return activeTab === tabId;
+  };
 
   return (
     <nav
@@ -83,7 +88,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
       >
         {tabs.map((tab) => {
           const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
+          const isActive = isTabActive(tab.id);
 
           return (
             <button
@@ -92,7 +97,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
               role="tab"
               aria-selected={isActive}
               aria-label={`${tab.label} tab - ${tab.sublabel}${
-                tab.id === 'mesh' && unreadCount > 0 ? `, ${unreadCount} unread messages` : ''
+                tab.id === 'messages' && unreadCount > 0 ? `, ${unreadCount} unread messages` : ''
               }`}
               onClick={() => {
                 soundFeedback.playClick();
@@ -120,7 +125,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
                       : 'text-[#637062]'
                   }`}
                 />
-                {tab.id === 'mesh' && unreadCount > 0 && (
+                {tab.id === 'messages' && unreadCount > 0 && (
                   <span
                     className={`absolute -top-1.5 -right-2 px-1 py-0.2 text-[9px] font-bold font-mono rounded-full bg-[#E76F51] text-white ring-2 ${
                       isNightMode ? 'ring-[#182315]' : 'ring-[#FAF6EE]'
@@ -129,9 +134,9 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
-                {tab.id === 'pathfinder' && tab.badge && (
+                {tab.id === 'map' && tab.badge && (
                   <span
-                    aria-label="Pathfinder walk active"
+                    aria-label="Signal walk active"
                     className={`absolute -top-1 -right-2 w-2.5 h-2.5 rounded-full bg-[#E76F51] animate-ping ring-2 ${
                       isNightMode ? 'ring-[#182315]' : 'ring-[#FAF6EE]'
                     }`}
@@ -158,3 +163,4 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
     </nav>
   );
 };
+

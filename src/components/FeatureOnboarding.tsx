@@ -14,20 +14,30 @@ interface FeatureGuide {
   tips: string[];
 }
 
-const FEATURE_GUIDES: Record<NavTab, FeatureGuide> = {
+const FEATURE_GUIDES: Partial<Record<NavTab, FeatureGuide>> = {
+  home: {
+    title: 'Today & Field Readiness',
+    subtitle: 'What matters now: active setup milestones, emergency alerts, and quick actions.',
+    whyItMatters: 'Provides an immediate snapshot of your field readiness without forcing complex settings upfront.',
+    tips: [
+      'Complete the 3 field readiness milestones to ensure offline connectivity.',
+      'Check active emergency distress signals or broadcast a safety alert.',
+      'Launch quick actions or toggle night/sun outdoor display modes.',
+    ],
+  },
   mesh: {
-    title: 'Zero-Cloud Mesh Radar',
-    subtitle: 'Discover nearby Bluetooth LE and Wi-Fi Direct peer nodes without cell towers or internet.',
+    title: 'Nearby Network',
+    subtitle: 'Devices and people discovered nearby via Bluetooth LE and Wi-Fi Direct.',
     whyItMatters: 'Peer-to-peer radio packets form an ad-hoc mesh network, dynamically hopping across field nodes to relay emergency alerts and encrypted text.',
     tips: [
-      'Nodes automatically update RSSI signal strength in real time.',
-      'Connect to a Raspberry Pi Bridge for extended 868MHz LoRa radio reach.',
-      'Tap any peer node to inspect trust scores or initiate a direct chat.',
+      'Nodes automatically update Signal Strength in real time.',
+      'Connect to a Home Hub (Raspberry Pi Bridge) for extended 868MHz LoRa radio reach.',
+      'Tap any peer node to inspect Connections or initiate a direct chat.',
     ],
   },
   map: {
     title: 'Offline Bioregional Map & Grid',
-    subtitle: 'Vector terrain map, local water/food resources, and survival POI markers.',
+    subtitle: 'Vector terrain map, local water/food resources, and survival markers.',
     whyItMatters: 'Provides 100% offline geospatial awareness using pre-cached city vector grids and field-recorded GPS waypoints.',
     tips: [
       'Switch layers between Topo, Thermal/Solar, and Survival POIs.',
@@ -36,9 +46,9 @@ const FEATURE_GUIDES: Record<NavTab, FeatureGuide> = {
     ],
   },
   pathfinder: {
-    title: 'RF Wardriving & Pathfinder Scanner',
-    subtitle: 'Log offline Wi-Fi access points, BLE beacons, and LoRa repeaters during walks.',
-    whyItMatters: 'Maps ambient RF spectrum signals to build community coverage maps and locate isolated radio repeaters.',
+    title: 'Explore Signals',
+    subtitle: 'Find local beacons, Wi-Fi access points, and radio activity.',
+    whyItMatters: 'Maps ambient spectrum signals to build community coverage maps and locate isolated radio repeaters.',
     tips: [
       'Start a Walk Session to record GPS tracks alongside RF discoveries.',
       'Filter discoveries by Wi-Fi, Bluetooth, or LoRa medium.',
@@ -51,28 +61,48 @@ const FEATURE_GUIDES: Record<NavTab, FeatureGuide> = {
     whyItMatters: 'Fosters local circular economy resilience through zero-money barter, gift economy, and verified trust endorsements.',
     tips: [
       'List spare tools, seed stock, or solar battery charging capacity.',
-      'Submit DAO governance proposals for community resource allocation.',
+      'Participate in Community Decisions for local resource allocation.',
       'Build trust points through verified offline exchanges.',
     ],
   },
   journal: {
-    title: 'Community Co-Evolution Journal',
+    title: 'Community Journal',
     subtitle: 'Reflect on past exchanges, ecological stewardship, and mutual aid history.',
-    whyItMatters: 'Maintains an immutable local ledger of community collaboration, fostering long-term social cohesion and trust.',
+    whyItMatters: 'Maintains an immutable local ledger of community collaboration, fostering long-term social cohesion.',
     tips: [
       'Record post-exchange reflections and community feedback.',
-      'Track your Symbiosis Score growth over time.',
-      'Review historical trust endorsements from neighborhood peers.',
+      'Track your Community Contribution growth over time.',
+      'Review historical connections and endorsements from neighborhood peers.',
     ],
   },
   profile: {
-    title: 'Field Identity & Node Settings',
+    title: 'Field Identity & Credentials',
     subtitle: 'Manage your callsign, encryption keys, backup archives, and field modes.',
     whyItMatters: 'Your cryptographic identity signs outgoing mesh packets while encrypted backups protect your state from hardware loss.',
     tips: [
-      'Enable Glove Mode for enlarged 56dp touch targets in field conditions.',
+      'Enable Glove Mode for enlarged touch targets in field conditions.',
       'Export password-protected .hoimu-archive files for offline safety.',
-      'Pair with your local Raspberry Pi Bridge via 2-step PIN authentication.',
+      'Pair with your local Home Hub (Pi Bridge) via 2-step PIN authentication.',
+    ],
+  },
+  more: {
+    title: 'Tools & Community Hub',
+    subtitle: 'Access Mutual Aid, Community Decisions, Field Identity, and System Diagnostics.',
+    whyItMatters: 'Consolidates advanced community resilience and settings into one accessible directory.',
+    tips: [
+      'Tap Mutual Aid Exchange to browse shared local resources.',
+      'Access Community Decisions to cast offline votes on local proposals.',
+      'Open Home Hub settings to check LoRa radio power and battery status.',
+    ],
+  },
+  sos: {
+    title: 'Field Safety & Emergency Hub',
+    subtitle: 'Trigger zero-cloud emergency distress beacons and view active field alerts.',
+    whyItMatters: 'Dispatches signed distress packets across all nearby mesh nodes when cell towers and internet are unavailable.',
+    tips: [
+      'Press Trigger SOS Alert to transmit emergency coordinates.',
+      'Review active field alerts from nearby community members.',
+      'Consult the 100% offline survival manual for medical and water instructions.',
     ],
   },
 };

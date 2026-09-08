@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import {
   UserProfile,
   MeshNode,
@@ -21,11 +21,6 @@ import { Achievement } from '../services/game/achievementService';
 
 import { QuickAddResourceModal } from './QuickAddResourceModal';
 import { WishlistAlertModal } from './WishlistAlertModal';
-import { BioregionalDaoModal } from './BioregionalDaoModal';
-import { CommunityCalendarModal } from './CommunityCalendarModal';
-import { SkillExchangeModal } from './SkillExchangeModal';
-import { CommunityToolsModal } from './CommunityToolsModal';
-import { ChainOfTrustModal } from './ChainOfTrustModal';
 import { HoimuLandingPageModal } from './HoimuLandingPageModal';
 import { LocalDataBackupPromptModal } from './LocalDataBackupPromptModal';
 import { ReputationBreakdownDialog } from './ReputationBreakdownDialog';
@@ -33,14 +28,21 @@ import { PeerDetailBottomSheet } from './PeerDetailBottomSheet';
 import { ResourceDetailModal } from './ResourceDetailModal';
 import { ReflectionDialog } from './ReflectionDialog';
 import { MeshChatDrawer } from './MeshChatDrawer';
-import { SecurityKeyManagerModal } from './SecurityKeyManagerModal';
-import { NetworkDiagnosticsModal } from './NetworkDiagnosticsModal';
 import { AchievementCelebrationOverlay } from './AchievementCelebrationOverlay';
 import { OnboardingModal } from './OnboardingModal';
 import { QuickActionDial } from './QuickActionDial';
 import { CommandPaletteModal } from './CommandPaletteModal';
 import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
 import { ToastContainer } from './ToastContainer';
+
+// Lazy-loaded Modal Heavyweights
+const BioregionalDaoModal = lazy(() => import('./BioregionalDaoModal').then((m) => ({ default: m.BioregionalDaoModal })));
+const CommunityCalendarModal = lazy(() => import('./CommunityCalendarModal').then((m) => ({ default: m.CommunityCalendarModal })));
+const SkillExchangeModal = lazy(() => import('./SkillExchangeModal').then((m) => ({ default: m.SkillExchangeModal })));
+const CommunityToolsModal = lazy(() => import('./CommunityToolsModal').then((m) => ({ default: m.CommunityToolsModal })));
+const ChainOfTrustModal = lazy(() => import('./ChainOfTrustModal').then((m) => ({ default: m.ChainOfTrustModal })));
+const SecurityKeyManagerModal = lazy(() => import('./SecurityKeyManagerModal').then((m) => ({ default: m.SecurityKeyManagerModal })));
+const NetworkDiagnosticsModal = lazy(() => import('./NetworkDiagnosticsModal').then((m) => ({ default: m.NetworkDiagnosticsModal })));
 
 export interface AppModalsContainerProps {
   // Theme & Mode states
@@ -249,7 +251,7 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
   handleDismissToast,
 }) => {
   return (
-    <>
+    <Suspense fallback={null}>
       {/* 0. Quick Add Resource FAB Modal */}
       <QuickAddResourceModal
         isOpen={isQuickAddOpen}
@@ -511,6 +513,6 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
 
       {/* 10. Non-intrusive Toast Notifications */}
       <ToastContainer toasts={toasts} onDismiss={handleDismissToast} />
-    </>
+    </Suspense>
   );
 };

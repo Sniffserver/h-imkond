@@ -96,6 +96,26 @@ export const MeshContributionLeaderboard: React.FC<MeshContributionLeaderboardPr
   const totalCommunityPackets = leaderboardData.reduce((acc, curr) => acc + curr.relayedPackets, 0);
   const userRank = currentUserNode?.rank || 3;
 
+  // Opt-in privacy state for public leaderboard participation
+  const [isPublicOptIn, setIsPublicOptIn] = useState<boolean>(() => {
+    const saved = localStorage.getItem('hoimu_public_mesh_leaderboard_optin');
+    return saved === 'true'; // Default is FALSE!
+  });
+
+  const handleToggleOptIn = (optIn: boolean) => {
+    setIsPublicOptIn(optIn);
+    localStorage.setItem('hoimu_public_mesh_leaderboard_optin', String(optIn));
+    if (onAddToast) {
+      onAddToast(
+        optIn ? 'Public Registry Enabled' : 'Private Mode Active',
+        optIn
+          ? 'Your node relay stats are now visible to local mesh peers.'
+          : 'Your relay stats remain private to your local device.',
+        'info'
+      );
+    }
+  };
+
   // Handle packet relay simulation
   const handleSimulateRelay = (packetCount: number = 3, packetType: string = 'CRDT State Sync') => {
     if (isRelaying) return;
@@ -201,34 +221,64 @@ export const MeshContributionLeaderboard: React.FC<MeshContributionLeaderboardPr
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-display font-black text-lg sm:text-xl tracking-tight">
-                  Mesh Contribution Leaderboard
+                  Neighborhood Mesh Health & Collective Impact
                 </h3>
                 <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#588157]/20 text-[#588157] dark:text-[#E9C46A] border border-[#588157]/30">
-                  Zero-Cloud Verifiable
+                  Collective Progress
                 </span>
               </div>
               <p className="text-xs text-[#588157] dark:text-[#A8BDA5] mt-0.5">
-                Rewarding high-reliability nodes that route, store, and forward packets for the community.
+                Voluntary local collaboration, preparedness milestones, and community impact without status pressure.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Tier Explainer Modal / Trigger */}
+        {/* Opt-in Privacy Toggle */}
+        <div className="flex items-center gap-2 self-start sm:self-auto bg-black/5 dark:bg-white/5 px-3 py-1.5 rounded-2xl border border-[#87A878]/20 text-xs">
+          <span className="text-[#588157] dark:text-[#A8BDA5] font-semibold">Public Ranking:</span>
+          <button
+            type="button"
+            onClick={() => handleToggleOptIn(!isPublicOptIn)}
+            className={`px-2.5 py-1 rounded-xl font-bold transition-all cursor-pointer ${
+              isPublicOptIn
+                ? 'bg-[#2A9D8F] text-white shadow-xs'
+                : 'bg-black/10 dark:bg-white/10 text-[#637062] dark:text-[#A8BDA5]'
+            }`}
+          >
+            {isPublicOptIn ? 'Opted In' : 'Private Mode'}
+          </button>
+        </div>
+      </div>
+
+      {/* LOCAL COLLECTIVE GOAL CARD (2026 UX: Meaningful Progress over Vanity Points) */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#588157]/15 to-[#2A9D8F]/15 border border-[#87A878]/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="p-2.5 rounded-xl bg-[#588157] text-[#FAF6EE] shrink-0 mt-0.5">
+            <Sprout className="w-5 h-5" />
+          </div>
+          <div className="space-y-1">
+            <div className="text-[11px] font-bold text-[#588157] dark:text-[#E9C46A] uppercase tracking-wider">
+              Neighborhood Preparedness Milestone
+            </div>
+            <h4 className="font-display font-bold text-sm sm:text-base text-[#203A2A] dark:text-[#F0F5EE]">
+              Your neighborhood prepared 42 offline maps this month.
+            </h4>
+            <p className="text-xs text-[#588157] dark:text-[#A8BDA5]">
+              That could help 42 households stay oriented and communicate off-grid during an outage.
+            </p>
+          </div>
+        </div>
         <button
           type="button"
-          onClick={() => setShowTierExplainer(!showTierExplainer)}
-          className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all self-start sm:self-auto cursor-pointer ${
-            showTierExplainer
-              ? 'bg-[#2A9D8F] text-white border-[#2A9D8F]'
-              : isNightMode
-              ? 'bg-[#182315] border-[#364E30] text-[#A8BDA5] hover:border-[#87A878]'
-              : 'bg-white border-[#87A878]/30 text-[#637062] hover:bg-white'
-          }`}
-          title="Learn how reliability score & relay bonuses work"
+          onClick={() => {
+            if (onAddToast) {
+              onAddToast('Collective Goal Updated', 'Neighborhood readiness score increased by +12%', 'info');
+            }
+          }}
+          className="px-3.5 py-2 rounded-xl bg-[#588157] hover:bg-[#476a46] text-white text-xs font-bold transition-all shrink-0 cursor-pointer shadow-xs"
         >
-          <HelpCircle className="w-3.5 h-3.5 text-[#E9C46A]" />
-          <span>Reliability Rewards</span>
+          Explore Local Readiness
         </button>
       </div>
 
@@ -488,9 +538,31 @@ export const MeshContributionLeaderboard: React.FC<MeshContributionLeaderboardPr
       </div>
 
       {/* Leaderboard Entries List */}
-      <div className="space-y-2.5">
-        {filteredLeaderboard.map((node) => {
-          const isExpanded = expandedNodeId === node.id;
+      {!isPublicOptIn ? (
+        <div className="p-6 rounded-2xl border border-dashed border-[#87A878]/40 text-center space-y-3 bg-black/5 dark:bg-white/5">
+          <div className="w-10 h-10 rounded-full bg-[#588157]/15 text-[#588157] flex items-center justify-center mx-auto">
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+          <div className="space-y-1">
+            <h4 className="font-display font-bold text-sm text-[#203A2A] dark:text-[#F0F5EE]">
+              Private Mode Active (Default)
+            </h4>
+            <p className="text-xs text-[#588157] dark:text-[#A8BDA5] max-w-md mx-auto">
+              Public node ranking is disabled by default to prevent status competition and protect node privacy. Your device operates locally and securely.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleToggleOptIn(true)}
+            className="px-4 py-2 bg-[#588157] hover:bg-[#476a46] text-white text-xs font-bold rounded-xl transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-xs"
+          >
+            <span>Opt in to Public Mesh Registry</span>
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-2.5">
+          {filteredLeaderboard.map((node) => {
+            const isExpanded = expandedNodeId === node.id;
           const maxPackets = Math.max(...leaderboardData.map((d) => d.relayedPackets), 1);
           const packetPct = Math.max(8, Math.round((node.relayedPackets / maxPackets) * 100));
 
@@ -727,6 +799,7 @@ export const MeshContributionLeaderboard: React.FC<MeshContributionLeaderboardPr
           );
         })}
       </div>
+      )}
     </div>
   );
 };

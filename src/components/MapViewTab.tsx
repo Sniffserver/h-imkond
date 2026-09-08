@@ -18,12 +18,6 @@ import {
   OfflineMapRegion,
   BatteryManagerStatus,
 } from '../types';
-import { OfflineMapCanvas } from './OfflineMapCanvas';
-import { WebGlMapCanvas } from './WebGlMapCanvas';
-import { AsciiMap } from './AsciiMap';
-import { CitySelectionModal } from './CitySelectionModal';
-import { PathfinderModal } from './PathfinderModal';
-import { DownloadOfflineRegionModal } from './DownloadOfflineRegionModal';
 import { offlineMapService } from '../services/map/offlineMapService';
 import { pathfinderScanner, PathfinderActiveState } from '../services/scanner/pathfinderScanner';
 import { initPathfinderDB, getLoadedPathfinderData } from '../utils/pathfinderStorage';
@@ -36,11 +30,19 @@ import { StepProgressWidget } from './StepProgressWidget';
 import { SolarpunkAvatarCanvas } from './SolarpunkAvatarCanvas';
 import { ReputationPill } from './ReputationPill';
 import { MapLegendComponent } from './MapLegendComponent';
-import { D3HeatmapLegend } from './D3HeatmapLegend';
 import { HeatmapMode } from '../utils/d3BioregionalHeatmap';
-import { MeshActivityHubsD3 } from './MeshActivityHubsD3';
 import { NearbyResourcesOverlay } from './NearbyResourcesOverlay';
 import { DynamicScaleRuler } from './DynamicScaleRuler';
+
+// Lazy-loaded Map Renderers & Modals
+const OfflineMapCanvas = React.lazy(() => import('./OfflineMapCanvas').then((m) => ({ default: m.OfflineMapCanvas })));
+const WebGlMapCanvas = React.lazy(() => import('./WebGlMapCanvas').then((m) => ({ default: m.WebGlMapCanvas })));
+const AsciiMap = React.lazy(() => import('./AsciiMap').then((m) => ({ default: m.AsciiMap })));
+const CitySelectionModal = React.lazy(() => import('./CitySelectionModal').then((m) => ({ default: m.CitySelectionModal })));
+const PathfinderModal = React.lazy(() => import('./PathfinderModal').then((m) => ({ default: m.PathfinderModal })));
+const DownloadOfflineRegionModal = React.lazy(() => import('./DownloadOfflineRegionModal').then((m) => ({ default: m.DownloadOfflineRegionModal })));
+const D3HeatmapLegend = React.lazy(() => import('./D3HeatmapLegend').then((m) => ({ default: m.D3HeatmapLegend })));
+const MeshActivityHubsD3 = React.lazy(() => import('./MeshActivityHubsD3').then((m) => ({ default: m.MeshActivityHubsD3 })));
 import {
   calculatePolygonArea,
   calculatePerimeterLength,
@@ -1835,7 +1837,8 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
   }, [resources, visibleCategories]);
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-150">
+    <React.Suspense fallback={<div className="min-h-[400px] flex items-center justify-center font-mono text-xs text-[#588157]">Loading Map Layers...</div>}>
+      <div className="space-y-6 animate-in fade-in duration-150">
       {/* Top Banner Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
@@ -4438,6 +4441,7 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
         }}
       />
     </div>
+    </React.Suspense>
   );
 });
 

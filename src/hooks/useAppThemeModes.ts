@@ -42,15 +42,21 @@ export function useAppThemeModes({ addToast }: UseAppThemeModesProps) {
 
   // Listen to system color scheme changes if user hasn't explicitly overridden theme
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleSystemThemeChange = (e: MediaQueryListEvent) => {
-      if (localStorage.getItem('hoimu_night_mode') === null) {
-        setIsNightMode(e.matches);
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    try {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const handleSystemThemeChange = (e: MediaQueryListEvent) => {
+        if (localStorage.getItem('hoimu_night_mode') === null) {
+          setIsNightMode(e.matches);
+        }
+      };
+      if (mediaQuery.addEventListener) {
+        mediaQuery.addEventListener('change', handleSystemThemeChange);
+        return () => mediaQuery.removeEventListener('change', handleSystemThemeChange);
       }
-    };
-    mediaQuery.addEventListener('change', handleSystemThemeChange);
-    return () => mediaQuery.removeEventListener('change', handleSystemThemeChange);
+    } catch {
+      // Safely ignore environments without matchMedia support
+    }
   }, []);
 
   // Sync Night Mode & Dark Class on document root

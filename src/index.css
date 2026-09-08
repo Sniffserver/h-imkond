@@ -252,4 +252,20 @@ body.direct-sun .bg-\[\#87A878\] {
   color: #ffffff !important;
 }
 
+/* Reduced Motion Accessibility Override */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Minimum Accessible Touch Target helper */
+.touch-target-min {
+  min-width: 44px;
+  min-height: 44px;
+}
+
 

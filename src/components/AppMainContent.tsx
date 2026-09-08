@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import {
   UserProfile,
   MeshNode,
@@ -19,12 +19,17 @@ import { QuickStartGuide } from './QuickStartGuide';
 import { CrisisModeBar } from './CrisisModeBar';
 import { FeatureOnboarding } from './FeatureOnboarding';
 import { StartHereDashboard } from './StartHereDashboard';
+import { MoreHubView } from './MoreHubView';
+import { SafetyView } from './SafetyView';
 import { MeshTab } from './MeshTab';
-import { MapViewTab } from './MapViewTab';
 import { PathfinderTab } from './PathfinderTab';
 import { ExchangeTab } from './ExchangeTab';
 import { JournalTab } from './JournalTab';
 import { ProfileTab } from './ProfileTab';
+import { Cpu } from 'lucide-react';
+
+// Lazy-load heavy Map Engine
+const MapScreen = lazy(() => import('../features/map/MapScreen'));
 
 export interface AppMainContentProps {
   activeTab: NavTab;
@@ -198,20 +203,29 @@ export const AppMainContent: React.FC<AppMainContentProps> = ({
               <QuickTip id="map-tip" message="Switch between layers, walk to uncover areas, or long-press to drop a custom survival marker." />
             </div>
           </div>
-          <MapViewTab
-            peers={peers}
-            resources={resources}
-            user={user}
-            onUpdateUser={onUpdateUser}
-            onAddToast={addToast}
-            isNightMode={isNightMode}
-            filterOnlyNew={filterOnlyNewMap}
-            onViewResourceDetails={onSelectResourceForDetail}
-            onSelectPeer={onSelectPeerForDetail}
-            onOpenChatWithPeer={onOpenChatWithPeer}
-            onOpenReputation={onSelectPeerForReputation}
-            batteryStatus={batteryStatus}
-          />
+          <Suspense
+            fallback={
+              <div className="flex-1 min-h-[400px] flex flex-col items-center justify-center bg-[#FAF6EE] dark:bg-[#182315] text-[#588157] font-mono text-xs gap-3 p-6 rounded-3xl border border-[#87A878]/30">
+                <Cpu className="w-8 h-8 animate-pulse text-[#588157]" />
+                <span>Loading Map Engine & Vector Layers...</span>
+              </div>
+            }
+          >
+            <MapScreen
+              peers={peers}
+              resources={resources}
+              user={user}
+              onUpdateUser={onUpdateUser}
+              onAddToast={addToast}
+              isNightMode={isNightMode}
+              filterOnlyNew={filterOnlyNewMap}
+              onViewResourceDetails={onSelectResourceForDetail}
+              onSelectPeer={onSelectPeerForDetail}
+              onOpenChatWithPeer={onOpenChatWithPeer}
+              onOpenReputation={onSelectPeerForReputation}
+              batteryStatus={batteryStatus}
+            />
+          </Suspense>
         </div>
       )}
 
@@ -289,6 +303,30 @@ export const AppMainContent: React.FC<AppMainContentProps> = ({
           onOpenDaoModal={onOpenDaoModal}
           onOpenLandingPage={onOpenLandingPage}
           onAddToast={addToast}
+        />
+      )}
+
+      {activeTab === 'more' && (
+        <MoreHubView
+          onNavigateTab={setActiveTab}
+          onOpenDaoModal={onOpenDaoModal}
+          onOpenDiagnostics={onOpenDiagnostics}
+          onOpenManual={onOpenManual}
+          user={user}
+          isNightMode={isNightMode}
+        />
+      )}
+
+      {activeTab === 'sos' && (
+        <SafetyView
+          isCrisisMode={isCrisisMode}
+          onToggleCrisisMode={onToggleCrisisMode}
+          crisisAlerts={crisisAlerts}
+          onBroadcastAlert={onBroadcastAlert}
+          onResolveAlert={onResolveAlert}
+          onOpenDiagnostics={onOpenDiagnostics}
+          onOpenManual={onOpenManual}
+          isNightMode={isNightMode}
         />
       )}
     </main>
