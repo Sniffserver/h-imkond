@@ -86,4 +86,72 @@ describe('calculateMeshHealthScore', () => {
     expect(metrics.rssiScore).toBeLessThan(30);
     expect(metrics.recommendation).toContain('signal strength is low');
   });
+
+  it('computes accurate node density and hop distribution metrics', () => {
+    const clusterPeers: MeshNode[] = [
+      {
+        id: 'p1',
+        callsign: 'Node Alpha',
+        bio: 'Alpha',
+        skills: ['Solar'],
+        lastRssi: -55,
+        hopDistance: 1,
+        isDirect: true,
+        connectionState: 'direct',
+        lastSeen: new Date().toISOString(),
+        trustScore: 90,
+        completedExchanges: 5,
+        relayReliability: 95,
+        avatarSeed: 'p1',
+        recentInteractions: [1],
+        angle: 10,
+        distanceRatio: 0.2,
+      },
+      {
+        id: 'p2',
+        callsign: 'Node Beta',
+        bio: 'Beta',
+        skills: ['Radio'],
+        lastRssi: -65,
+        hopDistance: 1,
+        isDirect: true,
+        connectionState: 'direct',
+        lastSeen: new Date().toISOString(),
+        trustScore: 85,
+        completedExchanges: 3,
+        relayReliability: 90,
+        avatarSeed: 'p2',
+        recentInteractions: [1],
+        angle: 45,
+        distanceRatio: 0.3,
+      },
+      {
+        id: 'p3',
+        callsign: 'Node Gamma',
+        bio: 'Gamma',
+        skills: ['Tools'],
+        lastRssi: -88,
+        hopDistance: 2,
+        isDirect: false,
+        connectionState: 'relayed',
+        lastSeen: new Date().toISOString(),
+        trustScore: 70,
+        completedExchanges: 2,
+        relayReliability: 85,
+        avatarSeed: 'p3',
+        recentInteractions: [1],
+        angle: 180,
+        distanceRatio: 0.8,
+      },
+    ];
+
+    const metrics = calculateMeshHealthScore(clusterPeers);
+    expect(metrics.totalPeersCount).toBe(3);
+    expect(metrics.immediateBleNodesCount).toBe(2); // -55 dBm and -65 dBm are >= -70 dBm
+    expect(metrics.nodesPerHopBreakdown.immediate).toBe(2);
+    expect(metrics.nodesPerHopBreakdown.direct).toBe(2);
+    expect(metrics.nodesPerHopBreakdown.relayed).toBe(1);
+    expect(metrics.nodesPerHopBreakdown.fringe).toBe(1); // -88 dBm is <= -85 dBm
+    expect(metrics.nodeDensityScore).toBeGreaterThan(50);
+  });
 });

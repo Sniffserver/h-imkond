@@ -44,6 +44,9 @@ export function OfflineTransitionIndicator({
   }, [connectionState]);
 
   const handleRetry = async () => {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try { navigator.vibrate(10); } catch {}
+    }
     setIsRetrying(true);
     if (onReconnect) {
       onReconnect();

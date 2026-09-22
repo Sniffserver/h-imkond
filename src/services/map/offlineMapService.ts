@@ -1,66 +1,27 @@
 import { OfflineMapRegion, MeshNode, ResourceItem, CityMapData } from '../../types';
+import { unifiedTileCache } from '../../features/map/UnifiedTileCache';
 
 const STORAGE_KEY = 'hoimu_offline_regions_v1';
 
 export const offlineMapService = {
   getDownloadedRegions(): OfflineMapRegion[] {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
-      }
-    } catch (e) {
-      console.error('Failed to load offline regions:', e);
-    }
-    return [];
+    return unifiedTileCache.getDownloadedRegions();
   },
 
   saveRegion(region: OfflineMapRegion): OfflineMapRegion[] {
-    const existing = this.getDownloadedRegions();
-    const updated = [region, ...existing.filter((r) => r.id !== region.id)];
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch (e) {
-      console.warn('LocalStorage limit reached for offline region, pruning oldest...', e);
-      if (updated.length > 1) {
-        updated.pop();
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      }
-    }
-    return updated;
+    return unifiedTileCache.saveRegion(region);
   },
 
   deleteRegion(regionId: string): OfflineMapRegion[] {
-    const existing = this.getDownloadedRegions();
-    const updated = existing.filter((r) => r.id !== regionId);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch (e) {
-      console.error('Failed to delete offline region:', e);
-    }
-    return updated;
+    return unifiedTileCache.deleteRegion(regionId);
   },
 
   getStorageUsage(): { usedBytes: number; formatted: string; count: number } {
-    const regions = this.getDownloadedRegions();
-    const totalBytes = regions.reduce((acc, r) => acc + (r.sizeBytes || 0), 0);
-    const formatted = totalBytes > 1024 * 1024
-      ? `${(totalBytes / (1024 * 1024)).toFixed(2)} MB`
-      : `${(totalBytes / 1024).toFixed(1)} KB`;
-    return {
-      usedBytes: totalBytes,
-      formatted,
-      count: regions.length,
-    };
+    return unifiedTileCache.getStorageUsage();
   },
 
   clearAllOfflineData(): void {
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch (e) {
-      console.error('Failed to clear offline regions:', e);
-    }
+    unifiedTileCache.clearAll().catch((e) => console.error('Failed to clear offline data:', e));
   },
 
   isCityDownloaded(cityName: string): boolean {

@@ -34,15 +34,16 @@ import { QuickActionDial } from './QuickActionDial';
 import { CommandPaletteModal } from './CommandPaletteModal';
 import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
 import { ToastContainer } from './ToastContainer';
+import { lazyWithRetry } from '../utils/lazyWithRetry';
 
-// Lazy-loaded Modal Heavyweights
-const BioregionalDaoModal = lazy(() => import('./BioregionalDaoModal').then((m) => ({ default: m.BioregionalDaoModal })));
-const CommunityCalendarModal = lazy(() => import('./CommunityCalendarModal').then((m) => ({ default: m.CommunityCalendarModal })));
-const SkillExchangeModal = lazy(() => import('./SkillExchangeModal').then((m) => ({ default: m.SkillExchangeModal })));
-const CommunityToolsModal = lazy(() => import('./CommunityToolsModal').then((m) => ({ default: m.CommunityToolsModal })));
-const ChainOfTrustModal = lazy(() => import('./ChainOfTrustModal').then((m) => ({ default: m.ChainOfTrustModal })));
-const SecurityKeyManagerModal = lazy(() => import('./SecurityKeyManagerModal').then((m) => ({ default: m.SecurityKeyManagerModal })));
-const NetworkDiagnosticsModal = lazy(() => import('./NetworkDiagnosticsModal').then((m) => ({ default: m.NetworkDiagnosticsModal })));
+// Lazy-loaded Modal Heavyweights with resilient automatic retry
+const BioregionalDaoModal = lazyWithRetry(() => import('./BioregionalDaoModal').then((m) => ({ default: m.BioregionalDaoModal })));
+const CommunityCalendarModal = lazyWithRetry(() => import('./CommunityCalendarModal').then((m) => ({ default: m.CommunityCalendarModal })));
+const SkillExchangeModal = lazyWithRetry(() => import('./SkillExchangeModal').then((m) => ({ default: m.SkillExchangeModal })));
+const CommunityToolsModal = lazyWithRetry(() => import('./CommunityToolsModal').then((m) => ({ default: m.CommunityToolsModal })));
+const ChainOfTrustModal = lazyWithRetry(() => import('./ChainOfTrustModal').then((m) => ({ default: m.ChainOfTrustModal })));
+const SecurityKeyManagerModal = lazyWithRetry(() => import('./SecurityKeyManagerModal').then((m) => ({ default: m.SecurityKeyManagerModal })));
+const NetworkDiagnosticsModal = lazyWithRetry(() => import('./NetworkDiagnosticsModal').then((m) => ({ default: m.NetworkDiagnosticsModal })));
 
 export interface AppModalsContainerProps {
   // Theme & Mode states
@@ -130,7 +131,15 @@ export interface AppModalsContainerProps {
   handleAddCalendarEvent: (event: any) => void;
   handleToggleRsvp: (eventId: string) => void;
   handleAddSkill: (skill: any) => void;
-  handleRequestSkillSession: (skill: any) => void;
+  handleRequestSkillSession: (skill: any, details?: any) => void;
+  handleEndorseSkillTrade?: (
+    skillId: string,
+    recipientCallsign: string,
+    comment: string,
+    rating?: number,
+    transactionId?: string,
+    tags?: string[]
+  ) => void;
   handleEndorseTransaction: (transactionId: string, comment: string) => void;
   handleExportLocalDataJSON: () => void;
   handleOpenChatWithPeer: (peer: MeshNode) => void;
@@ -233,6 +242,7 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
   handleToggleRsvp,
   handleAddSkill,
   handleRequestSkillSession,
+  handleEndorseSkillTrade,
   handleEndorseTransaction,
   handleExportLocalDataJSON,
   handleOpenChatWithPeer,
@@ -273,77 +283,99 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
       />
 
       {/* 2. Bioregional Solarpunk DAO Governance Modal */}
-      <BioregionalDaoModal
-        isOpen={isDaoModalOpen}
-        onClose={() => setIsDaoModalOpen(false)}
-        user={user}
-        proposals={daoProposals}
-        onVoteProposal={handleVoteProposal}
-        onCreateProposal={handleCreateProposal}
-        isNightMode={isNightMode}
-      />
+      {isDaoModalOpen && (
+        <BioregionalDaoModal
+          isOpen={isDaoModalOpen}
+          onClose={() => setIsDaoModalOpen(false)}
+          user={user}
+          proposals={daoProposals}
+          onVoteProposal={handleVoteProposal}
+          onCreateProposal={handleCreateProposal}
+          isNightMode={isNightMode}
+        />
+      )}
 
       {/* 3. Community Calendar Modal */}
-      <CommunityCalendarModal
-        isOpen={isCalendarOpen}
-        onClose={() => setIsCalendarOpen(false)}
-        events={calendarEvents}
-        onAddEvent={handleAddCalendarEvent}
-        onToggleRsvp={handleToggleRsvp}
-        isNightMode={isNightMode}
-        userCallsign={user.callsign}
-      />
+      {isCalendarOpen && (
+        <CommunityCalendarModal
+          isOpen={isCalendarOpen}
+          onClose={() => setIsCalendarOpen(false)}
+          events={calendarEvents}
+          onAddEvent={handleAddCalendarEvent}
+          onToggleRsvp={handleToggleRsvp}
+          isNightMode={isNightMode}
+          userCallsign={user.callsign}
+        />
+      )}
 
       {/* 4. Skill Exchange Modal */}
-      <SkillExchangeModal
-        isOpen={isSkillsOpen}
-        onClose={() => setIsSkillsOpen(false)}
-        skills={skills}
-        onAddSkill={handleAddSkill}
-        onRequestSkillSession={handleRequestSkillSession}
-        isNightMode={isNightMode}
-        userCallsign={user.callsign}
-      />
+      {isSkillsOpen && (
+        <SkillExchangeModal
+          isOpen={isSkillsOpen}
+          onClose={() => setIsSkillsOpen(false)}
+          skills={skills}
+          endorsements={endorsements}
+          transactions={transactions}
+          onAddSkill={handleAddSkill}
+          onRequestSkillSession={handleRequestSkillSession}
+          onEndorseSkillTrade={handleEndorseSkillTrade}
+          onOpenChatWithPeer={(callsign) => {
+            const peer = peers.find((p) => p.callsign === callsign);
+            if (peer) {
+              handleOpenChatWithPeer(peer);
+            }
+          }}
+          isNightMode={isNightMode}
+          userCallsign={user.callsign}
+        />
+      )}
 
       {/* Unified Solarpunk Community Hub & Tools Directory */}
-      <CommunityToolsModal
-        isOpen={isToolsModalOpen}
-        onClose={() => setIsToolsModalOpen(false)}
-        onOpenCalendar={() => setIsCalendarOpen(true)}
-        onOpenSkills={() => setIsSkillsOpen(true)}
-        onOpenTrust={() => setIsTrustOpen(true)}
-        onOpenManual={() => setIsManualOpen(true)}
-        onOpenLandingPage={() => setIsLandingPageView(true)}
-        onOpenSecurityKeys={() => setIsSecurityKeysOpen(true)}
-        onOpenDiagnostics={() => setIsDiagnosticsOpen(true)}
-        onOpenDaoModal={() => setIsDaoModalOpen(true)}
-        onOpenPiBridge={() => {
-          onSelectTab('profile');
-          setTimeout(() => {
-            document.getElementById('pi-bridge-panel')?.scrollIntoView({ behavior: 'smooth' });
-          }, 150);
-        }}
-        onOpenShortcuts={() => setIsShortcutsOpen(true)}
-        onOpenQuickGuide={() => {
-          setIsToolsModalOpen(false);
-          document.getElementById('solarpunk-quick-start-guide')?.scrollIntoView({ behavior: 'smooth' });
-        }}
-        onToggleCrisisMode={onToggleCrisisMode}
-        isNightMode={isNightMode}
-        isCrisisMode={isCrisisMode}
-      />
+      {isToolsModalOpen && (
+        <CommunityToolsModal
+          isOpen={isToolsModalOpen}
+          onClose={() => setIsToolsModalOpen(false)}
+          onOpenCalendar={() => setIsCalendarOpen(true)}
+          onOpenSkills={() => setIsSkillsOpen(true)}
+          onOpenTrust={() => setIsTrustOpen(true)}
+          onOpenManual={() => setIsManualOpen(true)}
+          onOpenLandingPage={() => setIsLandingPageView(true)}
+          onOpenSecurityKeys={() => setIsSecurityKeysOpen(true)}
+          onOpenDiagnostics={() => setIsDiagnosticsOpen(true)}
+          onOpenDaoModal={() => setIsDaoModalOpen(true)}
+          onOpenPiBridge={() => {
+            onSelectTab('profile');
+            setTimeout(() => {
+              document.getElementById('pi-bridge-panel')?.scrollIntoView({ behavior: 'smooth' });
+            }, 150);
+          }}
+          onOpenShortcuts={() => setIsShortcutsOpen(true)}
+          onOpenQuickGuide={() => {
+            setIsToolsModalOpen(false);
+            document.getElementById('solarpunk-quick-start-guide')?.scrollIntoView({ behavior: 'smooth' });
+          }}
+          onToggleCrisisMode={onToggleCrisisMode}
+          isNightMode={isNightMode}
+          isCrisisMode={isCrisisMode}
+          peers={peers}
+          batteryStatus={batteryStatus}
+          onToggleSolarAware={onToggleSolarAware}
+        />
+      )}
 
       {/* 5. Chain of Trust Endorsement Modal */}
-      <ChainOfTrustModal
-        isOpen={isTrustOpen}
-        onClose={() => setIsTrustOpen(false)}
-        transactions={transactions}
-        endorsements={endorsements}
-        user={user}
-        peers={peers}
-        onEndorseTransaction={handleEndorseTransaction}
-        isNightMode={isNightMode}
-      />
+      {isTrustOpen && (
+        <ChainOfTrustModal
+          isOpen={isTrustOpen}
+          onClose={() => setIsTrustOpen(false)}
+          transactions={transactions}
+          endorsements={endorsements}
+          user={user}
+          peers={peers}
+          onEndorseTransaction={handleEndorseTransaction}
+          isNightMode={isNightMode}
+        />
+      )}
 
       {/* 6. HÕIMU Field Manual & Self-Hosting Guide */}
       <HoimuLandingPageModal
@@ -365,12 +397,14 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
       <ReputationBreakdownDialog
         peer={selectedPeerForReputation}
         onClose={() => setSelectedPeerForReputation(null)}
+        isNightMode={isNightMode}
       />
 
       {/* 2. Peer Detail Bottom Sheet */}
       <PeerDetailBottomSheet
         peer={selectedPeerForDetail}
         onClose={() => setSelectedPeerForDetail(null)}
+        isNightMode={isNightMode}
         onOpenReputation={(peer) => {
           setSelectedPeerForDetail(null);
           setSelectedPeerForReputation(peer);
@@ -424,23 +458,27 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
       />
 
       {/* 6. Security Key Manager Modal */}
-      <SecurityKeyManagerModal
-        isOpen={isSecurityKeysOpen}
-        onClose={() => setIsSecurityKeysOpen(false)}
-        cryptoIdentity={cryptoIdentity}
-        onImportIdentity={handleImportIdentity}
-        isNightMode={isNightMode}
-      />
+      {isSecurityKeysOpen && (
+        <SecurityKeyManagerModal
+          isOpen={isSecurityKeysOpen}
+          onClose={() => setIsSecurityKeysOpen(false)}
+          cryptoIdentity={cryptoIdentity}
+          onImportIdentity={handleImportIdentity}
+          isNightMode={isNightMode}
+        />
+      )}
 
       {/* 7. Detailed Network Diagnostics & RF Telemetry Modal */}
-      <NetworkDiagnosticsModal
-        isOpen={isDiagnosticsOpen}
-        onClose={() => setIsDiagnosticsOpen(false)}
-        peers={peers}
-        batteryStatus={batteryStatus}
-        userCallsign={user.callsign}
-        isNightMode={isNightMode}
-      />
+      {isDiagnosticsOpen && (
+        <NetworkDiagnosticsModal
+          isOpen={isDiagnosticsOpen}
+          onClose={() => setIsDiagnosticsOpen(false)}
+          peers={peers}
+          batteryStatus={batteryStatus}
+          userCallsign={user.callsign}
+          isNightMode={isNightMode}
+        />
+      )}
 
       {/* 8. Elegant Achievement Celebration Overlay */}
       <AchievementCelebrationOverlay

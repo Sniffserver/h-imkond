@@ -3,6 +3,7 @@ import { ResourceItem, Transaction, MeshNode } from '../types';
 import { SolarpunkAvatarCanvas } from './SolarpunkAvatarCanvas';
 import { ReputationPill, getReputationTier } from './ReputationPill';
 import { CATEGORY_STYLES } from './CategoryFilterChips';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import {
   X,
   MapPin,
@@ -40,6 +41,11 @@ export const ResourceDetailModal: React.FC<ResourceDetailModalProps> = ({
   const [showRequestConfirm, setShowRequestConfirm] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const modalRef = useFocusTrap({
+    isOpen: Boolean(resource),
+    onClose,
+    modalName: resource ? `Resource details for ${resource.title}` : 'Resource Details',
+  });
 
   React.useEffect(() => {
     if (showQr && canvasRef.current && resource) {
@@ -95,6 +101,10 @@ export const ResourceDetailModal: React.FC<ResourceDetailModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
       <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="resource-detail-title"
         id="resource-detail-modal"
         className="w-full max-w-lg bg-[#FAF6EE] rounded-t-3xl sm:rounded-3xl border border-[#87A878]/35 shadow-2xl p-5 sm:p-6 overflow-hidden animate-in slide-in-from-bottom-6 duration-200 space-y-4 max-h-[90vh] overflow-y-auto"
       >
@@ -108,7 +118,7 @@ export const ResourceDetailModal: React.FC<ResourceDetailModalProps> = ({
               >
                 {resource.category}
               </span>
-              <h3 className="font-display font-bold text-lg text-[#203A2A] mt-1 leading-snug truncate">
+              <h3 id="resource-detail-title" className="font-display font-bold text-lg text-[#203A2A] mt-1 leading-snug truncate">
                 {resource.title}
               </h3>
             </div>
@@ -117,7 +127,8 @@ export const ResourceDetailModal: React.FC<ResourceDetailModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full text-[#637062] hover:bg-[#E6EDE1] transition-colors shrink-0"
+            aria-label="Close resource details"
+            className="p-1.5 rounded-full text-[#637062] hover:bg-[#E6EDE1] transition-colors shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
             <X className="w-5 h-5" />
           </button>

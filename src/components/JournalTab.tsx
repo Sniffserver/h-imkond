@@ -2,8 +2,24 @@ import React, { useState, useMemo } from 'react';
 import { JournalEntry, SentimentType, MeshNode } from '../types';
 import { SolarpunkAvatarCanvas } from './SolarpunkAvatarCanvas';
 import { SymbiosisWeeklyTrendChart } from './SymbiosisWeeklyTrendChart';
-import { BookOpen, Sprout, Heart, Sparkles, TrendingUp, Filter, Calendar, Search, X, Zap } from 'lucide-react';
+import {
+  BookOpen,
+  Sprout,
+  Heart,
+  Sparkles,
+  TrendingUp,
+  Filter,
+  Calendar,
+  Search,
+  X,
+  Zap,
+  Download,
+  ShieldCheck,
+  FileSpreadsheet,
+} from 'lucide-react';
 import { LightweightSearchIndex, SearchMatchResult } from '../utils/offlineSearchIndex';
+import { EmptyState } from './EmptyState';
+import { exportSignedCommunityHistoryCsv, downloadFile } from '../services/utils/exportService';
 
 interface JournalTabProps {
   journal: JournalEntry[];
@@ -11,6 +27,7 @@ interface JournalTabProps {
   userSymbiosisScore: number;
   completedExchangesCount: number;
   isNightMode?: boolean;
+  onAddToast?: (title: string, desc?: string, type?: 'success' | 'warning' | 'info') => void;
 }
 
 export const JournalTab: React.FC<JournalTabProps> = ({
@@ -19,9 +36,29 @@ export const JournalTab: React.FC<JournalTabProps> = ({
   userSymbiosisScore,
   completedExchangesCount,
   isNightMode = false,
+  onAddToast,
 }) => {
   const [sentimentFilter, setSentimentFilter] = useState<'all' | SentimentType>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportSignedHistory = async () => {
+    try {
+      setIsExporting(true);
+      const { signedCsvContent, filename, transactionCount, journalCount, sha256Digest } =
+        await exportSignedCommunityHistoryCsv(undefined, journal);
+      downloadFile(signedCsvContent, filename, 'text/csv');
+      onAddToast?.(
+        '📜 Signed Community History Exported',
+        `Archived ${journalCount} reflections and ${transactionCount} transactions with Ed25519 signature & SHA-256 (${sha256Digest.slice(0, 8)}...).`,
+        'success'
+      );
+    } catch (err: any) {
+      onAddToast?.('Export Failed', err.message || 'Could not export signed CSV archive.', 'warning');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // Build lightweight in-memory full-text search index
   const searchIndex = useMemo(() => {
@@ -193,82 +230,95 @@ export const JournalTab: React.FC<JournalTabProps> = ({
         )}
       </div>
 
-      {/* Sentiment Filter Tabs */}
-      <div className="flex items-center justify-center gap-2 pt-1">
-        <button
-          type="button"
-          onClick={() => setSentimentFilter('all')}
-          className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
-            sentimentFilter === 'all'
-              ? 'bg-[#203A2A] text-white border-[#203A2A] shadow-xs'
-              : 'bg-white text-[#637062] border-[#87A878]/30 hover:border-[#87A878]'
-          }`}
-        >
-          All ({sentimentCounts.all})
-        </button>
+      {/* Sentiment Filter Tabs & Export Action */}
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSentimentFilter('all')}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+              sentimentFilter === 'all'
+                ? 'bg-[#203A2A] text-white border-[#203A2A] shadow-xs'
+                : 'bg-white text-[#637062] border-[#87A878]/30 hover:border-[#87A878]'
+            }`}
+          >
+            All ({sentimentCounts.all})
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setSentimentFilter('positive')}
-          className={`flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
-            sentimentFilter === 'positive'
-              ? 'bg-[#588157] text-white border-[#588157] shadow-xs'
-              : 'bg-[#F2F6F0] text-[#344E2C] border-[#87A878]/30 hover:border-[#87A878]'
-          }`}
-        >
-          <Heart className="w-3 h-3" />
-          Positive ({sentimentCounts.positive})
-        </button>
+          <button
+            type="button"
+            onClick={() => setSentimentFilter('positive')}
+            className={`flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+              sentimentFilter === 'positive'
+                ? 'bg-[#588157] text-white border-[#588157] shadow-xs'
+                : 'bg-[#F2F6F0] text-[#344E2C] border-[#87A878]/30 hover:border-[#87A878]'
+            }`}
+          >
+            <Heart className="w-3 h-3" />
+            Positive ({sentimentCounts.positive})
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setSentimentFilter('growth')}
-          className={`flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
-            sentimentFilter === 'growth'
-              ? 'bg-[#E9C46A] text-[#243128] border-[#E9C46A] shadow-xs'
-              : 'bg-[#FDF8EB] text-[#8C6207] border-[#E9C46A]/40 hover:border-[#E9C46A]'
-          }`}
-        >
-          <TrendingUp className="w-3 h-3" />
-          Growth ({sentimentCounts.growth})
-        </button>
+          <button
+            type="button"
+            onClick={() => setSentimentFilter('growth')}
+            className={`flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+              sentimentFilter === 'growth'
+                ? 'bg-[#E9C46A] text-[#243128] border-[#E9C46A] shadow-xs'
+                : 'bg-[#FDF8EB] text-[#8C6207] border-[#E9C46A]/40 hover:border-[#E9C46A]'
+            }`}
+          >
+            <TrendingUp className="w-3 h-3" />
+            Growth ({sentimentCounts.growth})
+          </button>
 
+          <button
+            type="button"
+            onClick={() => setSentimentFilter('neutral')}
+            className={`flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+              sentimentFilter === 'neutral'
+                ? 'bg-[#2A9D8F] text-white border-[#2A9D8F] shadow-xs'
+                : 'bg-[#EBF7F5] text-[#165B53] border-[#2A9D8F]/30 hover:border-[#2A9D8F]'
+            }`}
+          >
+            <Sparkles className="w-3 h-3" />
+            Neutral ({sentimentCounts.neutral})
+          </button>
+        </div>
+
+        {/* Quick Export Signed CSV Archive Button */}
         <button
           type="button"
-          onClick={() => setSentimentFilter('neutral')}
-          className={`flex items-center gap-1 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
-            sentimentFilter === 'neutral'
-              ? 'bg-[#2A9D8F] text-white border-[#2A9D8F] shadow-xs'
-              : 'bg-[#EBF7F5] text-[#165B53] border-[#2A9D8F]/30 hover:border-[#2A9D8F]'
-          }`}
+          id="journal-export-signed-csv-btn"
+          onClick={handleExportSignedHistory}
+          disabled={isExporting}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-[#588157]/10 hover:bg-[#588157]/20 text-[#203A2A] dark:text-[#F0F5EE] border border-[#588157]/30 transition-all active:scale-95 cursor-pointer"
+          title="Export community interactions as cryptographically signed CSV for archival"
         >
-          <Sparkles className="w-3 h-3" />
-          Neutral ({sentimentCounts.neutral})
+          <ShieldCheck className="w-3.5 h-3.5 text-[#2A9D8F]" />
+          <span>{isExporting ? 'Signing...' : 'Export Signed CSV'}</span>
         </button>
       </div>
 
       {/* Timeline Entries */}
       {filteredEntries.length === 0 ? (
-        <div className="bg-[#F0F5EE] rounded-3xl border border-[#87A878]/30 p-10 text-center space-y-2">
-          <BookOpen className="w-8 h-8 text-[#87A878] mx-auto opacity-70" />
-          <h3 className="font-display font-bold text-sm text-[#203A2A]">
-            {searchQuery ? 'No reflections matched your search' : 'No reflections recorded for this filter'}
-          </h3>
-          <p className="text-xs text-[#637062]">
-            {searchQuery
+        <EmptyState
+          icon={<BookOpen />}
+          title={searchQuery ? 'No reflections matched your search' : 'No reflections recorded for this filter'}
+          message={
+            searchQuery
               ? 'Try using different keywords or clearing the search query.'
-              : 'Complete mutual aid exchanges in the Exchange tab to grow your journal.'}
-          </p>
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="mt-2 px-3 py-1.5 bg-[#203A2A] text-white text-xs font-semibold rounded-xl cursor-pointer"
-            >
-              Clear Search Query
-            </button>
-          )}
-        </div>
+              : 'Complete mutual aid exchanges in the Exchange tab to grow your journal.'
+          }
+          primaryAction={
+            searchQuery
+              ? {
+                  label: 'Clear Search Query',
+                  onClick: () => setSearchQuery(''),
+                }
+              : undefined
+          }
+          isNightMode={isNightMode}
+        />
       ) : (
         <div className="space-y-4 relative before:absolute before:inset-0 before:left-5 before:w-0.5 before:bg-[#87A878]/30">
           {filteredEntries.map((entry) => {

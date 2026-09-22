@@ -1,6 +1,7 @@
 import { MeshMessage } from '../../types';
 import { INITIAL_USER } from '../../data/initialData';
 import { saveIncomingMessage } from '../comms/messageService';
+import { useMeshStore } from '../../store/meshStore';
 
 export interface MeshSyncPayload {
   senderId: string;
@@ -22,8 +23,37 @@ const seenMessageIds = new Set<string>();
 // Outbox of messages awaiting sync/relay
 let outboxQueue: MeshMessage[] = [];
 
-let syncChannel: BroadcastChannel | null = null;
 let isInitialized = false;
+let syncChannel: BroadcastChannel | null = null;
+let periodicSyncIntervalMs = 8000;
+let periodicSyncTimerId: any = null;
+
+function restartPeriodicSyncTimer() {
+  if (typeof window === 'undefined') return;
+  if (periodicSyncTimerId) {
+    clearInterval(periodicSyncTimerId);
+    periodicSyncTimerId = null;
+  }
+  periodicSyncTimerId = window.setInterval(() => {
+    if (outboxQueue.length > 0) {
+      triggerMeshSync();
+    }
+  }, periodicSyncIntervalMs);
+}
+
+/**
+ * Dynamically adjust the background mesh sync interval (e.g. throttled for low battery <15%)
+ */
+export function setMeshSyncInterval(intervalMs: number): void {
+  periodicSyncIntervalMs = Math.max(1000, intervalMs);
+  if (isInitialized) {
+    restartPeriodicSyncTimer();
+  }
+}
+
+export function getMeshSyncInterval(): number {
+  return periodicSyncIntervalMs;
+}
 
 const syncListeners: Set<(stats: { lastSyncAt: number; queueLength: number }) => void> = new Set();
 let lastSyncTimestamp = Date.now();
@@ -50,6 +80,19 @@ async function handleIncomingSyncPayload(payload: MeshSyncPayload) {
   if (payload.senderId === INITIAL_USER.id) return;
 
   lastSyncTimestamp = Date.now();
+
+  // Trigger ripple animation across UI mesh nodes indicating successful data propagation
+  try {
+    useMeshStore.getState().triggerSyncPulse({
+      peerId: payload.senderId,
+      callsign: payload.senderCallsign,
+      timestamp: payload.timestamp || Date.now(),
+      packetCount: payload.messages?.length || 1,
+      isBackgroundSync: true,
+    });
+  } catch (err) {
+    console.warn('[MeshSync] Error triggering sync pulse on mesh nodes:', err);
+  }
 
   for (const message of payload.messages) {
     if (!message || !message.id) continue;
@@ -118,14 +161,8 @@ export function initMeshSync(): void {
     });
   }
 
-  // Opportunistic periodic sync interval (every 8 seconds in background)
-  if (typeof window !== 'undefined') {
-    window.setInterval(() => {
-      if (outboxQueue.length > 0) {
-        triggerMeshSync();
-      }
-    }, 8000);
-  }
+  // Start opportunistic periodic sync interval (managed dynamically by backgroundSyncAdjuster)
+  restartPeriodicSyncTimer();
 
   isInitialized = true;
 }
@@ -215,4 +252,32 @@ export function subscribeToMeshSync(
   return () => {
     syncListeners.delete(callback);
   };
+}
+
+/**
+ * Triggers a subtle background sync pulse from a peer node,
+ * generating the ripple animation on mesh nodes in the UI to indicate successful data propagation.
+ */
+export function simulatePeerSyncPulse(peerId?: string, callsign?: string): void {
+  try {
+    const peers = useMeshStore.getState().getPeersArray();
+    const targetPeer = peerId
+      ? peers.find((p) => p.id === peerId)
+      : callsign
+      ? peers.find((p) => p.callsign.toLowerCase() === callsign.toLowerCase())
+      : peers[Math.floor(Math.random() * Math.max(1, peers.length))];
+
+    const selectedId = targetPeer?.id || peerId || 'peer-radio-pulse';
+    const selectedCallsign = targetPeer?.callsign || callsign || 'LEMBITU-GATEWAY';
+
+    useMeshStore.getState().triggerSyncPulse({
+      peerId: selectedId,
+      callsign: selectedCallsign,
+      timestamp: Date.now(),
+      packetCount: Math.floor(Math.random() * 3) + 1,
+      isBackgroundSync: true,
+    });
+  } catch (err) {
+    console.warn('[MeshSync] simulatePeerSyncPulse failed:', err);
+  }
 }

@@ -3,14 +3,25 @@ import { MeshNode, BatteryManagerStatus } from '../types';
 import { OfflineRadarCanvas } from './OfflineRadarCanvas';
 import { NearbyPeersComponent } from './NearbyPeersComponent';
 import { MeshStatusCard } from './MeshStatusCard';
-import { BatteryHistoryChart } from './BatteryHistoryChart';
 import { SymbiosisScoreBadge } from './SymbiosisScoreBadge';
 import { DirectMessageModal } from './DirectMessageModal';
-import { PeerTrustRadarChartD3 } from './PeerTrustRadarChartD3';
-import { RelayReliabilityTrendD3 } from './RelayReliabilityTrendD3';
-import { MeshRssiGraphD3 } from './MeshRssiGraphD3';
+import { NetworkHealthWidget } from './NetworkHealthWidget';
 import { Compass, MessageSquare, ShieldCheck, Radio, Activity } from 'lucide-react';
 import { useMeshStore, selectPeersArray } from '../store/meshStore';
+
+// Lazy-loaded D3.js Visualizations & Recharts to reduce initial bundle
+const PeerTrustRadarChartD3 = React.lazy(() =>
+  import('./PeerTrustRadarChartD3').then((m) => ({ default: m.PeerTrustRadarChartD3 }))
+);
+const RelayReliabilityTrendD3 = React.lazy(() =>
+  import('./RelayReliabilityTrendD3').then((m) => ({ default: m.RelayReliabilityTrendD3 }))
+);
+const MeshRssiGraphD3 = React.lazy(() =>
+  import('./MeshRssiGraphD3').then((m) => ({ default: m.MeshRssiGraphD3 }))
+);
+const BatteryHistoryChart = React.lazy(() =>
+  import('./BatteryHistoryChart').then((m) => ({ default: m.BatteryHistoryChart }))
+);
 
 interface MeshTabProps {
   peers?: MeshNode[];
@@ -137,6 +148,13 @@ export const MeshTab: React.FC<MeshTabProps> = ({
         isScanning={isScanning}
       />
 
+      {/* Network Health & Node Density Summary Widget Overlay */}
+      <NetworkHealthWidget
+        peers={peers}
+        isNightMode={isNightMode}
+        onOpenDiagnostics={onOpenDiagnostics}
+      />
+
       {/* Radar & Peers Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Radar Canvas Container */}
@@ -171,6 +189,7 @@ export const MeshTab: React.FC<MeshTabProps> = ({
             selectedPeerId={activePeerId}
             isSolarAware={batteryStatus.isSolarAwareActive}
             isNightMode={isNightMode}
+            isScanning={isScanning}
           />
         </div>
 
@@ -220,39 +239,71 @@ export const MeshTab: React.FC<MeshTabProps> = ({
       </div>
 
       {/* D3.js Real-time RSSI Signal Strength Graph Topology */}
-      <MeshRssiGraphD3
-        peers={peers}
-        userCallsign={userCallsign}
-        selectedPeerId={activePeerId}
-        onSelectPeer={handleSelectPeer}
-        onOpenChatWithPeer={(peer) => setActiveDirectMessagePeer(peer)}
-        onOpenReputation={onOpenReputation}
-        isNightMode={isNightMode}
-        isSolarAware={batteryStatus.isSolarAwareActive}
-      />
+      <React.Suspense
+        fallback={
+          <div className="w-full h-80 rounded-3xl border border-[#87A878]/20 bg-black/5 dark:bg-white/5 animate-pulse flex flex-col items-center justify-center p-6 text-center text-xs font-mono text-[#637062] dark:text-[#A8BDA5]">
+            <span>Laaditakse RSSI võrgutopoloogia graafikut...</span>
+          </div>
+        }
+      >
+        <MeshRssiGraphD3
+          peers={peers}
+          userCallsign={userCallsign}
+          selectedPeerId={activePeerId}
+          onSelectPeer={handleSelectPeer}
+          onOpenChatWithPeer={(peer) => setActiveDirectMessagePeer(peer)}
+          onOpenReputation={onOpenReputation}
+          isNightMode={isNightMode}
+          isSolarAware={batteryStatus.isSolarAwareActive}
+        />
+      </React.Suspense>
 
       {/* D3.js Peer Trust Profile Radar Chart */}
-      <PeerTrustRadarChartD3
-        peer={peers.find((p) => p.id === activePeerId) || (peers.length > 0 ? peers[0] : null)}
-        allPeers={peers}
-        onSelectPeer={handleSelectPeer}
-        onOpenReputation={onOpenReputation}
-        onOpenChat={onOpenChatWithPeer}
-        isNightMode={isNightMode}
-      />
+      <React.Suspense
+        fallback={
+          <div className="w-full h-64 rounded-3xl border border-[#87A878]/20 bg-black/5 dark:bg-white/5 animate-pulse flex flex-col items-center justify-center p-6 text-center text-xs font-mono text-[#637062] dark:text-[#A8BDA5]">
+            <span>Laaditakse usaldusradari profiili...</span>
+          </div>
+        }
+      >
+        <PeerTrustRadarChartD3
+          peer={peers.find((p) => p.id === activePeerId) || (peers.length > 0 ? peers[0] : null)}
+          allPeers={peers}
+          onSelectPeer={handleSelectPeer}
+          onOpenReputation={onOpenReputation}
+          onOpenChat={onOpenChatWithPeer}
+          isNightMode={isNightMode}
+        />
+      </React.Suspense>
 
       {/* D3.js 24-Hour Relay Reliability Trend & Bottleneck Monitor */}
-      <RelayReliabilityTrendD3
-        peers={peers}
-        isNightMode={isNightMode}
-      />
+      <React.Suspense
+        fallback={
+          <div className="w-full h-64 rounded-3xl border border-[#87A878]/20 bg-black/5 dark:bg-white/5 animate-pulse flex flex-col items-center justify-center p-6 text-center text-xs font-mono text-[#637062] dark:text-[#A8BDA5]">
+            <span>Laaditakse relee töökindluse analüüsi...</span>
+          </div>
+        }
+      >
+        <RelayReliabilityTrendD3
+          peers={peers}
+          isNightMode={isNightMode}
+        />
+      </React.Suspense>
 
       {/* 24-Hour Battery & Energy Consumption Recharts Visualization */}
-      <BatteryHistoryChart
-        batteryStatus={batteryStatus}
-        isNightMode={isNightMode}
-        onToggleSolarAware={onToggleSolarAware}
-      />
+      <React.Suspense
+        fallback={
+          <div className="w-full h-64 rounded-3xl border border-[#87A878]/20 bg-black/5 dark:bg-white/5 animate-pulse flex flex-col items-center justify-center p-6 text-center text-xs font-mono text-[#637062] dark:text-[#A8BDA5]">
+            <span>Laaditakse aku tarbimisgraafikut...</span>
+          </div>
+        }
+      >
+        <BatteryHistoryChart
+          batteryStatus={batteryStatus}
+          isNightMode={isNightMode}
+          onToggleSolarAware={onToggleSolarAware}
+        />
+      </React.Suspense>
 
       {/* Encrypted Direct Message Modal */}
       {activeDirectMessagePeer && (

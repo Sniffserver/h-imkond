@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { NavTab, MeshNode, ResourceItem } from '../types';
 import { soundFeedback } from '../services/utils/soundFeedback';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 export interface CommandPaletteModalProps {
   isOpen: boolean;
@@ -117,6 +118,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
   const [isMuted, setIsMuted] = useState(() => soundFeedback.getMuted());
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const modalRef = useFocusTrap({ isOpen, onClose, modalName: 'Command Palette & Omnibar' });
 
   useEffect(() => {
     if (isOpen) {
@@ -521,6 +523,10 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       }}
     >
       <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Command Palette and Omnibar"
         id="command-palette-container"
         className={`w-full max-w-2xl rounded-3xl border shadow-2xl overflow-hidden flex flex-col max-h-[80vh] transition-colors duration-200 ${
           isNightMode

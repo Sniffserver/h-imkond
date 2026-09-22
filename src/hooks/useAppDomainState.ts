@@ -41,7 +41,9 @@ import {
 import { useMeshStore, selectPeersArray } from '../store/meshStore';
 import { getSecureLocalStorage, setSecureLocalStorage } from '../utils/localStorageValidator';
 import { achievementService, Achievement } from '../services/game/achievementService';
+import { a11yAnnouncer } from '../services/a11y/a11yAnnouncer';
 import { initMeshSync } from '../services/mesh/meshSync';
+import { backgroundSyncAdjuster } from '../services/mesh/backgroundSyncAdjuster';
 import { initMessageStorage } from '../services/comms/messageService';
 import { initSosService } from '../services/utils/sosService';
 
@@ -138,6 +140,8 @@ export function useAppDomainState({ addToast, isWishlistOpen }: UseAppDomainStat
 
   useEffect(() => {
     localStorage.setItem('hoimu_battery', JSON.stringify(batteryStatus));
+    // Synchronize physical/simulated battery level with background sync interval adjuster
+    backgroundSyncAdjuster.updateBatteryLevel(batteryStatus.batteryLevelPercent);
   }, [batteryStatus]);
 
   useEffect(() => {
@@ -303,9 +307,120 @@ export function useAppDomainState({ addToast, isWishlistOpen }: UseAppDomainStat
     addToast('🎓 Skill Listing Published', `"${newSkill.title}" broadcasted to local mesh.`, 'success');
   }, [addToast]);
 
-  const handleRequestSkillSession = useCallback((skill: SkillExchangeItem) => {
-    addToast('💬 Mesh Session Requested', `Sent direct relay request to ${skill.providerCallsign} regarding "${skill.title}".`, 'info');
-  }, [addToast]);
+  const handleRequestSkillSession = useCallback(
+    (
+      skill: SkillExchangeItem,
+      details?: {
+        preferredTime?: string;
+        sessionFormat?: string;
+        barterOffer?: string;
+        note?: string;
+      }
+    ) => {
+      const formatStr = details?.sessionFormat ? ` [Format: ${details.sessionFormat}]` : '';
+      const barterStr = details?.barterOffer ? ` [Barter Offer: ${details.barterOffer}]` : '';
+      const noteStr = details?.note ? ` Note: "${details.note}"` : '';
+
+      setSkills((prev) =>
+        prev.map((s) =>
+          s.id === skill.id ? { ...s, sessionRequestsCount: (s.sessionRequestsCount || 0) + 1 } : s
+        )
+      );
+
+      if (skill.providerCallsign !== user.callsign) {
+        const reqMessage: MeshMessage = {
+          id: `msg-sk-${Date.now()}`,
+          from: user.callsign,
+          to: skill.providerCallsign,
+          senderCallsign: user.callsign,
+          recipientCallsign: skill.providerCallsign,
+          content: `Skill Session Request for "${skill.title}"${formatStr}${barterStr}.${noteStr}`,
+          text: `Hi ${skill.providerCallsign}, I would like to request a skill session for "${skill.title}"!${formatStr}${barterStr}.${noteStr}`,
+          timestamp: Date.now(),
+          ttl: 4,
+          signature: `sig-sk-req-${Date.now()}`,
+          status: 'delivered',
+        };
+        setMessages((prev) => [...prev, reqMessage]);
+      }
+
+      addToast(
+        '🎓 Skill Session Requested',
+        `Direct relay session request sent to ${skill.providerCallsign} for "${skill.title}".`,
+        'success'
+      );
+    },
+    [user.callsign, addToast]
+  );
+
+  // Trust Endorsement for Verified Trades
+  const handleEndorseSkillTrade = useCallback(
+    (
+      skillId: string,
+      recipientCallsign: string,
+      comment: string,
+      rating: number = 5,
+      transactionId?: string,
+      tags: string[] = ['Verified Trade', 'Practical Mastery']
+    ) => {
+      const hashSeed = `ED25519_TRADE_${Date.now()}_${skillId}_${user.callsign}`;
+      const hashStr = `SHA256: ${hashSeed.slice(-12).toLowerCase()}`;
+
+      const targetSkill = skills.find((s) => s.id === skillId);
+      const skillTitle = targetSkill ? targetSkill.title : 'Community Skill Exchange';
+
+      const newEndorsement: TrustEndorsement = {
+        id: `end-sk-${Date.now()}`,
+        transactionId: transactionId || `tx-sk-${Date.now().toString().slice(-6)}`,
+        endorserCallsign: user.callsign,
+        recipientCallsign,
+        signatureHash: hashStr,
+        comment,
+        timestamp: Date.now(),
+        reputationBonus: 15,
+        skillId,
+        skillTitle,
+        rating,
+        tags,
+        isTradeVerified: true,
+      };
+
+      setEndorsements((prev) => [newEndorsement, ...prev]);
+
+      setSkills((prev) =>
+        prev.map((s) => {
+          if (s.id !== skillId) return s;
+          const existingEndorsements = s.endorsements || [];
+          return {
+            ...s,
+            endorsementsCount: (s.endorsementsCount || 0) + 1,
+            isVerified: true,
+            endorsements: [
+              {
+                id: newEndorsement.id,
+                endorserCallsign: user.callsign,
+                rating,
+                comment,
+                timestamp: Date.now(),
+                signatureHash: hashStr,
+                isTradeVerified: true,
+                tags,
+              },
+              ...existingEndorsements,
+            ],
+          };
+        })
+      );
+
+      setUser((prev) => ({ ...prev, symbiosisScore: prev.symbiosisScore + 15 }));
+      addToast(
+        '⭐ Verified Trade Endorsement Signed',
+        `Granted +15 Symbiosis Pts to ${recipientCallsign} with cryptographic attestation (${hashStr}).`,
+        'success'
+      );
+    },
+    [skills, user.callsign, addToast]
+  );
 
   // Trust Endorsement Handler
   const handleEndorseTransaction = useCallback((transactionId: string, comment: string) => {
@@ -344,8 +459,9 @@ export function useAppDomainState({ addToast, isWishlistOpen }: UseAppDomainStat
       resolved: false,
     };
     setCrisisAlerts((prev) => [alertObj, ...prev]);
+    a11yAnnouncer.announceCrisisAlert(alertObj.authorCallsign || user.callsign, alertObj.message);
     addToast('🚨 SOS BEACON TRANSMITTED', `Emergency alert flooded across all 433MHz/BLE channels!`, 'warning');
-  }, [addToast]);
+  }, [user.callsign, addToast]);
 
   const handleResolveAlert = useCallback((alertId: string) => {
     setCrisisAlerts((prev) =>
@@ -540,6 +656,7 @@ export function useAppDomainState({ addToast, isWishlistOpen }: UseAppDomainStat
     if (undiscovered.length > 0) {
       const nextPeer = undiscovered[0];
       setPeers((prev) => [nextPeer, ...prev]);
+      a11yAnnouncer.announcePeerDiscovered(nextPeer.callsign, nextPeer.lastRssi);
       addToast(
         `📡 New Mesh Peer Discovered: ${nextPeer.callsign}`,
         `Signal lock established via ${nextPeer.radioType || 'BLE'} (${nextPeer.lastRssi} dBm, ${
@@ -592,6 +709,7 @@ export function useAppDomainState({ addToast, isWishlistOpen }: UseAppDomainStat
       };
 
       setPeers((prev) => [generatedPeer, ...prev]);
+      a11yAnnouncer.announcePeerDiscovered(generatedPeer.callsign, generatedPeer.lastRssi);
       addToast(
         `📡 New Mesh Peer Discovered: ${generatedPeer.callsign}`,
         `Discovered via RF scan (${radioType}, ${generatedPeer.lastRssi} dBm).`,
@@ -712,11 +830,13 @@ export function useAppDomainState({ addToast, isWishlistOpen }: UseAppDomainStat
     };
 
     setMessages((prev) => [...prev, newMessage]);
+    a11yAnnouncer.announceIncomingMessage(user.callsign, text);
 
     setTimeout(() => {
       setMessages((prev) =>
         prev.map((m) => (m.id === newMessage.id ? { ...m, status: 'delivered' } : m))
       );
+      a11yAnnouncer.announce(`Mesh message delivered to ${targetCallsign}`, 'polite');
       addToast(
         'Mesh Packet Delivered',
         `Packet successfully acknowledged by ${targetCallsign}.`,
@@ -827,6 +947,7 @@ export function useAppDomainState({ addToast, isWishlistOpen }: UseAppDomainStat
     handleToggleRsvp,
     handleAddSkill,
     handleRequestSkillSession,
+    handleEndorseSkillTrade,
     handleEndorseTransaction,
     handleBroadcastAlert,
     handleResolveAlert,

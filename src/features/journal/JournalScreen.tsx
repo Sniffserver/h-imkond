@@ -8,6 +8,7 @@ export interface JournalScreenProps {
   userSymbiosisScore: number;
   completedExchangesCount: number;
   isNightMode?: boolean;
+  onAddToast?: (title: string, desc?: string, type?: 'success' | 'warning' | 'info') => void;
 }
 
 export const JournalScreen: React.FC<JournalScreenProps> = (props) => {

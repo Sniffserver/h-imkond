@@ -30,6 +30,11 @@ jobs:
           bun run lint
           bun run typecheck
 
+      - name: Accessibility audit
+        run: |
+          bun run eslint --plugin jsx-a11y
+          bun run pa11y-ci --threshold 0
+
       - name: Unit & Integration Tests
         run: bun run test -- --reporter=verbose
 

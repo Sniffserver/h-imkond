@@ -26,6 +26,7 @@ interface OfflineRadarCanvasProps {
   isSolarAware: boolean;
   selectedPeerId?: string | null;
   isNightMode?: boolean;
+  isScanning?: boolean;
 }
 
 /**
@@ -53,6 +54,7 @@ export const OfflineRadarCanvas: React.FC<OfflineRadarCanvasProps> = ({
   isSolarAware,
   selectedPeerId,
   isNightMode = false,
+  isScanning = false,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -371,21 +373,69 @@ export const OfflineRadarCanvas: React.FC<OfflineRadarCanvasProps> = ({
         ctx.textAlign = 'start';
       }
 
-      // 8. Central Self Node (Kestrel-7)
+      // 8. Dynamic Radial Wave Animation when Mesh Discovery / Scanning is Active
+      if (isScanning) {
+        const nowSec = Date.now() / 1000;
+        const waveCount = 3;
+        for (let i = 0; i < waveCount; i++) {
+          const phase = (nowSec * 0.75 + i / waveCount) % 1.0;
+          const waveR = phase * maxRadius;
+          const waveOpacity = (1 - phase) * (isNightMode ? 0.85 : 0.7);
+
+          // Animated Radial Wave Ring
+          ctx.beginPath();
+          ctx.arc(cx, cy, waveR, 0, Math.PI * 2);
+          ctx.strokeStyle = isNightMode
+            ? `rgba(51, 255, 0, ${waveOpacity})`
+            : `rgba(42, 157, 143, ${waveOpacity})`;
+          ctx.lineWidth = Math.max(1.0, 3.0 * (1 - phase));
+          ctx.stroke();
+
+          // Soft ambient pulse glow
+          if (phase < 0.45) {
+            const glowGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, waveR);
+            glowGrad.addColorStop(
+              0,
+              isNightMode
+                ? `rgba(51, 255, 0, ${waveOpacity * 0.22})`
+                : `rgba(42, 157, 143, ${waveOpacity * 0.18})`
+            );
+            glowGrad.addColorStop(
+              0.8,
+              isNightMode
+                ? `rgba(51, 255, 0, ${waveOpacity * 0.05})`
+                : `rgba(42, 157, 143, ${waveOpacity * 0.04})`
+            );
+            glowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = glowGrad;
+            ctx.beginPath();
+            ctx.arc(cx, cy, waveR, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+
+      // 9. Central Self Node (Kestrel-7)
       ctx.beginPath();
       ctx.arc(cx, cy, 7, 0, Math.PI * 2);
-      ctx.fillStyle = '#2A9D8F';
+      ctx.fillStyle = isScanning ? (isNightMode ? '#33ff00' : '#2A9D8F') : '#2A9D8F';
       ctx.fill();
       ctx.lineWidth = 2;
       ctx.strokeStyle = '#FFFFFF';
       ctx.stroke();
 
       // Self pulse wave
-      const pulse = 7 + Math.sin(Date.now() / 450) * 3;
+      const pulseSpeed = isScanning ? 220 : 450;
+      const pulseAmp = isScanning ? 7 : 3;
+      const pulse = 7 + Math.sin(Date.now() / pulseSpeed) * pulseAmp;
       ctx.beginPath();
       ctx.arc(cx, cy, pulse, 0, Math.PI * 2);
-      ctx.strokeStyle = '#2A9D8F55';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = isScanning
+        ? isNightMode
+          ? '#33ff0088'
+          : '#2A9D8F88'
+        : '#2A9D8F55';
+      ctx.lineWidth = isScanning ? 2 : 1.5;
       ctx.stroke();
     };
 
@@ -394,7 +444,7 @@ export const OfflineRadarCanvas: React.FC<OfflineRadarCanvasProps> = ({
     return () => {
       unregister();
     };
-  }, [dimensions, processedPeers, isSolarAware, isNightMode, routingAdvice, selectedPeerId]);
+  }, [dimensions, processedPeers, isSolarAware, isNightMode, routingAdvice, selectedPeerId, isScanning]);
 
   const size = dimensions.width;
   const cx = size / 2;
@@ -469,12 +519,34 @@ export const OfflineRadarCanvas: React.FC<OfflineRadarCanvasProps> = ({
 
       {/* Main Radar Canvas Container */}
       <div
-        className={`relative rounded-full shadow-inner border overflow-hidden ${
-          isNightMode ? 'border-[#364E30] bg-[#162214]' : 'border-[#87A878]/30 bg-[#FAF6EE]'
+        className={`relative rounded-full shadow-inner border overflow-hidden transition-all duration-300 ${
+          isScanning
+            ? isNightMode
+              ? 'border-[#33ff00] ring-4 ring-[#33ff00]/20 bg-[#162214]'
+              : 'border-[#2A9D8F] ring-4 ring-[#2A9D8F]/20 bg-[#FAF6EE]'
+            : isNightMode
+            ? 'border-[#364E30] bg-[#162214]'
+            : 'border-[#87A878]/30 bg-[#FAF6EE]'
         }`}
         style={{ width: size, height: size }}
       >
         <canvas ref={canvasRef} style={{ width: size, height: size }} className="block" />
+
+        {/* Live Radial Wave Active Discovery Feedback Banner */}
+        {isScanning && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 pointer-events-none z-30">
+            <div
+              className={`px-3 py-1 rounded-full text-[10px] font-mono font-bold flex items-center gap-1.5 shadow-md border backdrop-blur-md animate-pulse ${
+                isNightMode
+                  ? 'bg-[#121D10]/90 text-[#33ff00] border-[#33ff00]/40 shadow-[#33ff00]/10'
+                  : 'bg-white/95 text-[#2A9D8F] border-[#2A9D8F]/40 shadow-[#2A9D8F]/15'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-current animate-ping" />
+              <span>RADIAL WAVE DISCOVERY ACTIVE</span>
+            </div>
+          </div>
+        )}
 
         {/* DOM-rendered Peer Nodes with SVG Pulse Animations & Procedural Avatars */}
         {processedPeers.map((peer) => {
@@ -521,6 +593,8 @@ export const OfflineRadarCanvas: React.FC<OfflineRadarCanvasProps> = ({
                   connectionState={peer.connectionState}
                   isDirect={peer.isDirect}
                   isNightMode={isNightMode}
+                  peerId={peer.id}
+                  peerCallsign={peer.callsign}
                   size={52}
                   className="transition-transform duration-200"
                 >

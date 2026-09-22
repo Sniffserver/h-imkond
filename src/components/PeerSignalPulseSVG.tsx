@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ConnectionState } from '../types';
+import { useMeshStore } from '../store/meshStore';
 
 interface PeerSignalPulseSVGProps {
   rssi: number;
@@ -9,6 +10,9 @@ interface PeerSignalPulseSVGProps {
   size?: number;
   className?: string;
   isNightMode?: boolean;
+  peerId?: string;
+  peerCallsign?: string;
+  isSyncPulsing?: boolean;
   children?: React.ReactNode;
 }
 
@@ -20,8 +24,47 @@ export const PeerSignalPulseSVG: React.FC<PeerSignalPulseSVGProps> = ({
   size = 54,
   className = '',
   isNightMode = false,
+  peerId,
+  peerCallsign,
+  isSyncPulsing,
   children,
 }) => {
+  const lastSyncPulse = useMeshStore((state) => state.lastSyncPulse);
+  const recentSyncPulses = useMeshStore((state) => state.recentSyncPulses);
+
+  // Check if this node is currently pulsing due to a background sync pulse
+  const [isSyncActive, setIsSyncActive] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (isSyncPulsing) {
+      setIsSyncActive(true);
+      const timer = setTimeout(() => setIsSyncActive(false), 2600);
+      return () => clearTimeout(timer);
+    }
+
+    if (!lastSyncPulse) return;
+
+    const now = Date.now();
+    const timeSincePulse = now - lastSyncPulse.timestamp;
+
+    if (timeSincePulse > 2600) return;
+
+    const isMatch =
+      (peerId && lastSyncPulse.peerId === peerId) ||
+      (peerCallsign && lastSyncPulse.callsign?.toLowerCase() === peerCallsign.toLowerCase()) ||
+      (peerId && recentSyncPulses[peerId] && (now - recentSyncPulses[peerId] < 2600)) ||
+      (!peerId && !peerCallsign);
+
+    if (isMatch) {
+      setIsSyncActive(true);
+      const remainingTime = Math.max(200, 2600 - timeSincePulse);
+      const timer = setTimeout(() => {
+        setIsSyncActive(false);
+      }, remainingTime);
+      return () => clearTimeout(timer);
+    }
+  }, [lastSyncPulse, recentSyncPulses, peerId, peerCallsign, isSyncPulsing]);
+
   // Signal strength classification
   // Strong: >= -58 dBm, Moderate: -59 to -75 dBm, Weak: < -75 dBm
   const isStrong = rssi >= -58;
@@ -274,7 +317,116 @@ export const PeerSignalPulseSVG: React.FC<PeerSignalPulseSVGProps> = ({
           strokeDasharray={connectionState === 'store_forward' ? '3, 2' : undefined}
           strokeOpacity={isNightMode ? 0.75 : 0.6}
         />
+
+        {/* 7. Subtle Ripple Animation triggered by Background Sync Pulse (Data Propagation) */}
+        {isSyncActive && (
+          <g className="mesh-sync-pulse-ripple pointer-events-none">
+            {/* Primary outer expanding propagation ripple */}
+            <circle
+              cx={center}
+              cy={center}
+              r={innerRadius}
+              fill="none"
+              stroke="#2A9D8F"
+              strokeWidth="2.6"
+              strokeOpacity="0.9"
+            >
+              <animate
+                attributeName="r"
+                values={`${innerRadius}; ${maxPulseRadius * 1.35}`}
+                dur="1.9s"
+                repeatCount="1"
+                calcMode="spline"
+                keySplines="0.1, 0.8, 0.25, 1"
+                fill="freeze"
+              />
+              <animate
+                attributeName="stroke-opacity"
+                values="0.95; 0.45; 0"
+                dur="1.9s"
+                repeatCount="1"
+                calcMode="spline"
+                keySplines="0.1, 0.8, 0.25, 1"
+                fill="freeze"
+              />
+              <animate
+                attributeName="stroke-width"
+                values="2.6; 0.5"
+                dur="1.9s"
+                repeatCount="1"
+                fill="freeze"
+              />
+            </circle>
+
+            {/* Harmonic second ripple wave (gold/amber echo) */}
+            <circle
+              cx={center}
+              cy={center}
+              r={innerRadius}
+              fill="none"
+              stroke={isNightMode ? '#E9C46A' : '#588157'}
+              strokeWidth="1.8"
+              strokeOpacity="0.8"
+            >
+              <animate
+                attributeName="r"
+                values={`${innerRadius}; ${maxPulseRadius * 1.15}`}
+                begin="0.25s"
+                dur="1.8s"
+                repeatCount="1"
+                calcMode="spline"
+                keySplines="0.1, 0.8, 0.25, 1"
+                fill="freeze"
+              />
+              <animate
+                attributeName="stroke-opacity"
+                values="0.8; 0.35; 0"
+                begin="0.25s"
+                dur="1.8s"
+                repeatCount="1"
+                calcMode="spline"
+                keySplines="0.1, 0.8, 0.25, 1"
+                fill="freeze"
+              />
+              <animate
+                attributeName="stroke-width"
+                values="1.8; 0.3"
+                begin="0.25s"
+                dur="1.8s"
+                repeatCount="1"
+                fill="freeze"
+              />
+            </circle>
+
+            {/* Inner perimeter flash accent */}
+            <circle
+              cx={center}
+              cy={center}
+              r={innerRadius + 2}
+              fill="none"
+              stroke="#2A9D8F"
+              strokeWidth="2"
+              strokeOpacity="0.85"
+            >
+              <animate
+                attributeName="stroke-opacity"
+                values="0.85; 0.2; 0.85; 0"
+                dur="1.5s"
+                repeatCount="1"
+                fill="freeze"
+              />
+            </circle>
+          </g>
+        )}
       </svg>
+
+      {/* Subtle Data Propagation Glow Halo & Sync Ping Indicator */}
+      {isSyncActive && (
+        <span
+          className="absolute -inset-1 rounded-full border-2 border-[#2A9D8F]/60 animate-ping pointer-events-none"
+          style={{ animationDuration: '2s', animationIterationCount: '2' }}
+        />
+      )}
 
       {/* Centered Node Child Element (Avatar / Icon / Content) */}
       <div className="relative z-10 flex items-center justify-center pointer-events-auto">

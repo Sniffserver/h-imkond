@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { UserProfile } from '../types';
 import { SolarpunkAvatarCanvas } from './SolarpunkAvatarCanvas';
 import { stringResource, R } from '../utils/stringResource';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import {
   Column,
   Row,
@@ -115,6 +116,8 @@ export const SolarpunkOnboardingFlow: React.FC<SolarpunkOnboardingFlowProps> = (
     sosRelayEnabled: true,
   });
 
+  const modalRef = useFocusTrap({ isOpen, onClose, modalName: 'Solarpunk Onboarding Flow' });
+
   if (!isOpen) return null;
 
   const handleRandomizeCallsign = () => {
@@ -180,6 +183,10 @@ export const SolarpunkOnboardingFlow: React.FC<SolarpunkOnboardingFlowProps> = (
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="onboarding-flow-title"
         id="solarpunk-onboarding-modal"
         className="w-full max-w-2xl max-h-[92vh] flex flex-col bg-[#FAF6EE] dark:bg-[#152014] rounded-3xl border border-[#87A878]/35 shadow-2xl overflow-hidden transition-all duration-200"
       >
@@ -190,7 +197,7 @@ export const SolarpunkOnboardingFlow: React.FC<SolarpunkOnboardingFlowProps> = (
               <Radio className="w-5 h-5 animate-pulse" />
             </div>
             <div>
-              <Text style="titleMedium" className="tracking-tight">
+              <Text id="onboarding-flow-title" style="titleMedium" className="tracking-tight">
                 {stringResource(R.string.app_name)}
               </Text>
               <Text style="bodySmall" className="text-[#637062] dark:text-[#87A878]">
@@ -222,7 +229,8 @@ export const SolarpunkOnboardingFlow: React.FC<SolarpunkOnboardingFlowProps> = (
             <button
               type="button"
               onClick={onClose}
-              className="p-1 rounded-full text-[#637062] hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              aria-label="Close onboarding modal"
+              className="p-1 rounded-full text-[#637062] hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
             >
               <X className="w-5 h-5" />
             </button>

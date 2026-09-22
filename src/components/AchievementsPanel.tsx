@@ -206,8 +206,27 @@ export const AchievementsPanel: React.FC<AchievementsPanelProps> = ({
           </p>
         </div>
 
-        {/* Export & History controls */}
-        <div className="flex items-center gap-2">
+        {/* Export & History & Gamification Opt-out controls */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              const nextVal = !tracksState.gamificationEnabled;
+              progressTracksService.setGamificationEnabled(nextVal);
+              if (onAddToast) {
+                onAddToast(
+                  nextVal ? 'Gamification Enabled' : 'Minimalist Mode Active',
+                  nextVal
+                    ? 'Badges and progress tracks are visible.'
+                    : 'Badges and milestones are hidden. Core features remain 100% active.',
+                  'info'
+                );
+              }
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#87A878]/30 hover:border-[#588157] text-xs font-semibold cursor-pointer text-[#588157] dark:text-[#A8BDA5]"
+          >
+            <span>{tracksState.gamificationEnabled ? 'Minimalist Mode' : 'Show Badges'}</span>
+          </button>
           <button
             type="button"
             onClick={() => setShowHistoryModal(true)}
@@ -236,6 +255,21 @@ export const AchievementsPanel: React.FC<AchievementsPanelProps> = ({
           </button>
         </div>
       </div>
+
+      {!tracksState.gamificationEnabled && (
+        <div className="p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-dashed border-[#87A878]/30 text-center space-y-2">
+          <p className="text-xs text-[#588157] dark:text-[#A8BDA5]">
+            🍃 <strong>Minimalist Mode Active:</strong> Badges and milestones are hidden. You can use all mesh networking, offline maps, and mutual aid tools without any gamification or progress tracking.
+          </p>
+          <button
+            type="button"
+            onClick={() => progressTracksService.setGamificationEnabled(true)}
+            className="px-3.5 py-1.5 rounded-xl bg-[#588157] text-white text-xs font-bold shadow-xs hover:bg-[#476a46] cursor-pointer"
+          >
+            Re-enable Badges & Progress Tracks
+          </button>
+        </div>
+      )}
 
       {/* THREE PRIVATE PROGRESS TRACKS CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">

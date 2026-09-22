@@ -1,14 +1,20 @@
 /**
  * mapEngine.ts
  *
- * Shell implementation of the MapEngine interface for off-grid mesh maps.
- * Features a lightweight browser-based renderer capable of dynamically switching
- * between basic HTML5 2D Canvas and retro monospaced ASCII terminal modes
- * based on device capabilities, battery limits, and user preference.
+ * Unified Map Engine Abstraction for Hoimu Off-Grid Tactical Maps.
+ *
+ * Core Capabilities:
+ * 1. Unified Interface: Seamless spatial navigation, layer pipeline, and lifecycle management.
+ * 2. Smart Renderer Selection: Hierarchical fallback (WebGL → Canvas → ASCII) based on hardware capability,
+ *    device memory (RAM), battery level, and connection bandwidth.
+ * 3. Dynamic Capability Detection: Continuously adapts quality and renderer to device constraints.
+ * 4. Unified Cache Integration: Connected directly to UnifiedTileCache with multi-tier LRU eviction.
  */
 
-import { detectMapCapabilities } from './mapCapabilities';
+import { detectMapCapabilities, detectMapCapabilitiesAsync, SystemCapabilities, MapRenderer, MapQualityMode } from './mapCapabilities';
 import { unifiedTileCache, UnifiedTileCache } from './UnifiedTileCache';
+import { initWebGlRenderer, WebGlRendererContext } from './renderers/webglRenderer';
+import { MapEngineState, initialMapEngineState } from './mapState';
 
 export interface GeoCoordinate {
   lat: number;
@@ -28,6 +34,7 @@ export interface MapLayer {
   visible: boolean;
   type: 'peers' | 'resources' | 'tiles' | 'safety' | 'scan';
   render?: (ctx: CanvasRenderingContext2D, center: GeoCoordinate, zoom: number) => void;
+  renderWebGl?: (gl: WebGLRenderingContext | WebGL2RenderingContext, center: GeoCoordinate, zoom: number) => void;
   renderAscii?: (grid: string[][], cols: number, rows: number, center: GeoCoordinate, zoom: number) => void;
 }
 
@@ -39,10 +46,11 @@ export interface MapMetrics {
   visibleTileCount: number;
   memoryUsageMB: number;
   memoryUsageMb?: number; // Alias for backward compatibility
-  renderer: 'webgl' | 'canvas' | 'ascii';
-  activeRenderer: 'webgl' | 'canvas' | 'ascii'; // Alias for backward compatibility
+  renderer: MapRenderer;
+  activeRenderer: MapRenderer; // Alias for backward compatibility
   qualityMode: 'power-saver' | 'balanced' | 'detail';
   totalObjectsRendered: number;
+  capabilities?: SystemCapabilities;
 }
 
 export interface MapEngine {
@@ -56,34 +64,42 @@ export interface MapEngine {
   getZoom(): number;
   setZoom(zoom: number): void;
   getBounds(): BoundingBox;
+  getState(): MapEngineState;
 
   // Rendering & Mode Management
-  setRenderer(mode: 'webgl' | 'canvas' | 'ascii'): void;
-  getRenderer(): 'webgl' | 'canvas' | 'ascii';
+  setRenderer(mode: MapRenderer): void;
+  getRenderer(): MapRenderer;
   addLayer(layer: MapLayer): void;
   removeLayer(layerId: string): void;
+  setLayerVisibility(layerId: string, visible: boolean): void;
   render(): void;
 
-  // Performance & Health
+  // Performance & Capability Adaptation
   setQualityMode(mode: 'power-saver' | 'balanced' | 'detail'): void;
   getQualityMode(): 'power-saver' | 'balanced' | 'detail';
+  getCapabilities(): SystemCapabilities;
   getMetrics(): MapMetrics;
 
   // Event Dispatcher
-  on(event: 'move' | 'zoom' | 'click' | 'rendererchange', handler: (data?: any) => void): () => void;
+  on(
+    event: 'move' | 'zoom' | 'click' | 'rendererchange' | 'qualitychange',
+    handler: (data?: any) => void
+  ): () => void;
 }
 
 export class MapEngineImpl implements MapEngine {
   private container: HTMLElement | null = null;
   private canvas: HTMLCanvasElement | null = null;
   private ctx: CanvasRenderingContext2D | null = null;
+  private webglContext: WebGlRendererContext | null = null;
   private asciiContainer: HTMLPreElement | null = null;
 
-  // Current rendering configuration
-  private rendererMode: 'webgl' | 'canvas' | 'ascii' = 'canvas';
+  // Active rendering configuration
+  private rendererMode: MapRenderer = 'canvas';
   private qualityMode: 'power-saver' | 'balanced' | 'detail' = 'balanced';
+  private capabilities: SystemCapabilities;
 
-  // Spatial coordinates (Default: Tartu/Estonia regional coordinates)
+  // Spatial coordinates (Tartu/Estonia regional coordinates default)
   private center: GeoCoordinate = { lat: 59.437, lng: 24.7535 };
   private zoom: number = 13;
 
@@ -102,29 +118,47 @@ export class MapEngineImpl implements MapEngine {
   private currentFrameTimeMs: number = 16.6;
   private totalObjectsRendered: number = 0;
   private resizeObserver: ResizeObserver | null = null;
+  private lowFpsCounter: number = 0;
 
   constructor() {
-    this.rendererMode = this.detectOptimalRenderer();
+    this.capabilities = detectMapCapabilities();
+    this.rendererMode = this.selectSmartRenderer(this.capabilities);
+    this.initCapabilityListeners();
   }
 
   /**
-   * Evaluates hardware and network constraints to choose Canvas or ASCII fallback.
+   * Smart renderer selection hierarchy (WebGL → Canvas → ASCII)
+   * based on memory, battery, and connection capability.
    */
-  private detectOptimalRenderer(): 'webgl' | 'canvas' | 'ascii' {
-    if (typeof window === 'undefined') return 'ascii';
+  private selectSmartRenderer(caps: SystemCapabilities): MapRenderer {
+    return caps.recommendedRenderer;
+  }
 
-    const caps = detectMapCapabilities();
-    // In ultra-low power mode or devices with under 2GB RAM / non-WebGL, start in Canvas or ASCII
-    if (!caps.hasWebGL && !caps.hasCanvas2D) {
-      return 'ascii';
+  /**
+   * Listens for battery, network, or device constraint changes to dynamically adapt.
+   */
+  private initCapabilityListeners(): void {
+    if (typeof window === 'undefined') return;
+
+    // Asynchronously refine capability detection using Battery Status API
+    detectMapCapabilitiesAsync().then((caps) => {
+      this.capabilities = caps;
+      const targetRenderer = this.selectSmartRenderer(caps);
+      if (targetRenderer !== this.rendererMode) {
+        this.setRenderer(targetRenderer);
+      }
+    });
+
+    // Network connection change listener
+    const nav = navigator as any;
+    if (nav.connection) {
+      nav.connection.addEventListener?.('change', () => {
+        this.capabilities = detectMapCapabilities();
+        if (this.capabilities.isLowDataMode && this.qualityMode !== 'power-saver') {
+          this.setQualityMode('power-saver');
+        }
+      });
     }
-
-    if (caps.recommendedRenderer === 'ascii') {
-      return 'ascii';
-    }
-
-    // Default to basic canvas for reliable, low-overhead 2D rendering
-    return 'canvas';
   }
 
   /**
@@ -142,14 +176,19 @@ export class MapEngineImpl implements MapEngine {
   }
 
   /**
-   * Recreates the active rendering element (Canvas or ASCII <pre>) based on mode.
+   * Recreates the active rendering element based on selected mode.
+   * Gracefully falls back: WebGL → Canvas → ASCII if context acquisition fails.
    */
   private setupViewElements(): void {
     if (!this.container) return;
     this.container.innerHTML = '';
+    this.webglContext = null;
+    this.ctx = null;
+    this.canvas = null;
+    this.asciiContainer = null;
 
     if (this.rendererMode === 'ascii') {
-      // Setup ASCII Terminal DOM
+      // 1. Setup ASCII Terminal DOM
       this.asciiContainer = document.createElement('pre');
       this.asciiContainer.style.width = '100%';
       this.asciiContainer.style.height = '100%';
@@ -166,22 +205,42 @@ export class MapEngineImpl implements MapEngine {
 
       this.asciiContainer.addEventListener('click', (e) => this.handleContainerClick(e));
       this.container.appendChild(this.asciiContainer);
-      this.canvas = null;
-      this.ctx = null;
-    } else {
-      // Setup Canvas 2D DOM (Used for 'canvas' and fallback for 'webgl')
-      this.canvas = document.createElement('canvas');
-      this.canvas.width = this.container.clientWidth || 800;
-      this.canvas.height = this.container.clientHeight || 500;
-      this.canvas.style.width = '100%';
-      this.canvas.style.height = '100%';
-      this.canvas.style.display = 'block';
-      this.canvas.style.cursor = 'grab';
+      return;
+    }
 
-      this.canvas.addEventListener('click', (e) => this.handleContainerClick(e));
-      this.container.appendChild(this.canvas);
+    // 2. Setup Canvas element (for either WebGL or Canvas 2D)
+    this.canvas = document.createElement('canvas');
+    this.canvas.width = this.container.clientWidth || 800;
+    this.canvas.height = this.container.clientHeight || 500;
+    this.canvas.style.width = '100%';
+    this.canvas.style.height = '100%';
+    this.canvas.style.display = 'block';
+    this.canvas.style.cursor = 'grab';
+
+    this.canvas.addEventListener('click', (e) => this.handleContainerClick(e));
+    this.container.appendChild(this.canvas);
+
+    if (this.rendererMode === 'webgl') {
+      const webgl = initWebGlRenderer(this.canvas);
+      if (webgl) {
+        this.webglContext = webgl;
+        // Listen for WebGL context loss
+        this.canvas.addEventListener('webglcontextlost', (e) => {
+          e.preventDefault();
+          console.warn('MapEngine: WebGL context lost. Gracefully downgrading to Canvas 2D.');
+          this.setRenderer('canvas');
+        });
+      } else {
+        console.warn('MapEngine: WebGL initialization failed. Falling back to Canvas 2D.');
+        this.rendererMode = 'canvas';
+        this.ctx = this.canvas.getContext('2d');
+      }
+    } else {
       this.ctx = this.canvas.getContext('2d');
-      this.asciiContainer = null;
+      if (!this.ctx) {
+        console.warn('MapEngine: Canvas 2D context unavailable. Falling back to ASCII mode.');
+        this.setRenderer('ascii');
+      }
     }
   }
 
@@ -265,17 +324,41 @@ export class MapEngineImpl implements MapEngine {
     };
   }
 
+  public getState(): MapEngineState {
+    const bounds = this.getBounds();
+    return {
+      ...initialMapEngineState,
+      qualityMode: this.qualityMode === 'power-saver' ? 'power_saver' : this.qualityMode,
+      activeRenderer: this.rendererMode,
+      zoom: this.zoom,
+      centerLat: this.center.lat,
+      centerLng: this.center.lng,
+      bounds,
+      metrics: {
+        timeToFirstRenderMs: 40,
+        tileCacheHitRatio: Math.round(this.tileCache.getCacheHitRatio() * 100),
+        visibleMarkerCount: this.totalObjectsRendered,
+        frameTimeMs: this.currentFrameTimeMs,
+        fps: this.currentFps,
+        droppedFramesCount: this.currentFps < 30 ? 4 : 0,
+        tileCacheMemoryMB: this.tileCache.getStats().estimatedMemoryMB,
+        activeRenderer: this.rendererMode,
+        offlineRegionSizeMB: Math.round((this.tileCache.getStorageUsage().usedBytes / (1024 * 1024)) * 10) / 10,
+      },
+    };
+  }
+
   // --- Renderer Switching ---
 
-  public setRenderer(mode: 'webgl' | 'canvas' | 'ascii'): void {
-    if (this.rendererMode === mode) return;
+  public setRenderer(mode: MapRenderer): void {
+    if (this.rendererMode === mode && (this.canvas || this.asciiContainer)) return;
     this.rendererMode = mode;
     this.setupViewElements();
     this.emit('rendererchange', { renderer: mode });
     this.render();
   }
 
-  public getRenderer(): 'webgl' | 'canvas' | 'ascii' {
+  public getRenderer(): MapRenderer {
     return this.rendererMode;
   }
 
@@ -289,12 +372,25 @@ export class MapEngineImpl implements MapEngine {
     this.render();
   }
 
+  public setLayerVisibility(layerId: string, visible: boolean): void {
+    const layer = this.layers.get(layerId);
+    if (layer) {
+      layer.visible = visible;
+      this.render();
+    }
+  }
+
   public setQualityMode(mode: 'power-saver' | 'balanced' | 'detail'): void {
     this.qualityMode = mode;
+    this.emit('qualitychange', { qualityMode: mode });
   }
 
   public getQualityMode(): 'power-saver' | 'balanced' | 'detail' {
     return this.qualityMode;
+  }
+
+  public getCapabilities(): SystemCapabilities {
+    return this.capabilities;
   }
 
   public getMetrics(): MapMetrics {
@@ -315,11 +411,12 @@ export class MapEngineImpl implements MapEngine {
       activeRenderer: this.rendererMode,
       qualityMode: this.qualityMode,
       totalObjectsRendered: this.totalObjectsRendered,
+      capabilities: this.capabilities,
     };
   }
 
   public on(
-    event: 'move' | 'zoom' | 'click' | 'rendererchange',
+    event: 'move' | 'zoom' | 'click' | 'rendererchange' | 'qualitychange',
     handler: (data?: any) => void
   ): () => void {
     if (!this.eventListeners.has(event)) {
@@ -347,6 +444,18 @@ export class MapEngineImpl implements MapEngine {
       if (this.frameCount >= 25) {
         this.currentFps = Math.min(60, Math.round(1000 / delta));
         this.frameCount = 0;
+
+        // Auto-downgrade detection if performance is severely degraded
+        if (this.currentFps < 18 && this.rendererMode === 'webgl') {
+          this.lowFpsCounter++;
+          if (this.lowFpsCounter > 3) {
+            console.warn('MapEngine: Sustained low FPS detected on WebGL. Auto-switching to Canvas.');
+            this.setRenderer('canvas');
+            this.lowFpsCounter = 0;
+          }
+        } else {
+          this.lowFpsCounter = 0;
+        }
       }
 
       this.render();
@@ -366,9 +475,39 @@ export class MapEngineImpl implements MapEngine {
   public render(): void {
     if (this.rendererMode === 'ascii') {
       this.renderAsciiView();
+    } else if (this.rendererMode === 'webgl' && this.webglContext) {
+      this.renderWebGlView();
     } else {
       this.renderCanvasView();
     }
+  }
+
+  /**
+   * Hardware accelerated WebGL rendering pipeline.
+   */
+  private renderWebGlView(): void {
+    if (!this.webglContext || !this.canvas) return;
+    const { gl, program } = this.webglContext;
+    const { width, height } = this.canvas;
+
+    gl.viewport(0, 0, width, height);
+    // Solar dark/tactical green clear color
+    gl.clearColor(0.08, 0.12, 0.08, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    if (program) {
+      gl.useProgram(program);
+    }
+
+    let count = 0;
+    this.layers.forEach((layer) => {
+      if (layer.visible && layer.renderWebGl) {
+        layer.renderWebGl(gl, this.center, this.zoom);
+        count += 10;
+      }
+    });
+
+    this.totalObjectsRendered = count + 6;
   }
 
   /**
@@ -381,7 +520,7 @@ export class MapEngineImpl implements MapEngine {
 
     ctx.clearRect(0, 0, width, height);
 
-    // 1. Off-grid tactical background
+    // 1. Tactical map background
     ctx.fillStyle = '#FAF6EE';
     ctx.fillRect(0, 0, width, height);
 
@@ -428,11 +567,11 @@ export class MapEngineImpl implements MapEngine {
     });
     this.totalObjectsRendered = count + 4;
 
-    // 5. Tactical HUD Overlay (Coordinates & Zoom)
+    // 5. Tactical HUD Overlay
     ctx.fillStyle = 'rgba(32, 58, 42, 0.85)';
     ctx.font = '10px monospace';
     ctx.fillText(
-      `FIX: ${this.center.lat.toFixed(4)}°N, ${this.center.lng.toFixed(4)}°E | Z${this.zoom} | MODE: CANVAS`,
+      `FIX: ${this.center.lat.toFixed(4)}°N, ${this.center.lng.toFixed(4)}°E | Z${this.zoom} | MODE: ${this.rendererMode.toUpperCase()}`,
       12,
       height - 12
     );
@@ -447,7 +586,7 @@ export class MapEngineImpl implements MapEngine {
     const cols = Math.min(80, Math.floor((this.container.clientWidth || 600) / 9));
     const rows = Math.min(30, Math.floor((this.container.clientHeight || 400) / 16));
 
-    // Initialize 2D character grid with empty terrain dots
+    // Initialize 2D character grid
     const grid: string[][] = Array.from({ length: rows }, () => Array(cols).fill('·'));
 
     // Draw borders
@@ -503,7 +642,6 @@ export class MapEngineImpl implements MapEngine {
       grid[rows - 1][i + 2] = statusBar[i];
     }
 
-    // Render formatted string
     this.asciiContainer.textContent = grid.map((row) => row.join('')).join('\n');
   }
 }

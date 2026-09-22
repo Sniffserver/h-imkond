@@ -1,5 +1,6 @@
 // Lightweight IndexedDB Cache for Offline Map Geometry and Custom Vector Tile Packages
 import { CityMapData, MapTransform } from '../types';
+import { unifiedTileCache } from '../features/map/UnifiedTileCache';
 
 const DB_NAME = 'hoimu_map_cache_db';
 const STORE_NAME = 'vector_map_tiles';
@@ -27,46 +28,43 @@ function openDB(): Promise<IDBDatabase> {
 }
 
 /**
- * Save or update a CityMapData vector tile bundle in IndexedDB
+ * Save or update a CityMapData vector tile bundle in UnifiedTileCache & IndexedDB
  */
 export async function cacheCityMapData(cityMap: CityMapData): Promise<void> {
   try {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite');
-      const store = tx.objectStore(STORE_NAME);
-      const record = {
-        ...cityMap,
-        cachedAt: Date.now(),
-      };
-      const request = store.put(record);
-
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
+    await unifiedTileCache.cacheCityMapData(cityMap);
   } catch (err) {
-    console.warn('[MapTileCache] IndexedDB caching error:', err);
+    console.warn('[MapTileCache] UnifiedTileCache error:', err);
   }
 }
 
 /**
- * Retrieve cached CityMapData vector geometry from IndexedDB
+ * Retrieve cached CityMapData vector geometry from UnifiedTileCache & IndexedDB
  */
 export async function getCachedCityMapData(cityId: string): Promise<CityMapData | null> {
   try {
+    const cached = await unifiedTileCache.getCachedCityMapData(cityId);
+    if (cached) return cached;
+
+    // Fallback check on legacy DB
     const db = await openDB();
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const tx = db.transaction(STORE_NAME, 'readonly');
       const store = tx.objectStore(STORE_NAME);
       const request = store.get(cityId);
 
       request.onsuccess = () => {
-        resolve((request.result as CityMapData) || null);
+        const res = (request.result as CityMapData) || null;
+        if (res) {
+          // Promote to unified cache
+          unifiedTileCache.cacheCityMapData(res).catch(() => {});
+        }
+        resolve(res);
       };
-      request.onerror = () => reject(request.error);
+      request.onerror = () => resolve(null);
     });
   } catch (err) {
-    console.warn('[MapTileCache] IndexedDB read error:', err);
+    console.warn('[MapTileCache] Read error:', err);
     return null;
   }
 }

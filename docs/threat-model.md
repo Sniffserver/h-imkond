@@ -37,6 +37,8 @@ The HÕIMU Field Terminal is designed for resilient communication, mutual aid, a
 - **Risk Level**: **HIGH**
 - **Mitigations Implemented in Code**:
   - **2-Step PIN Pairing Protocol**: Clients must complete challenge-response PIN pairing (`/api/v1/pair/start` & `/api/v1/pair/confirm`) before receiving a scoped Bearer token.
+  - **Anti-Brute Force Rate Limiting**: Pairing and authentication endpoints enforce a 30-second exponential cooldown window after 5 failed PIN attempts, mitigating offline/online PIN guessing attacks.
+  - **Encrypted Credential Storage at Rest**: Pi bridge bearer tokens are saved using AES-256 encrypted storage (`setSecureLocalStorage`) with device-bound salts, ensuring no plain tokens exist in standard browser storage.
   - **Revocation Endpoint**: Devices can revoke token access via `/api/v1/devices/revoke`.
   - **End-to-End Encryption (E2EE)**: Direct messaging payloads are encrypted at the client layer before reaching the Pi bridge. The bridge acts strictly as a zero-knowledge store-and-forward relay.
 - **Residual Risk & Field Operator Advice**:
@@ -50,6 +52,7 @@ The HÕIMU Field Terminal is designed for resilient communication, mutual aid, a
 - **Mitigations Implemented in Code**:
   - **Stealth / Passive Mode**: Operators can disable periodic Bluetooth/LoRa beaconing in settings, switching to passive listen-only scanning.
   - **Location Fuzzing**: Option to truncate GPS coordinates to ~1 km grid precision for routine peer discovery.
+  - **Sanitized Logging**: All application and network logs pass through `FieldLogger` with automated redaction for tokens, credentials, and coordinates.
   - **Explicit SOS Authorization**: GPS location is attached ONLY when an explicit SOS distress sequence is triggered by the user.
 - **Residual Risk & Field Operator Advice**:
   - RF transmissions inherently emit radio waves. When operating under direct surveillance, limit transmission bursts or use directional Yagi antennas to minimize RF footprint.
@@ -62,6 +65,7 @@ The HÕIMU Field Terminal is designed for resilient communication, mutual aid, a
 - **Mitigations Implemented in Code**:
   - **Separation of Export Paths**: The UI provides a clear distinction between unencrypted settings (`hoimu_settings.json` — zero secrets) and full state archives (`.hoimu-archive` — strictly password encrypted).
   - **Frontend Environment Variables Audit**: Frontend env vars (e.g., `VITE_PI_BRIDGE_CLIENT_ID`) act strictly as non-secret client pairing identifiers. No static master credentials, bearer tokens, or secrets are ever compiled into the frontend build bundle (`dist/`). Per-device authorization tokens are dynamically minted via `/api/v1/pair` endpoints and stored in device secure storage (`secureStorage.ts`).
+  - **Automated Bundle & Secret Scanner (`scripts/security-audit.cjs`)**: CI verification scans source files and production build outputs for accidental credential leaks.
   - **Checksum Verification**: Archives contain SHA-256 header checksums (`validateArchiveHeader`) preventing restoration of corrupted or tampered export files.
 - **Residual Risk & Field Operator Advice**:
   - Operators must choose strong, high-entropy passwords when creating `.hoimu-archive` files.
@@ -72,6 +76,9 @@ The HÕIMU Field Terminal is designed for resilient communication, mutual aid, a
 
 - [x] All direct communication payloads encrypted client-side (AES-256 / Ed25519).
 - [x] Hardware capability checks isolated in typed `CapabilityState` union (`src/services/runtime/`).
-- [x] Pi Bridge REST API protected by 2-step PIN authentication and Bearer token revocation.
+- [x] Pi Bridge REST API protected by 2-step PIN authentication, rate limiting, and Bearer token revocation.
+- [x] Pi Bridge credentials stored in AES-256 encrypted local storage with device-bound salt.
+- [x] Automated secret and bundle scanner integrated in pre-push and CI pipelines.
+- [x] Telemetry and field logs sanitized against credential leaks.
 - [x] Data backup flows enforce PBKDF2 key derivation and SHA-256 checksum integrity.
 - [x] Factory Reset path available to wipe local storage instantly upon risk of compromise.

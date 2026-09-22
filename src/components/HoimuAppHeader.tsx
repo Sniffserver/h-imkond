@@ -185,6 +185,23 @@ export const HoimuAppHeader: React.FC<HoimuAppHeaderProps> = ({
             </button>
           )}
 
+          {onOpenSkills && (
+            <button
+              id="header-skills-btn"
+              type="button"
+              onClick={onOpenSkills}
+              className={`px-2.5 py-1.5 rounded-xl border font-semibold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
+                isNightMode
+                  ? 'bg-[#121A10] text-[#E9C46A] border-[#2A3B26] hover:bg-[#1A2617]'
+                  : 'bg-white text-[#8C6207] border-[#E9C46A]/40 hover:bg-[#E9C46A]/15'
+              }`}
+              title="Community Skills, Workshops & Verified Trades"
+            >
+              <GraduationCap className="w-3.5 h-3.5 text-[#E9C46A]" />
+              <span>Skills</span>
+            </button>
+          )}
+
           {onOpenQuickGuide && (
             <button
               id="header-guide-btn"

@@ -3,8 +3,30 @@ import { MeshNode } from '../types';
 import { SolarpunkAvatarCanvas } from './SolarpunkAvatarCanvas';
 import { ReputationPill, getReputationTier } from './ReputationPill';
 import { PeerSignalPulseSVG, SignalStrengthMeterSVG } from './PeerSignalPulseSVG';
-import { Radio, MessageSquare, ShieldCheck, X, Compass, Tag, Cpu, Lock, Save, Trash2, Check, Sparkles, FileText } from 'lucide-react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
+import {
+  Radio,
+  MessageSquare,
+  ShieldCheck,
+  X,
+  Compass,
+  Tag,
+  Cpu,
+  Lock,
+  Save,
+  Trash2,
+  Check,
+  Sparkles,
+  FileText,
+  Activity,
+  Zap,
+  Loader2,
+  Wifi,
+} from 'lucide-react';
 import { getSecureLocalStorage, setSecureLocalStorage } from '../utils/localStorageValidator';
+import { peerPingService, PeerPingResult } from '../services/mesh/peerPingService';
+import { soundFeedback } from '../services/utils/soundFeedback';
+import { PeerContributionRadarChart } from './PeerContributionRadarChart';
 
 interface PeerPrivateNoteRecord {
   note: string;
@@ -16,6 +38,7 @@ interface PeerDetailBottomSheetProps {
   onClose: () => void;
   onOpenReputation: (peer: MeshNode) => void;
   onOpenChat: (peer: MeshNode) => void;
+  isNightMode?: boolean;
 }
 
 const STORAGE_KEY_PEER_NOTES = 'hoimu_peer_private_notes';
@@ -34,6 +57,7 @@ export const PeerDetailBottomSheet: React.FC<PeerDetailBottomSheetProps> = ({
   onClose,
   onOpenReputation,
   onOpenChat,
+  isNightMode = false,
 }) => {
   if (!peer) return null;
 
@@ -43,6 +67,31 @@ export const PeerDetailBottomSheet: React.FC<PeerDetailBottomSheetProps> = ({
   const [noteText, setNoteText] = useState('');
   const [lastSavedTime, setLastSavedTime] = useState<number | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle');
+
+  // Low-Energy BLE Heartbeat Ping State
+  const [isPinging, setIsPinging] = useState(false);
+  const [lastPingResult, setLastPingResult] = useState<PeerPingResult | null>(null);
+
+  const handlePingPeer = async () => {
+    if (!peer || isPinging) return;
+    try {
+      setIsPinging(true);
+      soundFeedback.playClick();
+      const result = await peerPingService.pingPeer(peer);
+      setLastPingResult(result);
+      soundFeedback.playSuccess();
+    } catch (err) {
+      console.error('Ping failed:', err);
+    } finally {
+      setIsPinging(false);
+    }
+  };
+
+  const sheetRef = useFocusTrap({
+    isOpen: Boolean(peer),
+    onClose,
+    modalName: peer ? `Peer Details for ${peer.callsign}` : 'Peer Details',
+  });
 
   // Load encrypted notes whenever active peer changes
   useEffect(() => {
@@ -116,6 +165,10 @@ export const PeerDetailBottomSheet: React.FC<PeerDetailBottomSheetProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
       <div
+        ref={sheetRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="peer-detail-title"
         id="peer-detail-sheet"
         className="w-full max-w-lg max-h-[92vh] overflow-y-auto bg-[#FAF6EE] rounded-t-3xl sm:rounded-3xl border border-[#87A878]/35 shadow-2xl p-5 sm:p-6 space-y-4 animate-in slide-in-from-bottom-6 duration-200"
       >
@@ -132,7 +185,7 @@ export const PeerDetailBottomSheet: React.FC<PeerDetailBottomSheetProps> = ({
             </PeerSignalPulseSVG>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-display font-bold text-lg text-[#203A2A]">
+                <h3 id="peer-detail-title" className="font-display font-bold text-lg text-[#203A2A]">
                   {peer.callsign}
                 </h3>
                 <ReputationPill
@@ -150,7 +203,8 @@ export const PeerDetailBottomSheet: React.FC<PeerDetailBottomSheetProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full text-[#637062] hover:bg-[#E6EDE1] transition-colors cursor-pointer"
+            aria-label="Close peer details"
+            className="p-1.5 rounded-full text-[#637062] hover:bg-[#E6EDE1] transition-colors cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
             <X className="w-5 h-5" />
           </button>
@@ -210,6 +264,97 @@ export const PeerDetailBottomSheet: React.FC<PeerDetailBottomSheetProps> = ({
             <span className="text-[#637062]">Relay Health:</span>
             <span className="font-mono font-bold text-[#E76F51]">{peer.relayReliability}%</span>
           </div>
+        </div>
+
+        {/* Community Contribution Radar Chart */}
+        <PeerContributionRadarChart
+          peer={peer}
+          isNightMode={isNightMode}
+        />
+
+        {/* Low-Energy BLE Heartbeat Ping Test */}
+        <div
+          id="peer-ble-ping-card"
+          className="p-3 bg-[#FAF6EE] dark:bg-[#141F12] rounded-2xl border border-[#87A878]/35 dark:border-[#2A3B26] space-y-2.5"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <div className="p-1 rounded-md bg-[#2A9D8F]/20 text-[#2A9D8F]">
+                <Activity className="w-3.5 h-3.5" />
+              </div>
+              <span className="font-display font-bold text-xs text-[#203A2A] dark:text-[#F0F5EE]">
+                BLE Heartbeat Ping &amp; Latency
+              </span>
+            </div>
+
+            <button
+              id="btn-ping-peer"
+              type="button"
+              onClick={handlePingPeer}
+              disabled={isPinging}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer ${
+                isPinging
+                  ? 'bg-[#2A9D8F] text-white animate-pulse'
+                  : 'bg-[#203A2A] hover:bg-[#16271c] text-white'
+              }`}
+              title="Send 16-byte low-energy BLE heartbeat frame to measure link RTT"
+            >
+              {isPinging ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#E9C46A]" />
+                  <span>Pinging BLE...</span>
+                </>
+              ) : (
+                <>
+                  <Zap className="w-3.5 h-3.5 text-[#E9C46A]" />
+                  <span>Ping Peer</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {lastPingResult ? (
+            <div className="p-2.5 bg-white dark:bg-[#1C2C19] rounded-xl border border-[#87A878]/30 dark:border-[#364E30] flex items-center justify-between text-xs animate-in fade-in duration-200">
+              <div className="flex items-center gap-2">
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    lastPingResult.status === 'optimal'
+                      ? 'bg-[#10B981] animate-ping'
+                      : lastPingResult.status === 'good'
+                      ? 'bg-[#2A9D8F]'
+                      : 'bg-[#F4A261]'
+                  }`}
+                />
+                <div>
+                  <div className="font-mono font-bold text-sm text-[#203A2A] dark:text-[#F0F5EE] flex items-center gap-1.5">
+                    <span>{lastPingResult.latencyMs} ms RTT</span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-sans font-medium border ${
+                        lastPingResult.status === 'optimal'
+                          ? 'bg-[#10B981]/15 text-[#065F46] dark:text-[#34D399] border-[#10B981]/30'
+                          : lastPingResult.status === 'good'
+                          ? 'bg-[#2A9D8F]/15 text-[#165B53] dark:text-[#38BDF8] border-[#2A9D8F]/30'
+                          : 'bg-[#E76F51]/15 text-[#991B1B] dark:text-[#F87171] border-[#E76F51]/30'
+                      }`}
+                    >
+                      {lastPingResult.status.toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-[#637062] dark:text-[#A8BDA5]">
+                    {lastPingResult.isDirectBle ? 'Direct 0-Hop BLE' : `${lastPingResult.hopCount} Hops`} • {lastPingResult.rssiDbm} dBm • {lastPingResult.packetSizeBytes}B Frame
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-right text-[10px] font-mono text-[#637062] dark:text-[#A8BDA5]">
+                {new Date(lastPingResult.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </div>
+            </div>
+          ) : (
+            <p className="text-[11px] text-[#637062] dark:text-[#A8BDA5] leading-tight">
+              Sends an ultra-low energy 16-byte RF heartbeat frame to verify link reachability and round-trip time (RTT) without initiating a full database sync or consuming data bandwidth.
+            </p>
+          )}
         </div>
 
         {/* Private Local Notes (Encrypted Storage) */}

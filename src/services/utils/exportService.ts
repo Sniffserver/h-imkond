@@ -1,5 +1,11 @@
-import { MeshNode, ResourceItem, UserProfile, MeshMessage } from '../../types';
-import { encryptDataWithPassphrase, decryptDataWithPassphrase } from '../../utils/cryptoHelper';
+import { MeshNode, ResourceItem, UserProfile, MeshMessage, Transaction, JournalEntry } from '../../types';
+import {
+  encryptDataWithPassphrase,
+  decryptDataWithPassphrase,
+  sha256DigestHex,
+  signArchivalPayload,
+  verifyArchivalSignature,
+} from '../../utils/cryptoHelper';
 
 export interface GeoJsonFeature {
   type: 'Feature';
@@ -332,6 +338,308 @@ export function exportCSVData(): {
   ].join('\n');
 
   return { syncHistoryCsv, batteryLogsCsv, meshContributionsCsv, combinedCsv };
+}
+
+/**
+ * Helper to escape CSV field values
+ */
+function escapeCsvValue(val: any): string {
+  if (val === null || val === undefined) return '""';
+  const str = String(val);
+  return `"${str.replace(/"/g, '""')}"`;
+}
+
+/**
+ * 5b. exportSignedCommunityHistoryCsv:
+ * Generates a cryptographically signed CSV file containing the user's community
+ * interaction history (transactions and journal reflections).
+ * Includes SHA-256 integrity hash, Ed25519 signature, public key, and canonical provenance header.
+ */
+export async function exportSignedCommunityHistoryCsv(
+  transactionsInput?: Transaction[],
+  journalInput?: JournalEntry[],
+  signerCallsignInput?: string
+): Promise<{
+  signedCsvContent: string;
+  signature: string;
+  sha256Digest: string;
+  transactionCount: number;
+  journalCount: number;
+  filename: string;
+  signerCallsign: string;
+  signerPublicKey: string;
+  exportedAt: string;
+}> {
+  // 1. Resolve transactions
+  let txList: Transaction[] = transactionsInput ? [...transactionsInput] : [];
+  if (txList.length === 0 && typeof localStorage !== 'undefined') {
+    try {
+      const stored = localStorage.getItem('hoimu_transactions');
+      if (stored) txList = JSON.parse(stored);
+    } catch {
+      // fallback
+    }
+  }
+
+  // 2. Resolve journal entries
+  let journalList: JournalEntry[] = journalInput ? [...journalInput] : [];
+  if (journalList.length === 0 && typeof localStorage !== 'undefined') {
+    try {
+      const stored = localStorage.getItem('hoimu_journal');
+      if (stored) journalList = JSON.parse(stored);
+    } catch {
+      // fallback
+    }
+  }
+
+  // 3. Resolve signer callsign & public key
+  let callsign = signerCallsignInput || '';
+  if (!callsign && typeof localStorage !== 'undefined') {
+    try {
+      const u = localStorage.getItem('hoimu_user');
+      if (u) {
+        const parsed = JSON.parse(u);
+        callsign = parsed.callsign || '';
+      }
+    } catch {
+      // fallback
+    }
+  }
+  if (!callsign) callsign = 'EST-SOLARIS';
+
+  let pubKey = '';
+  if (typeof localStorage !== 'undefined') {
+    pubKey = localStorage.getItem('hoimu_public_key') || '';
+  }
+  if (!pubKey) {
+    pubKey = `ed25519_pub_${callsign.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+  }
+
+  const exportedAt = new Date().toISOString();
+
+  // 4. Build canonical CSV rows for hashing & verification
+  // A. Transactions Section
+  const txHeader = [
+    'RecordType',
+    'TransactionID',
+    'TimestampISO',
+    'TimestampMS',
+    'ResourceTitle',
+    'Role',
+    'RequesterCallsign',
+    'ProviderCallsign',
+    'Status',
+    'Reflection',
+    'EndorsementHash',
+  ].join(',');
+
+  const txRows = txList.map((tx) => {
+    const isProvider = tx.providerCallsign?.toLowerCase() === callsign.toLowerCase();
+    const role = isProvider ? 'Provider' : 'Requester';
+    const timeIso = new Date(tx.createdAt || Date.now()).toISOString();
+    return [
+      escapeCsvValue('TRANSACTION'),
+      escapeCsvValue(tx.id),
+      escapeCsvValue(timeIso),
+      escapeCsvValue(tx.createdAt || 0),
+      escapeCsvValue(tx.resourceTitle || 'Mutual Aid'),
+      escapeCsvValue(role),
+      escapeCsvValue(tx.requesterCallsign || ''),
+      escapeCsvValue(tx.providerCallsign || ''),
+      escapeCsvValue(tx.status || 'completed'),
+      escapeCsvValue(tx.reflection || ''),
+      escapeCsvValue(tx.endorsementHash || ''),
+    ].join(',');
+  });
+
+  // B. Journal Section
+  const journalHeader = [
+    'RecordType',
+    'EntryID',
+    'TimestampISO',
+    'TimestampMS',
+    'PartnerCallsign',
+    'ResourceTitle',
+    'Sentiment',
+    'ScoreDelta',
+    'Reflection',
+  ].join(',');
+
+  const journalRows = journalList.map((j) => {
+    const timeIso = new Date(j.timestamp || Date.now()).toISOString();
+    return [
+      escapeCsvValue('JOURNAL'),
+      escapeCsvValue(j.id),
+      escapeCsvValue(timeIso),
+      escapeCsvValue(j.timestamp || 0),
+      escapeCsvValue(j.partnerCallsign || ''),
+      escapeCsvValue(j.resourceTitle || ''),
+      escapeCsvValue(j.sentiment || 'positive'),
+      escapeCsvValue(j.scoreDelta || 0),
+      escapeCsvValue(j.reflection || ''),
+    ].join(',');
+  });
+
+  // 5. Build Canonical Content Payload (The exact reproducible data that is signed)
+  const canonicalDataLines = [
+    '# SECTION: TRANSACTIONS',
+    txHeader,
+    ...txRows,
+    '# SECTION: JOURNAL',
+    journalHeader,
+    ...journalRows,
+  ];
+  const canonicalContent = canonicalDataLines.join('\n');
+
+  // 6. Generate Cryptographic Signature & SHA-256 Digest
+  const { signature, sha256Digest } = await signArchivalPayload(
+    canonicalContent,
+    callsign,
+    pubKey
+  );
+
+  // 7. Compose Final Cryptographically Signed CSV with Provenance Manifest
+  const manifestHeader = [
+    '# ==============================================================================',
+    '# HÕIMU BIOMESH - CRYPTOGRAPHICALLY SIGNED COMMUNITY ARCHIVE',
+    '# ==============================================================================',
+    `# ARCHIVE_SPEC: HOIMU-CSV-ARCHIVE-V1.0`,
+    `# EXPORTED_AT: ${exportedAt}`,
+    `# SIGNER_CALLSIGN: ${callsign}`,
+    `# SIGNER_PUBLIC_KEY: ${pubKey}`,
+    `# SIGNATURE_ALGORITHM: Ed25519/SHA-256`,
+    `# CANONICAL_SHA256: ${sha256Digest}`,
+    `# CRYPTOGRAPHIC_SIGNATURE: ${signature}`,
+    `# RECORD_COUNT_TRANSACTIONS: ${txList.length}`,
+    `# RECORD_COUNT_JOURNAL: ${journalList.length}`,
+    `# PROVENANCE: Self-sovereign cryptographic verification of local mutual aid ledger.`,
+    '# ==============================================================================',
+  ].join('\n');
+
+  const signedCsvContent = [
+    manifestHeader,
+    canonicalContent,
+    '# ==============================================================================',
+    '# END OF SIGNED HÕIMU ARCHIVE',
+    '# ==============================================================================',
+  ].join('\n');
+
+  const filename = `hoimu_community_history_${callsign.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${Date.now()}.csv`;
+
+  return {
+    signedCsvContent,
+    signature,
+    sha256Digest,
+    transactionCount: txList.length,
+    journalCount: journalList.length,
+    filename,
+    signerCallsign: callsign,
+    signerPublicKey: pubKey,
+    exportedAt,
+  };
+}
+
+/**
+ * Verifies a signed community history CSV file against its embedded signature and SHA-256 digest.
+ */
+export async function verifySignedCommunityHistoryCsv(fileContent: string): Promise<{
+  isValid: boolean;
+  signerCallsign?: string;
+  signerPublicKey?: string;
+  signature?: string;
+  declaredDigest?: string;
+  computedDigest?: string;
+  exportedAt?: string;
+  transactionCount: number;
+  journalCount: number;
+  error?: string;
+}> {
+  if (!fileContent || !fileContent.includes('HOIMU-CSV-ARCHIVE-V1.0')) {
+    return {
+      isValid: false,
+      transactionCount: 0,
+      journalCount: 0,
+      error: 'Not a recognized HÕIMU cryptographically signed archival CSV file.',
+    };
+  }
+
+  // Parse header values
+  const getHeaderVal = (key: string) => {
+    const match = fileContent.match(new RegExp(`^# ${key}:\\s*(.+)$`, 'm'));
+    return match ? match[1].trim() : '';
+  };
+
+  const exportedAt = getHeaderVal('EXPORTED_AT');
+  const signerCallsign = getHeaderVal('SIGNER_CALLSIGN');
+  const signerPublicKey = getHeaderVal('SIGNER_PUBLIC_KEY');
+  const declaredDigest = getHeaderVal('CANONICAL_SHA256');
+  const signature = getHeaderVal('CRYPTOGRAPHIC_SIGNATURE');
+  const txCountStr = getHeaderVal('RECORD_COUNT_TRANSACTIONS');
+  const jCountStr = getHeaderVal('RECORD_COUNT_JOURNAL');
+
+  const transactionCount = parseInt(txCountStr, 10) || 0;
+  const journalCount = parseInt(jCountStr, 10) || 0;
+
+  if (!declaredDigest || !signature) {
+    return {
+      isValid: false,
+      signerCallsign,
+      exportedAt,
+      transactionCount,
+      journalCount,
+      error: 'Missing cryptographic manifest headers in CSV archive.',
+    };
+  }
+
+  // Extract canonical content between header and footer
+  const startIndex = fileContent.indexOf('# SECTION: TRANSACTIONS');
+  const endIndex = fileContent.indexOf('# END OF SIGNED HÕIMU ARCHIVE');
+
+  if (startIndex === -1) {
+    return {
+      isValid: false,
+      signerCallsign,
+      exportedAt,
+      transactionCount,
+      journalCount,
+      error: 'Malformed CSV archive: Could not locate transactions section.',
+    };
+  }
+
+  const rawCanonical = endIndex !== -1
+    ? fileContent.substring(startIndex, endIndex)
+    : fileContent.substring(startIndex);
+
+  // Clean trailing divider lines
+  const canonicalContent = rawCanonical
+    .split('\n')
+    .filter((line) => !line.startsWith('# ========================='))
+    .join('\n')
+    .trim();
+
+  const computedDigest = await sha256DigestHex(canonicalContent);
+
+  const verificationResult = await verifyArchivalSignature(
+    canonicalContent,
+    declaredDigest,
+    signature,
+    signerCallsign,
+    signerPublicKey,
+    exportedAt
+  );
+
+  return {
+    isValid: verificationResult.isValid,
+    signerCallsign,
+    signerPublicKey,
+    signature,
+    declaredDigest,
+    computedDigest,
+    exportedAt,
+    transactionCount,
+    journalCount,
+    error: verificationResult.error,
+  };
 }
 
 /**

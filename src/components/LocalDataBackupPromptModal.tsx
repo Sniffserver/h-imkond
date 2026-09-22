@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ShieldCheck, Download, Clock, HardDrive, AlertCircle, CheckCircle2, X } from 'lucide-react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface LocalDataBackupPromptModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ export const LocalDataBackupPromptModal: React.FC<LocalDataBackupPromptModalProp
 }) => {
   const [reminderDays, setReminderDays] = useState<number>(14);
   const [isExported, setIsExported] = useState(false);
+  const modalRef = useFocusTrap({ isOpen, onClose, modalName: 'Local Ledger Resilience Setup' });
 
   if (!isOpen) return null;
 
@@ -40,6 +42,10 @@ export const LocalDataBackupPromptModal: React.FC<LocalDataBackupPromptModalProp
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="backup-modal-title"
         className={`relative w-full max-w-lg rounded-3xl border shadow-2xl overflow-hidden p-6 transition-colors duration-200 ${
           isNightMode
             ? 'bg-[#182315] border-[#364E30] text-[#F0F5EE]'
@@ -50,7 +56,8 @@ export const LocalDataBackupPromptModal: React.FC<LocalDataBackupPromptModalProp
         <button
           type="button"
           onClick={handleDismiss}
-          className={`absolute top-4 right-4 p-2 rounded-full transition-colors cursor-pointer ${
+          aria-label="Dismiss backup dialog"
+          className={`absolute top-4 right-4 p-2 rounded-full transition-colors cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center ${
             isNightMode ? 'hover:bg-[#2A3B26] text-[#A8BDA5]' : 'hover:bg-[#E6EDE1] text-[#637062]'
           }`}
           title="Dismiss for now"
@@ -68,7 +75,7 @@ export const LocalDataBackupPromptModal: React.FC<LocalDataBackupPromptModalProp
               <HardDrive className="w-3 h-3" />
               100% Zero-Cloud Storage
             </div>
-            <h2 className="font-display font-bold text-xl tracking-tight">
+            <h2 id="backup-modal-title" className="font-display font-bold text-xl tracking-tight">
               Local Ledger Resilience Setup
             </h2>
           </div>

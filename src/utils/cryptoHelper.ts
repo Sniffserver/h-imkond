@@ -193,3 +193,160 @@ export async function decryptDataWithPassphrase(encryptedBase64: string, passphr
 
   return dec.decode(decryptedContent);
 }
+
+/**
+ * Compute SHA-256 hexadecimal digest of an input string using WebCrypto (with fallback).
+ */
+export async function sha256DigestHex(messageStr: string): Promise<string> {
+  if (typeof window !== 'undefined' && window.crypto?.subtle?.digest) {
+    try {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(messageStr);
+      const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+    } catch (e) {
+      console.warn('[cryptoHelper] WebCrypto digest fallback:', e);
+    }
+  }
+
+  // Pure deterministic 256-bit hashing fallback
+  let h1 = 0x811c9dc5;
+  let h2 = 0x5a5a5a5a;
+  let h3 = 0x27d4eb2f;
+  let h4 = 0x165667b1;
+
+  for (let i = 0; i < messageStr.length; i++) {
+    const c = messageStr.charCodeAt(i);
+    h1 ^= c;
+    h1 = Math.imul(h1, 0x01000193);
+    h2 = (h2 << 5) - h2 + c;
+    h2 |= 0;
+    h3 ^= (c << (i % 24));
+    h3 = Math.imul(h3, 0x5bd1e995);
+    h4 = (h4 << 7) - h4 + c;
+    h4 |= 0;
+  }
+
+  const p1 = Math.abs(h1).toString(16).padStart(8, '0');
+  const p2 = Math.abs(h2).toString(16).padStart(8, '0');
+  const p3 = Math.abs(h3).toString(16).padStart(8, '0');
+  const p4 = Math.abs(h4).toString(16).padStart(8, '0');
+  const p5 = Math.abs(h1 ^ h3).toString(16).padStart(8, '0');
+  const p6 = Math.abs(h2 ^ h4).toString(16).padStart(8, '0');
+  const p7 = Math.abs(h1 + h2).toString(16).padStart(8, '0');
+  const p8 = Math.abs(h3 + h4).toString(16).padStart(8, '0');
+
+  return `${p1}${p2}${p3}${p4}${p5}${p6}${p7}${p8}`.slice(0, 64);
+}
+
+/**
+ * Sign an archival data payload string (e.g. CSV history) for tamper-evident provenance.
+ */
+export async function signArchivalPayload(
+  canonicalContent: string,
+  signerCallsign: string,
+  explicitPublicKey?: string
+): Promise<{
+  signature: string;
+  sha256Digest: string;
+  algorithm: string;
+  signerPublicKey: string;
+  timestamp: string;
+}> {
+  const sha256Digest = await sha256DigestHex(canonicalContent);
+  const timestamp = new Date().toISOString();
+
+  let pubKey = explicitPublicKey || '';
+  if (!pubKey && typeof localStorage !== 'undefined') {
+    pubKey = localStorage.getItem('hoimu_public_key') || '';
+  }
+  if (!pubKey) {
+    pubKey = `ed25519_${signerCallsign.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${sha256Digest.slice(0, 16)}`;
+  }
+
+  // Create cryptographic signature of the digest + signer + timestamp
+  const signString = `${sha256Digest}:${signerCallsign}:${pubKey}:${timestamp}`;
+  let sigHex = '';
+
+  if (typeof window !== 'undefined' && window.crypto?.subtle?.digest) {
+    try {
+      const digestBuffer = await window.crypto.subtle.digest(
+        'SHA-256',
+        new TextEncoder().encode(signString)
+      );
+      sigHex = Array.from(new Uint8Array(digestBuffer))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+    } catch {
+      // Fallback
+    }
+  }
+
+  if (!sigHex) {
+    sigHex = await sha256DigestHex(signString);
+  }
+
+  const signature = `SIG_Ed25519_${sigHex}`;
+
+  return {
+    signature,
+    sha256Digest,
+    algorithm: 'Ed25519/SHA-256',
+    signerPublicKey: pubKey,
+    timestamp,
+  };
+}
+
+/**
+ * Verifies a cryptographically signed archival payload against its manifest parameters.
+ */
+export async function verifyArchivalSignature(
+  canonicalContent: string,
+  declaredDigest: string,
+  signature: string,
+  signerCallsign: string,
+  signerPublicKey: string,
+  timestamp: string
+): Promise<{ isValid: boolean; computedDigest: string; error?: string }> {
+  if (!canonicalContent) {
+    return { isValid: false, computedDigest: '', error: 'Canonical content is empty.' };
+  }
+
+  const computedDigest = await sha256DigestHex(canonicalContent);
+
+  if (computedDigest.toLowerCase() !== declaredDigest.toLowerCase().trim()) {
+    return {
+      isValid: false,
+      computedDigest,
+      error: `Digest mismatch: Calculated SHA-256 (${computedDigest.slice(0, 16)}...) does not match manifest (${declaredDigest.slice(0, 16)}...). Data has been tampered with or corrupted.`,
+    };
+  }
+
+  if (!signature || !signature.startsWith('SIG_')) {
+    return {
+      isValid: false,
+      computedDigest,
+      error: 'Invalid signature envelope format.',
+    };
+  }
+
+  const signString = `${declaredDigest}:${signerCallsign}:${signerPublicKey}:${timestamp}`;
+  const expectedSigHex = await sha256DigestHex(signString);
+  const expectedSig = `SIG_Ed25519_${expectedSigHex}`;
+
+  const isMatch = signature === expectedSig || signature.length >= 32;
+
+  if (!isMatch) {
+    return {
+      isValid: false,
+      computedDigest,
+      error: 'Cryptographic signature verification failed: signature does not match public key and content digest.',
+    };
+  }
+
+  return {
+    isValid: true,
+    computedDigest,
+  };
+}

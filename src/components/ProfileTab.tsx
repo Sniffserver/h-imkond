@@ -25,6 +25,8 @@ import {
   exportIdentity,
   importIdentity,
   exportCSVData,
+  exportSignedCommunityHistoryCsv,
+  verifySignedCommunityHistoryCsv,
   exportEncryptedArchive,
   downloadFile,
 } from '../services/utils/exportService';
@@ -146,7 +148,15 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   // Export State & Format Selector
   const [copiedState, setCopiedState] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
-  const [exportFormat, setExportFormat] = useState<'geojson' | 'csv' | 'archive' | 'json' | 'messages'>('geojson');
+  const [exportFormat, setExportFormat] = useState<
+    'signed_csv' | 'geojson' | 'csv' | 'archive' | 'json' | 'messages'
+  >('signed_csv');
+
+  // Signed CSV Verification Modal States
+  const [isVerifyCsvModalOpen, setIsVerifyCsvModalOpen] = useState(false);
+  const [verifyCsvResult, setVerifyCsvResult] = useState<any>(null);
+  const [isVerifyingCsv, setIsVerifyingCsv] = useState(false);
+  const [verifyCsvInputText, setVerifyCsvInputText] = useState('');
 
   // Identity Backup & Restore Modal States
   const [isBackupIdentityModalOpen, setIsBackupIdentityModalOpen] = useState(false);
@@ -433,9 +443,22 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
     }
   };
 
-  // 4) Execute Selected Export Format (GeoJSON, CSV, Encrypted Archive, JSON, Messages)
+  // 4) Execute Selected Export Format (Signed CSV, GeoJSON, CSV, Encrypted Archive, JSON, Messages)
   const handleExportSelectedFormat = async () => {
-    if (exportFormat === 'geojson') {
+    if (exportFormat === 'signed_csv') {
+      try {
+        const { signedCsvContent, filename, transactionCount, journalCount, sha256Digest } =
+          await exportSignedCommunityHistoryCsv(transactions, journal, user.callsign);
+        downloadFile(signedCsvContent, filename, 'text/csv');
+        onAddToast?.(
+          '📜 Signed History CSV Exported',
+          `Archived ${transactionCount} transactions and ${journalCount} reflections with Ed25519 signature & SHA-256 (${sha256Digest.slice(0, 8)}...).`,
+          'success'
+        );
+      } catch (err: any) {
+        onAddToast?.('Export Failed', err.message || 'Could not export signed CSV archive.', 'warning');
+      }
+    } else if (exportFormat === 'geojson') {
       const geojsonStr = exportMeshData(peers, resources, []);
       downloadFile(geojsonStr, `hoimu_mesh_${user.callsign.toLowerCase()}.geojson`, 'application/geo+json');
       onAddToast?.(
@@ -460,6 +483,51 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
       downloadFile(archive, `hoimu_messages_${user.callsign.toLowerCase()}.json`, 'application/json');
       onAddToast?.('💬 Messages Exported', 'Message history archive exported.', 'success');
     }
+  };
+
+  // 4b) Verify Signed CSV Archive
+  const handleVerifyCsvText = async (textToVerify: string) => {
+    if (!textToVerify.trim()) return;
+    setIsVerifyingCsv(true);
+    try {
+      const result = await verifySignedCommunityHistoryCsv(textToVerify);
+      setVerifyCsvResult(result);
+      if (result.isValid) {
+        onAddToast?.(
+          '✅ Cryptographic Signature Valid',
+          `Verified archive from ${result.signerCallsign}. All ${result.transactionCount} transactions and ${result.journalCount} journal entries intact.`,
+          'success'
+        );
+      } else {
+        onAddToast?.(
+          '❌ Signature Verification Failed',
+          result.error || 'The file has been modified or corrupted.',
+          'warning'
+        );
+      }
+    } catch (err: any) {
+      setVerifyCsvResult({
+        isValid: false,
+        error: err.message || 'Error processing CSV archive.',
+        transactionCount: 0,
+        journalCount: 0,
+      });
+      onAddToast?.('Verification Error', err.message || 'Error verifying file.', 'warning');
+    } finally {
+      setIsVerifyingCsv(false);
+    }
+  };
+
+  const handleVerifyCsvFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      setVerifyCsvInputText(text);
+      handleVerifyCsvText(text);
+    };
+    reader.readAsText(file);
   };
 
   // 5) Execute Encrypted Full Archive
@@ -1018,6 +1086,36 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+            {/* Format 0: Signed Community History CSV (Ed25519) */}
+            <label
+              className={`p-3 rounded-xl border flex items-center gap-2.5 cursor-pointer transition-all ${
+                exportFormat === 'signed_csv'
+                  ? 'bg-[#2A9D8F]/15 border-[#2A9D8F] ring-1 ring-[#2A9D8F]'
+                  : 'border-current/10 hover:bg-black/5 dark:hover:bg-white/5'
+              }`}
+            >
+              <input
+                type="radio"
+                name="exportFormat"
+                value="signed_csv"
+                checked={exportFormat === 'signed_csv'}
+                onChange={() => setExportFormat('signed_csv')}
+                className="sr-only"
+              />
+              <ShieldCheck className="w-4 h-4 text-[#2A9D8F] shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold truncate">Signed History CSV</span>
+                  <span className="text-[9px] font-mono px-1 py-0.5 rounded font-bold bg-[#2A9D8F] text-white">
+                    Ed25519
+                  </span>
+                </div>
+                <span className="text-[10px] text-[#637062] dark:text-[#A8BDA5] block truncate">
+                  Transactions ({transactions?.length || 0}) & Journal ({journal?.length || 0})
+                </span>
+              </div>
+            </label>
+
             {/* Format 1: GeoJSON */}
             <label
               className={`p-3 rounded-xl border flex items-center gap-2.5 cursor-pointer transition-all ${
@@ -1143,7 +1241,28 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
               className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-[#588157] hover:bg-[#476a46] text-white text-xs font-bold rounded-xl shadow-md transition-all active:scale-95 cursor-pointer"
             >
               <Download className="w-4 h-4 text-white" />
-              <span>Export {exportFormat.toUpperCase()} File</span>
+              <span>
+                Export {exportFormat === 'signed_csv' ? 'SIGNED CSV' : exportFormat.toUpperCase()} File
+              </span>
+            </button>
+
+            {/* Verify Signed Archive Trigger */}
+            <button
+              type="button"
+              id="verify-signed-csv-modal-btn"
+              onClick={() => {
+                setVerifyCsvResult(null);
+                setVerifyCsvInputText('');
+                setIsVerifyCsvModalOpen(true);
+              }}
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3.5 py-2.5 border text-xs font-semibold rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer ${
+                isNightMode
+                  ? 'bg-[#182315] text-[#2A9D8F] border-[#364E30] hover:border-[#87A878]'
+                  : 'bg-white text-[#2A9D8F] border-[#2A9D8F]/40 hover:bg-[#FAF6EE]'
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-[#2A9D8F]" />
+              <span>Verify Signed Archive</span>
             </button>
 
             {/* Plain Text Field Ledger Button */}
@@ -1878,6 +1997,164 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: Cryptographically Signed CSV Archive Verification Modal */}
+      {isVerifyCsvModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-[#203A2A] text-[#203A2A] dark:text-[#F0F5EE] border border-[#87A878]/40 dark:border-[#364E30] rounded-3xl p-6 max-w-xl w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-current/10 pb-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-[#2A9D8F]" />
+                <h3 className="font-display font-bold text-base">
+                  Verify Cryptographic Archive Provenance
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsVerifyCsvModalOpen(false);
+                  setVerifyCsvResult(null);
+                  setVerifyCsvInputText('');
+                }}
+                className="p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-[#637062] dark:text-[#A8BDA5] leading-relaxed">
+              Verify the authenticity and tamper-resistance of any exported HÕIMU community interaction archive. Checks the embedded <strong className="text-[#2A9D8F]">Ed25519 signature</strong> and recalculates the canonical <strong className="text-[#2A9D8F]">SHA-256 digest</strong>.
+            </p>
+
+            {/* File Upload Zone */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-[#203A2A] dark:text-[#F0F5EE]">
+                Upload Exported .CSV File
+              </label>
+              <div className="relative border-2 border-dashed border-[#87A878]/50 dark:border-[#364E30] rounded-2xl p-4 text-center hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer">
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={handleVerifyCsvFileSelect}
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                />
+                <div className="flex flex-col items-center justify-center gap-1.5">
+                  <UploadCloud className="w-7 h-7 text-[#2A9D8F]" />
+                  <span className="text-xs font-semibold">Click or drag & drop a signed .csv archive here</span>
+                  <span className="text-[10px] text-[#637062] dark:text-[#A8BDA5]">
+                    Supports hoimu_community_history_*.csv
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Or Paste Raw CSV */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-[#203A2A] dark:text-[#F0F5EE]">
+                Or Paste CSV Archive Content
+              </label>
+              <textarea
+                value={verifyCsvInputText}
+                onChange={(e) => setVerifyCsvInputText(e.target.value)}
+                placeholder="Paste the raw contents of a signed CSV archive starting with # ==============================================================================&#10;# HÕIMU BIOMESH - CRYPTOGRAPHICALLY SIGNED COMMUNITY ARCHIVE..."
+                rows={4}
+                className="w-full font-mono text-[11px] p-3 rounded-xl border border-[#87A878]/40 dark:border-[#364E30] bg-white dark:bg-[#182315] text-[#203A2A] dark:text-[#F0F5EE] focus:ring-2 focus:ring-[#2A9D8F] focus:outline-none"
+              />
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  disabled={!verifyCsvInputText.trim() || isVerifyingCsv}
+                  onClick={() => handleVerifyCsvText(verifyCsvInputText)}
+                  className="px-4 py-2 bg-[#2A9D8F] hover:bg-[#238378] text-white text-xs font-bold rounded-xl shadow-xs disabled:opacity-40 cursor-pointer flex items-center gap-1.5"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>{isVerifyingCsv ? 'Verifying...' : 'Verify Signature'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Verification Result Display */}
+            {verifyCsvResult && (
+              <div
+                className={`p-4 rounded-2xl border transition-all ${
+                  verifyCsvResult.isValid
+                    ? 'bg-[#2A9D8F]/10 border-[#2A9D8F]/40'
+                    : 'bg-[#E76F51]/10 border-[#E76F51]/40'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  {verifyCsvResult.isValid ? (
+                    <>
+                      <CheckCircle2 className="w-5 h-5 text-[#2A9D8F] shrink-0" />
+                      <div>
+                        <span className="text-xs font-bold text-[#2A9D8F] block">
+                          AUTHENTIC & UNTAMPERED ARCHIVE
+                        </span>
+                        <span className="text-[10px] text-[#637062] dark:text-[#A8BDA5]">
+                          Cryptographic signature verified against canonical SHA-256 digest
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="w-5 h-5 text-[#E76F51] shrink-0" />
+                      <div>
+                        <span className="text-xs font-bold text-[#E76F51] block">
+                          VERIFICATION FAILED / TAMPERED
+                        </span>
+                        <span className="text-[10px] text-[#E76F51]">
+                          {verifyCsvResult.error || 'The archive signature does not match canonical contents.'}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-[11px] mt-3 font-mono bg-white/60 dark:bg-black/20 p-3 rounded-xl border border-current/10">
+                  <div>
+                    <span className="text-[#637062] dark:text-[#A8BDA5] block text-[10px]">Signer Callsign</span>
+                    <strong className="text-[#203A2A] dark:text-[#F0F5EE]">{verifyCsvResult.signerCallsign || 'Unknown'}</strong>
+                  </div>
+                  <div>
+                    <span className="text-[#637062] dark:text-[#A8BDA5] block text-[10px]">Archived At</span>
+                    <span className="text-[#203A2A] dark:text-[#F0F5EE] truncate block">
+                      {verifyCsvResult.exportedAt ? new Date(verifyCsvResult.exportedAt).toLocaleString() : 'N/A'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[#637062] dark:text-[#A8BDA5] block text-[10px]">Verified Transactions</span>
+                    <span className="text-[#203A2A] dark:text-[#F0F5EE] font-bold">{verifyCsvResult.transactionCount} records</span>
+                  </div>
+                  <div>
+                    <span className="text-[#637062] dark:text-[#A8BDA5] block text-[10px]">Verified Journal Entries</span>
+                    <span className="text-[#203A2A] dark:text-[#F0F5EE] font-bold">{verifyCsvResult.journalCount} records</span>
+                  </div>
+                  {verifyCsvResult.declaredDigest && (
+                    <div className="col-span-2 overflow-hidden text-ellipsis">
+                      <span className="text-[#637062] dark:text-[#A8BDA5] block text-[10px]">SHA-256 Digest</span>
+                      <span className="text-[10px] text-[#2A9D8F] break-all">{verifyCsvResult.declaredDigest}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsVerifyCsvModalOpen(false);
+                  setVerifyCsvResult(null);
+                  setVerifyCsvInputText('');
+                }}
+                className="px-4 py-2 text-xs font-semibold text-[#637062] hover:text-[#203A2A] cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

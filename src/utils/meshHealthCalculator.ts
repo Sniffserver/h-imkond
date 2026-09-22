@@ -23,12 +23,24 @@ export interface MeshHealthMetrics {
   avgRelayReliability: number;   // e.g. 96.5%
   relayStatusLabel: string;      // e.g. "3 Active Relays (96.5%)"
   
+  // Node Density Sub-metrics
+  nodeDensityScore: number;      // 0 - 100
+  nodeDensityLabel: string;      // e.g. "Optimal Cluster (5 Nodes)"
+  immediateBleNodesCount: number; // RSSI > -70 dBm
+  nodesPerHopBreakdown: {
+    immediate: number;           // RSSI > -70 dBm
+    direct: number;              // 1-hop
+    relayed: number;             // >1 hop
+    fringe: number;              // RSSI <= -85 dBm
+  };
+  
   recommendation: string;        // Dynamic tip e.g. "Signal & Latency optimal..."
 }
 
 /**
  * Calculates the Mesh Health Score by aggregating signal strength (RSSI),
- * peer round-trip latency (RTT), and active relay node availability & reliability.
+ * node density across the mesh topology, peer round-trip latency (RTT),
+ * and active relay node availability & reliability.
  */
 export function calculateMeshHealthScore(peers: MeshNode[]): MeshHealthMetrics {
   if (!peers || peers.length === 0) {
@@ -49,6 +61,15 @@ export function calculateMeshHealthScore(peers: MeshNode[]): MeshHealthMetrics {
       totalPeersCount: 0,
       avgRelayReliability: 0,
       relayStatusLabel: '0 Relays Active',
+      nodeDensityScore: 0,
+      nodeDensityLabel: '0 Nodes (Isolated)',
+      immediateBleNodesCount: 0,
+      nodesPerHopBreakdown: {
+        immediate: 0,
+        direct: 0,
+        relayed: 0,
+        fringe: 0,
+      },
       recommendation: 'Scan for nearby BLE beacons or LoRa mesh nodes to establish peer topology.',
     };
   }
@@ -135,17 +156,42 @@ export function calculateMeshHealthScore(peers: MeshNode[]): MeshHealthMetrics {
     relayStatusLabel = `Direct Mesh Only (${directPeers.length} Direct)`;
   }
 
-  // 4. WEIGHTED COMPOSITE MESH HEALTH SCORE
-  // Weights: 35% Signal Strength (RSSI), 35% Peer Latency (RTT), 30% Active Relays
+  // 4. NODE DENSITY AGGREGATION
+  const immediatePeers = peers.filter((p) => (p.lastRssi || -70) >= -70);
+  const fringePeers = peers.filter((p) => (p.lastRssi || -70) <= -85);
+
+  const nodesPerHopBreakdown = {
+    immediate: immediatePeers.length,
+    direct: directPeers.length,
+    relayed: relayPeers.length,
+    fringe: fringePeers.length,
+  };
+
+  // Node density scoring: 0-1 node is sparse (40-60), 2-4 nodes is balanced (80-95), 5+ nodes is dense (100)
+  const nodeDensityScore = Math.min(
+    100,
+    Math.round(40 + peers.length * 15 + immediatePeers.length * 10)
+  );
+  let nodeDensityLabel = `${peers.length} Nodes (Balanced Cluster)`;
+  if (peers.length >= 6) {
+    nodeDensityLabel = `High Density (${peers.length} Nodes in Cluster)`;
+  } else if (peers.length >= 3) {
+    nodeDensityLabel = `Good Density (${peers.length} Nodes)`;
+  } else if (peers.length >= 1) {
+    nodeDensityLabel = `Low Density (${peers.length} Node)`;
+  }
+
+  // 5. WEIGHTED COMPOSITE MESH HEALTH SCORE
+  // Weights: 30% Signal Strength (RSSI), 30% Peer Latency (RTT), 20% Active Relays, 20% Node Density
   const overallScore = Math.max(
     0,
     Math.min(
       100,
-      Math.round(rssiScore * 0.35 + latencyScore * 0.35 + relayScore * 0.30)
+      Math.round(rssiScore * 0.30 + latencyScore * 0.30 + relayScore * 0.20 + nodeDensityScore * 0.20)
     )
   );
 
-  // 5. STATUS BADGE & COLORING
+  // 6. STATUS BADGE & COLORING
   let statusLabel = 'Optimal Mesh Health';
   let statusBadgeColor = 'bg-[#10B981]/20 text-[#065F46] dark:text-[#34D399] border-[#10B981]/40';
   let statusBorderColor = 'border-[#10B981]/40';
@@ -168,7 +214,7 @@ export function calculateMeshHealthScore(peers: MeshNode[]): MeshHealthMetrics {
     statusBorderColor = 'border-[#E76F51]/40';
   }
 
-  // 6. ACTIONABLE RECOMMENDATION
+  // 7. ACTIONABLE RECOMMENDATION
   let recommendation = 'Mesh network link budget and relay propagation are optimal.';
   if (rssiScore < 60) {
     recommendation = `Average signal strength is low (${avgRssiDbm} dBm). Move closer to central nodes or deploy a LoRa repeater.`;
@@ -195,6 +241,10 @@ export function calculateMeshHealthScore(peers: MeshNode[]): MeshHealthMetrics {
     totalPeersCount: peers.length,
     avgRelayReliability,
     relayStatusLabel,
+    nodeDensityScore,
+    nodeDensityLabel,
+    immediateBleNodesCount: immediatePeers.length,
+    nodesPerHopBreakdown,
     recommendation,
   };
 }

@@ -7,8 +7,10 @@ export interface LocationIndicatorProps {
   lastUpdated: Date;
   latitude?: number;
   longitude?: number;
+  heading?: number; // degrees 0-360
   source?: 'GNSS/GPS' | 'Mesh Trilateration' | 'Low-Power Fused' | 'Manual Fix';
   onShareLocation?: () => void;
+  onRecenter?: () => void;
   isNightMode?: boolean;
 }
 
@@ -28,8 +30,10 @@ export const LocationIndicator: React.FC<LocationIndicatorProps> = ({
   lastUpdated,
   latitude = 59.437,
   longitude = 24.7535,
+  heading,
   source = 'GNSS/GPS',
   onShareLocation,
+  onRecenter,
   isNightMode = false,
 }) => {
   const [showDetails, setShowDetails] = useState(false);
@@ -37,6 +41,15 @@ export const LocationIndicator: React.FC<LocationIndicatorProps> = ({
   // Optical radius for confidence ring (clamp for visual usability: 24px min, 96px max)
   const visualRadiusPx = Math.min(80, Math.max(24, Math.round(accuracy * 1.5)));
   const confidencePercent = Math.max(10, Math.min(99, Math.round(100 - accuracy * 1.2)));
+
+  const handleToggleDetails = () => {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(10);
+      } catch {}
+    }
+    setShowDetails(!showDetails);
+  };
 
   return (
     <div
@@ -64,12 +77,23 @@ export const LocationIndicator: React.FC<LocationIndicatorProps> = ({
             strokeDasharray={isHighAccuracy ? 'none' : '3 3'}
             className="animate-pulse"
           />
+          {heading !== undefined && (
+            <line
+              x1="50%"
+              y1="50%"
+              x2={`${50 + 40 * Math.sin((heading * Math.PI) / 180)}%`}
+              y2={`${50 - 40 * Math.cos((heading * Math.PI) / 180)}%`}
+              stroke={isHighAccuracy ? '#2A9D8F' : '#E9C46A'}
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          )}
         </svg>
 
         {/* Pulsing Core Center Dot */}
         <button
           type="button"
-          onClick={() => setShowDetails(!showDetails)}
+          onClick={handleToggleDetails}
           className={`relative z-10 p-2 rounded-full min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer transition-transform active:scale-95 shadow-md ${
             isHighAccuracy
               ? 'bg-[#2A9D8F] text-white hover:bg-[#238276]'
@@ -146,19 +170,41 @@ export const LocationIndicator: React.FC<LocationIndicatorProps> = ({
             </div>
           </div>
 
-          {onShareLocation && (
-            <button
-              type="button"
-              onClick={() => {
-                onShareLocation();
-                setShowDetails(false);
-              }}
-              className="w-full py-2 px-3 min-h-[44px] bg-[#588157] hover:bg-[#476a46] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-            >
-              <Navigation className="w-3.5 h-3.5" />
-              <span>Share Location Over Mesh</span>
-            </button>
-          )}
+          <div className="space-y-2 pt-1">
+            {onRecenter && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                    try { navigator.vibrate(10); } catch {}
+                  }
+                  onRecenter();
+                  setShowDetails(false);
+                }}
+                className="w-full py-2 px-3 min-h-[44px] bg-[#2A9D8F] hover:bg-[#238276] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+              >
+                <Crosshair className="w-3.5 h-3.5" />
+                <span>Center Map On Me</span>
+              </button>
+            )}
+
+            {onShareLocation && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                    try { navigator.vibrate(15); } catch {}
+                  }
+                  onShareLocation();
+                  setShowDetails(false);
+                }}
+                className="w-full py-2 px-3 min-h-[44px] bg-[#588157] hover:bg-[#476a46] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+              >
+                <Navigation className="w-3.5 h-3.5" />
+                <span>Share Location Over Mesh</span>
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

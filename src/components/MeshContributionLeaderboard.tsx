@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, MeshNode, MeshLeaderboardNode } from '../types';
 import { SolarpunkAvatarCanvas } from './SolarpunkAvatarCanvas';
+import { CommunityProgress } from './CommunityProgress';
 import {
   meshContributionService,
   ContributionTimeRange,
@@ -251,36 +252,25 @@ export const MeshContributionLeaderboard: React.FC<MeshContributionLeaderboardPr
         </div>
       </div>
 
-      {/* LOCAL COLLECTIVE GOAL CARD (2026 UX: Meaningful Progress over Vanity Points) */}
-      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#588157]/15 to-[#2A9D8F]/15 border border-[#87A878]/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <div className="p-2.5 rounded-xl bg-[#588157] text-[#FAF6EE] shrink-0 mt-0.5">
-            <Sprout className="w-5 h-5" />
-          </div>
-          <div className="space-y-1">
-            <div className="text-[11px] font-bold text-[#588157] dark:text-[#E9C46A] uppercase tracking-wider">
-              Neighborhood Preparedness Milestone
-            </div>
-            <h4 className="font-display font-bold text-sm sm:text-base text-[#203A2A] dark:text-[#F0F5EE]">
-              Your neighborhood prepared 42 offline maps this month.
-            </h4>
-            <p className="text-xs text-[#588157] dark:text-[#A8BDA5]">
-              That could help 42 households stay oriented and communicate off-grid during an outage.
-            </p>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            if (onAddToast) {
-              onAddToast('Collective Goal Updated', 'Neighborhood readiness score increased by +12%', 'info');
-            }
-          }}
-          className="px-3.5 py-2 rounded-xl bg-[#588157] hover:bg-[#476a46] text-white text-xs font-bold transition-all shrink-0 cursor-pointer shadow-xs"
-        >
-          Explore Local Readiness
-        </button>
-      </div>
+      {/* COMMUNITY PROGRESS OVER COMPETITION */}
+      <CommunityProgress
+        title="Your neighborhood prepared 42 offline maps this month"
+        impact="That could help 42 households stay oriented and communicate off-grid during an outage"
+        isNightMode={isNightMode}
+        action={
+          <button
+            type="button"
+            onClick={() => {
+              if (onAddToast) {
+                onAddToast('Neighborhood Readiness Score: 84%', '348 packets forwarded, 42 offline maps cached, 18 energy points active.', 'info');
+              }
+            }}
+            className="w-full sm:w-auto px-4 py-2 rounded-xl bg-[#588157] hover:bg-[#476a46] text-white text-xs font-bold transition-all shrink-0 cursor-pointer shadow-xs"
+          >
+            Explore local readiness
+          </button>
+        }
+      />
 
       {/* TIER EXPLAINER ACCORDION */}
       <AnimatePresence>

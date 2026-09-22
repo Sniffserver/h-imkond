@@ -274,6 +274,7 @@ export const AppMainContent: React.FC<AppMainContentProps> = ({
           userSymbiosisScore={user.symbiosisScore}
           completedExchangesCount={completedExchangesCount}
           isNightMode={isNightMode}
+          onAddToast={addToast}
         />
       )}
 

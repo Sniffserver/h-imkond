@@ -3,15 +3,18 @@ import { MeshNode } from '../types';
 import { SolarpunkAvatarCanvas } from './SolarpunkAvatarCanvas';
 import { ReputationPill, getReputationTier, REPUTATION_COLORS } from './ReputationPill';
 import { ShieldCheck, Radio, CheckCircle, Activity, X, Info } from 'lucide-react';
+import { PeerContributionRadarChart } from './PeerContributionRadarChart';
 
 interface ReputationBreakdownDialogProps {
   peer: MeshNode | null;
   onClose: () => void;
+  isNightMode?: boolean;
 }
 
 export const ReputationBreakdownDialog: React.FC<ReputationBreakdownDialogProps> = ({
   peer,
   onClose,
+  isNightMode = false,
 }) => {
   if (!peer) return null;
 
@@ -22,7 +25,11 @@ export const ReputationBreakdownDialog: React.FC<ReputationBreakdownDialogProps>
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
       <div
         id="reputation-breakdown-dialog"
-        className="w-full max-w-md bg-[#FAF6EE] rounded-3xl border border-[#87A878]/35 shadow-2xl p-5 sm:p-6 overflow-hidden space-y-4"
+        className={`w-full max-w-lg max-h-[92vh] rounded-3xl border shadow-2xl p-5 sm:p-6 overflow-y-auto space-y-4 transition-colors ${
+          isNightMode
+            ? 'bg-[#182315] border-[#2A3B26] text-[#FAF6EE]'
+            : 'bg-[#FAF6EE] border-[#87A878]/35 text-[#203A2A]'
+        }`}
       >
         {/* Header */}
         <div className="flex items-start justify-between pb-3 border-b border-[#87A878]/20">
@@ -111,6 +118,13 @@ export const ReputationBreakdownDialog: React.FC<ReputationBreakdownDialogProps>
             })}
           </div>
         </div>
+
+        {/* Community Contribution Radar Chart */}
+        <PeerContributionRadarChart
+          peer={peer}
+          isNightMode={isNightMode}
+          compact={true}
+        />
 
         {/* Mandatory Non-Clinical / Decentralized Local Estimate Note */}
         <div className="bg-[#FAF6EE] p-3 rounded-2xl border border-[#87A878]/30 flex items-start gap-2 text-xs text-[#637062] leading-relaxed">

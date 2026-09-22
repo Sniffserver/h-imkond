@@ -9,10 +9,17 @@ export function useProfile() {
     return getSecureLocalStorage<UserProfile>('hoimu_user', INITIAL_USER);
   });
 
-  const [cryptoIdentity, setCryptoIdentity] = useState<CryptoIdentity>(() => {
-    const saved = localStorage.getItem('hoimu_crypto_identity');
-    return saved ? JSON.parse(saved) : INITIAL_CRYPTO_IDENTITY;
+  const [cryptoIdentity, setCryptoIdentityState] = useState<CryptoIdentity>(() => {
+    return getSecureLocalStorage<CryptoIdentity>('hoimu_crypto_identity', INITIAL_CRYPTO_IDENTITY);
   });
+
+  const setCryptoIdentity = useCallback((updater: CryptoIdentity | ((prev: CryptoIdentity) => CryptoIdentity)) => {
+    setCryptoIdentityState((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      setSecureLocalStorage('hoimu_crypto_identity', next);
+      return next;
+    });
+  }, []);
 
   const updateProfile = useCallback((updated: Partial<UserProfile>) => {
     setUser((prev) => {

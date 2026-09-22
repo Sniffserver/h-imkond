@@ -8,8 +8,75 @@ export interface TrackChangeReason {
   deltaPercent: number;
   timestamp: number;
   actionLabel?: string;
-  actionTarget?: string; // e.g. 'map', 'mesh', 'exchange'
+  actionTarget?: string; // e.g. 'map', 'mesh', 'exchange', 'journal'
 }
+
+export interface ProgressTrackInfo {
+  category: ProgressTrackCategory;
+  name: string;
+  tagline: string;
+  description: string;
+  color: string;
+  lightBg: string;
+  darkBg: string;
+  borderColor: string;
+  iconName: string;
+  examples: string[];
+}
+
+export const TRACK_DEFINITIONS: Record<ProgressTrackCategory, ProgressTrackInfo> = {
+  preparedness: {
+    category: 'preparedness',
+    name: 'Preparedness',
+    tagline: 'Ready for offline & emergency situations',
+    description: 'Measures how resilient your device and household are for standalone, off-grid operation without reliance on central servers or utility infrastructure.',
+    color: '#2A9D8F',
+    lightBg: '#EBF7F5',
+    darkBg: '#132824',
+    borderColor: '#2A9D8F',
+    iconName: 'Shield',
+    examples: [
+      'Downloaded offline vector map regions',
+      'Encrypted local identity & keypair backups',
+      'Field manual & offline survival guide cached',
+      'Battery power management configured',
+    ],
+  },
+  connection: {
+    category: 'connection',
+    name: 'Connection',
+    tagline: 'Ties to trusted local people',
+    description: 'Reflects the strength and diversity of your cryptographic peer-to-peer radio links with neighbors and local mutual aid partners.',
+    color: '#588157',
+    lightBg: '#F0F5EE',
+    darkBg: '#1E2C1C',
+    borderColor: '#87A878',
+    iconName: 'Users',
+    examples: [
+      'Verified local peer public keys',
+      'Direct LoRa/Bluetooth mesh hops active',
+      'Bilateral trust endorsements exchanged',
+      'Local emergency contacts registered',
+    ],
+  },
+  contribution: {
+    category: 'contribution',
+    name: 'Contribution',
+    tagline: 'Supporting the community by choice',
+    description: 'Reflects voluntary mutual aid actions you choose to take to strengthen your bioregion—without quotas, deadlines, or penalties.',
+    color: '#E76F51',
+    lightBg: '#FDF1EE',
+    darkBg: '#2C1B17',
+    borderColor: '#E76F51',
+    iconName: 'HeartHandshake',
+    examples: [
+      'Tools or energy listed in mutual aid library',
+      'Packets forwarded across community mesh',
+      'Bioregional skills and harvest offered',
+      'Votes cast in community DAO council',
+    ],
+  },
+};
 
 export interface ProgressTrackData {
   preparednessLevel: number; // 0 - 100
@@ -17,47 +84,61 @@ export interface ProgressTrackData {
   contributionLevel: number; // 0 - 100
   history: TrackChangeReason[];
   isPublicSharingOptIn: boolean; // default false
+  gamificationEnabled: boolean;  // default true, can opt out
+  celebrationAlertsEnabled: boolean; // default true
   lastUpdated: number;
 }
 
-const STORAGE_KEY = 'hoimu_private_progress_tracks_v1';
+const STORAGE_KEY = 'hoimu_private_progress_tracks_v2';
 
 const DEFAULT_STATE: ProgressTrackData = {
-  preparednessLevel: 65,
-  connectionLevel: 48,
-  contributionLevel: 72,
+  preparednessLevel: 72,
+  connectionLevel: 58,
+  contributionLevel: 64,
   isPublicSharingOptIn: false,
+  gamificationEnabled: true,
+  celebrationAlertsEnabled: true,
   lastUpdated: Date.now(),
   history: [
     {
       id: 'init_1',
       track: 'preparedness',
-      title: 'Offline Map Downloaded',
-      explanation: 'Downloaded Tartu regional vector map tiles. Navigation is now fully functional off-grid.',
-      deltaPercent: 15,
-      timestamp: Date.now() - 3600000 * 24 * 2,
-      actionLabel: 'View Offline Map',
+      title: 'Offline Map Region Cached',
+      explanation: 'Downloaded Tartu 50km vector map tiles with offline routing capability. Your navigation works 100% off-grid.',
+      deltaPercent: 18,
+      timestamp: Date.now() - 3600000 * 24 * 1,
+      actionLabel: 'View Map',
       actionTarget: 'map',
     },
     {
       id: 'init_2',
       track: 'connection',
-      title: 'Trusted Local Peer Linked',
-      explanation: 'Established an encrypted direct radio key exchange with nearby peer.',
-      deltaPercent: 12,
-      timestamp: Date.now() - 3600000 * 24 * 4,
-      actionLabel: 'View Mesh Contacts',
+      title: 'Encrypted Peer Key Linked',
+      explanation: 'Established an encrypted direct radio key exchange with node "Fern-Weaver" (LoRa 868MHz).',
+      deltaPercent: 14,
+      timestamp: Date.now() - 3600000 * 24 * 2,
+      actionLabel: 'View Mesh Peers',
       actionTarget: 'mesh',
     },
     {
       id: 'init_3',
       track: 'contribution',
-      title: 'Solar Tool Shared',
-      explanation: 'Listed a portable solar charger in the local mutual aid catalog for neighbor use.',
-      deltaPercent: 20,
-      timestamp: Date.now() - 3600000 * 24 * 6,
-      actionLabel: 'View Resource List',
+      title: 'Solar Tool & Battery Shared',
+      explanation: 'Listed a portable 20W solar charger in the neighborhood mutual aid catalog for communal use.',
+      deltaPercent: 16,
+      timestamp: Date.now() - 3600000 * 24 * 4,
+      actionLabel: 'View Offerings',
       actionTarget: 'exchange',
+    },
+    {
+      id: 'init_4',
+      track: 'preparedness',
+      title: 'Identity Keypair Backed Up',
+      explanation: 'Exported encrypted .hoimu-key backup file. Self-sovereign identity is protected against device loss.',
+      deltaPercent: 12,
+      timestamp: Date.now() - 3600000 * 24 * 5,
+      actionLabel: 'Security Settings',
+      actionTarget: 'profile',
     },
   ],
 };
@@ -80,8 +161,9 @@ class ProgressTracksService {
         return {
           ...DEFAULT_STATE,
           ...parsed,
-          // Ensure history array exists
-          history: parsed.history || DEFAULT_STATE.history,
+          history: Array.isArray(parsed.history) ? parsed.history : DEFAULT_STATE.history,
+          gamificationEnabled: parsed.gamificationEnabled !== undefined ? parsed.gamificationEnabled : true,
+          celebrationAlertsEnabled: parsed.celebrationAlertsEnabled !== undefined ? parsed.celebrationAlertsEnabled : true,
         };
       }
     } catch (e) {
@@ -139,6 +221,16 @@ class ProgressTracksService {
 
   public setPublicOptIn(optIn: boolean): void {
     this.state.isPublicSharingOptIn = optIn;
+    this.saveState();
+  }
+
+  public setGamificationEnabled(enabled: boolean): void {
+    this.state.gamificationEnabled = enabled;
+    this.saveState();
+  }
+
+  public setCelebrationAlertsEnabled(enabled: boolean): void {
+    this.state.celebrationAlertsEnabled = enabled;
     this.saveState();
   }
 

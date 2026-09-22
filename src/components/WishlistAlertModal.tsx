@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { WishlistItem, ResourceCategory } from '../types';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import {
   X,
   BellRing,
@@ -31,6 +32,7 @@ export const WishlistAlertModal: React.FC<WishlistAlertModalProps> = ({
 }) => {
   const [newKeyword, setNewKeyword] = useState('');
   const [selectedCat, setSelectedCat] = useState<ResourceCategory | 'all'>('all');
+  const modalRef = useFocusTrap({ isOpen, onClose, modalName: 'Mesh Resource Wishlist Alerts' });
 
   if (!isOpen) return null;
 
@@ -55,6 +57,10 @@ export const WishlistAlertModal: React.FC<WishlistAlertModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="wishlist-modal-title"
         className={`relative w-full max-w-lg rounded-3xl border shadow-2xl overflow-hidden p-6 transition-colors duration-200 ${
           isNightMode
             ? 'bg-[#182315] border-[#364E30] text-[#F0F5EE]'
@@ -65,7 +71,8 @@ export const WishlistAlertModal: React.FC<WishlistAlertModalProps> = ({
         <button
           type="button"
           onClick={onClose}
-          className={`absolute top-4 right-4 p-2 rounded-full transition-colors cursor-pointer ${
+          aria-label="Close modal"
+          className={`absolute top-4 right-4 p-2 rounded-full transition-colors cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center ${
             isNightMode ? 'hover:bg-[#2A3B26] text-[#A8BDA5]' : 'hover:bg-[#E6EDE1] text-[#637062]'
           }`}
         >
@@ -78,7 +85,7 @@ export const WishlistAlertModal: React.FC<WishlistAlertModalProps> = ({
             <BellRing className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="font-display font-bold text-lg">Mesh Resource Wishlist Alerts</h2>
+            <h2 id="wishlist-modal-title" className="font-display font-bold text-lg">Mesh Resource Wishlist Alerts</h2>
             <p className="text-[11px] text-[#637062] dark:text-[#A8BDA5]">
               Get automated toast notifications when matching items enter the mesh.
             </p>

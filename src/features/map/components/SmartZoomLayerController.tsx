@@ -11,6 +11,8 @@ export interface SmartZoomConfig {
   showResources: boolean;
   showSignalHeatmap: boolean;
   isReducedDetail: boolean;
+  clusterRadiusPixels: number;
+  informationDensity: 'low' | 'medium' | 'high';
 }
 
 export function calculateSmartZoomConfig(
@@ -20,23 +22,25 @@ export function calculateSmartZoomConfig(
   const isPowerSaver = qualityMode === 'power_saver';
 
   // Zoom brackets:
-  // Level 5-10: Regional / Cities / Bioregional boundaries
-  // Level 10-14: Neighborhoods / Clustered Nodes
-  // Level 15+: Street / Individual peers & mutual aid resources
+  // Level < 10: Regional / Cities / Bioregional boundaries
+  // Level 10-14: District / Neighborhood / Clustered Nodes
+  // Level >= 14: Street / Individual peers & mutual aid resources
   const isRegional = zoomLevel < 10;
-  const isDistrict = zoomLevel >= 10 && zoomLevel < 15;
-  const isStreetLevel = zoomLevel >= 15;
+  const isDistrict = zoomLevel >= 10 && zoomLevel < 14;
+  const isStreetLevel = zoomLevel >= 14;
 
   return {
     zoomLevel,
     qualityMode,
     showCities: isRegional || isDistrict,
     showNeighborhoods: isDistrict || isStreetLevel,
-    showPeerClusters: isDistrict && !isPowerSaver,
-    showIndividualPeers: isStreetLevel || (isDistrict && isPowerSaver),
-    showResources: isStreetLevel && !isPowerSaver,
+    showPeerClusters: (isRegional || isDistrict) && !isPowerSaver,
+    showIndividualPeers: isStreetLevel || isPowerSaver,
+    showResources: isStreetLevel || (isDistrict && !isPowerSaver),
     showSignalHeatmap: isStreetLevel && qualityMode === 'detail',
     isReducedDetail: isPowerSaver,
+    clusterRadiusPixels: isRegional ? 65 : isDistrict ? 40 : 20,
+    informationDensity: isRegional ? 'low' : isDistrict ? 'medium' : 'high',
   };
 }
 

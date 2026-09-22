@@ -12,6 +12,7 @@ import {
   calculateTrackDistanceMeters,
   getLoadedPathfinderData,
 } from '../../utils/pathfinderStorage';
+import { backgroundSyncAdjuster } from '../mesh/backgroundSyncAdjuster';
 
 /**
  * Uute leidude tuvastamise funktsioonid (Novelty detection)
@@ -473,6 +474,10 @@ class PathfinderScannerService {
    */
   private startRfWardriveSweeper() {
     this.stopRfWardriveSweeper();
+    // Dynamically adjust beacon wardrive sweeper interval based on battery state
+    const isLowBattery = backgroundSyncAdjuster.getState().isLowBattery;
+    const sweeperIntervalMs = isLowBattery ? 45000 : 5000;
+
     this.rfPulseInterval = setInterval(async () => {
       if (!this.state.isRecording || this.state.isPaused) return;
 
@@ -519,7 +524,7 @@ class PathfinderScannerService {
       for (let i = 0; i < numLora; i++) {
         await this.simulateNearbyLora(loc);
       }
-    }, 5000); // 5000ms intervall
+    }, sweeperIntervalMs); // Dynamically throttled when battery is < 15%
   }
 
   private async processDiscoveredWifi(net: any, loc: GeoPoint) {

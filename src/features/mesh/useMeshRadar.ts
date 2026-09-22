@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { MeshNode } from '../../types';
 import { useMeshStore, selectPeersArray } from '../../store/meshStore';
 import { DISCOVERABLE_PEERS } from '../../data/initialData';
+import { highTrustProximityManager } from '../../services/mesh/highTrustProximityService';
 
 export function useMeshRadar(
   addToast?: (title: string, description?: string, type?: 'success' | 'warning' | 'info') => void
@@ -30,7 +31,11 @@ export function useMeshRadar(
     if (undiscovered.length > 0) {
       const nextPeer = undiscovered[0];
       setPeers((prev) => [nextPeer, ...prev]);
-      if (addToast) {
+      
+      // Proximity & Trust evaluation
+      const triggered = highTrustProximityManager.checkAndNotify(nextPeer, addToast);
+
+      if (triggered.length === 0 && addToast) {
         addToast(
           `📡 New Mesh Peer Discovered: ${nextPeer.callsign}`,
           `Signal lock established via ${nextPeer.radioType || 'BLE'} (${nextPeer.lastRssi} dBm, ${
@@ -84,7 +89,11 @@ export function useMeshRadar(
       };
 
       setPeers((prev) => [generatedPeer, ...prev]);
-      if (addToast) {
+
+      // Proximity & Trust evaluation
+      const triggered = highTrustProximityManager.checkAndNotify(generatedPeer, addToast);
+
+      if (triggered.length === 0 && addToast) {
         addToast(
           `📡 New Mesh Peer Discovered: ${generatedPeer.callsign}`,
           `Discovered via RF scan (${radioType}, ${generatedPeer.lastRssi} dBm).`,

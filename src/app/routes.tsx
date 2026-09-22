@@ -1,16 +1,23 @@
 import React from 'react';
 import { NavTab } from '../types';
 import { MeshScreen } from '../features/mesh/MeshScreen';
+import { QuickStartGuide } from '../components/QuickStartGuide';
+import { CrisisModeBar } from '../components/CrisisModeBar';
+import { AppMainContentProps } from '../components/AppMainContent';
+import { SafetyView } from '../components/SafetyView';
+import { TodayDashboard } from '../features/today/TodayDashboard';
+import { MoreScreen } from '../features/more/MoreScreen';
 import { MapScreen } from '../features/map/MapScreen';
 import { ScannerScreen } from '../features/scanner/ScannerScreen';
 import { ExchangeScreen } from '../features/exchange/ExchangeScreen';
 import { JournalScreen } from '../features/journal/JournalScreen';
 import { ProfileScreen } from '../features/profile/ProfileScreen';
-import { QuickStartGuide } from '../components/QuickStartGuide';
-import { CrisisModeBar } from '../components/CrisisModeBar';
-import { AppMainContentProps } from '../components/AppMainContent';
 
-export interface AppRoutesProps extends AppMainContentProps {}
+export interface AppRoutesProps extends AppMainContentProps {
+  onOpenTrustModal: () => void;
+  onOpenSkillsModal: () => void;
+  onOpenSecurityKeys: () => void;
+}
 
 export const AppRoutes: React.FC<AppRoutesProps> = ({
   activeTab,
@@ -58,6 +65,9 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({
   onOpenManual,
   onOpenBackupSetup,
   onOpenLandingPage,
+  onOpenTrustModal,
+  onOpenSkillsModal,
+  onOpenSecurityKeys,
   addToast,
 }) => {
   const completedExchangesCount = transactions.filter((t) => t.status === 'completed').length;
@@ -87,7 +97,43 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({
       )}
 
       {/* Active Tab Screen Routing */}
-      {activeTab === 'mesh' && (
+      {activeTab === 'today' && (
+        <TodayDashboard
+          user={user}
+          peers={peers}
+          resources={resources}
+          daoProposals={daoProposals}
+          batteryStatus={batteryStatus}
+          isNightMode={isNightMode}
+          onNavigateTab={setActiveTab}
+          onOpenQuickAdd={onOpenQuickAdd}
+          onOpenChatWithPeer={onOpenChatWithPeer}
+          onOpenDaoModal={onOpenDaoModal}
+          onOpenManual={onOpenManual}
+        />
+      )}
+
+      {activeTab === 'more' && (
+        <MoreScreen
+          user={user}
+          resources={resources}
+          transactions={transactions}
+          journal={journal}
+          daoProposals={daoProposals}
+          isNightMode={isNightMode}
+          onNavigateTab={setActiveTab}
+          onOpenDaoModal={onOpenDaoModal}
+          onOpenTrustModal={onOpenTrustModal}
+          onOpenSkillsModal={onOpenSkillsModal}
+          onOpenToolsModal={onOpenToolsModal}
+          onOpenDiagnostics={onOpenDiagnostics}
+          onOpenSecurityKeys={onOpenSecurityKeys}
+          onOpenBackupSetup={onOpenBackupSetup}
+          onOpenManual={onOpenManual}
+        />
+      )}
+
+      {activeTab === 'messages' && (
         <MeshScreen
           peers={peers}
           batteryStatus={batteryStatus}
@@ -101,6 +147,19 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({
           onOpenDiagnostics={onOpenDiagnostics}
           onDiscoverPeer={onDiscoverPeer}
           isScanning={isScanning}
+          isNightMode={isNightMode}
+        />
+      )}
+
+      {activeTab === 'sos' && (
+        <SafetyView
+          isCrisisMode={isCrisisMode}
+          onToggleCrisisMode={onToggleCrisisMode}
+          crisisAlerts={crisisAlerts}
+          onBroadcastAlert={onBroadcastAlert}
+          onResolveAlert={onResolveAlert}
+          onOpenDiagnostics={onOpenDiagnostics}
+          onOpenManual={onOpenManual}
           isNightMode={isNightMode}
         />
       )}

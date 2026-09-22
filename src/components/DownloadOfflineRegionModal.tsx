@@ -40,7 +40,7 @@ interface DownloadOfflineRegionModalProps {
 
 export interface SuggestedOfflineRegion {
   name: string;
-  reason: 'frequent' | 'event' | 'resources';
+  reason: 'frequent' | 'event' | 'resources' | 'patrol';
   reasonLabel: string;
   center: { x: number; y: number; lat?: number; lng?: number };
   radiusKm: number;
@@ -129,7 +129,24 @@ export const DownloadOfflineRegionModal: React.FC<DownloadOfflineRegionModalProp
         lastVisited: 'Yesterday',
       };
 
-      setSuggestedRegions([frequentSuggestion, eventSuggestion, resourceSuggestion]);
+      // 4. Reconnaissance & Pathfinder Patrol Corridor (Behavior-based)
+      const patrolSuggestion: SuggestedOfflineRegion = {
+        name: `${activeCity.cityName} Recon & Survey Corridor`,
+        reason: 'patrol',
+        reasonLabel: 'Recent Field Recon & Mesh Survey',
+        center: {
+          x: cameraCenter.x + 35,
+          y: cameraCenter.y + 45,
+          lat: cameraCenter.lat ? cameraCenter.lat + 0.005 : undefined,
+          lng: cameraCenter.lng ? cameraCenter.lng + 0.008 : undefined,
+        },
+        radiusKm: 3.0,
+        estimatedTiles: Math.round(Math.PI * 3.0 * 3.0 * 14),
+        estimatedSizeMB: parseFloat(((Math.PI * 3.0 * 3.0 * 14 * 9.5) / 1024).toFixed(1)),
+        lastVisited: 'Earlier today',
+      };
+
+      setSuggestedRegions([frequentSuggestion, eventSuggestion, resourceSuggestion, patrolSuggestion]);
     }
   }, [isOpen, activeCity, cameraCenter, radiusKm, allResources]);
 
@@ -141,6 +158,9 @@ export const DownloadOfflineRegionModal: React.FC<DownloadOfflineRegionModalProp
   };
 
   const handleStartDownload = async () => {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try { navigator.vibrate(12); } catch {}
+    }
     setIsDownloading(true);
     setDownloadProgress(10);
     setCurrentStepText('Lõikan kõrgusjooni ja pinnasevektoreid...');
@@ -336,6 +356,8 @@ export const DownloadOfflineRegionModal: React.FC<DownloadOfflineRegionModalProp
                               ? 'bg-[#2A9D8F]/15 text-[#2A9D8F]'
                               : region.reason === 'event'
                               ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                              : region.reason === 'patrol'
+                              ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
                               : 'bg-[#588157]/15 text-[#588157] dark:text-[#87A878]'
                           }`}
                         >

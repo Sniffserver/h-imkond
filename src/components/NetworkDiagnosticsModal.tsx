@@ -46,9 +46,12 @@ import {
   AlertTriangle,
   History,
   FileSpreadsheet,
+  Sun,
 } from 'lucide-react';
 
 import { CrdtSyncEngine, HoimuLocalCrdtStore } from '../utils/crdtSync';
+import { RealtimeSolarGenerationChart } from './RealtimeSolarGenerationChart';
+import { MeshHealthOptimizerView } from './MeshHealthOptimizerView';
 
 interface NetworkDiagnosticsModalProps {
   isOpen: boolean;
@@ -59,7 +62,7 @@ interface NetworkDiagnosticsModalProps {
   isNightMode?: boolean;
 }
 
-type DiagnosticTab = 'nodes' | 'spectrum' | 'wirelog' | 'dtn' | 'benchmark' | 'crdt';
+type DiagnosticTab = 'nodes' | 'mesh_health' | 'spectrum' | 'solar' | 'wirelog' | 'dtn' | 'benchmark' | 'crdt';
 
 // Sync History Chart Component
 const SyncHistoryChart: React.FC<{ data: number[] }> = ({ data }) => {
@@ -729,6 +732,20 @@ export const NetworkDiagnosticsModal: React.FC<NetworkDiagnosticsModalProps> = (
           </button>
 
           <button
+            id="tab-btn-mesh-health-optimizer"
+            type="button"
+            onClick={() => setActiveTab('mesh_health')}
+            className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
+              activeTab === 'mesh_health'
+                ? 'bg-[#2A9D8F] text-white shadow-xs font-bold'
+                : 'text-[#637062] dark:text-[#A8BDA5] hover:bg-black/5 dark:hover:bg-white/5'
+            }`}
+          >
+            <Activity className="w-3.5 h-3.5 text-[#E9C46A]" />
+            <span>Võrgu Tervis & Paigutus (Mesh Health)</span>
+          </button>
+
+          <button
             type="button"
             onClick={() => setActiveTab('spectrum')}
             className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
@@ -739,6 +756,20 @@ export const NetworkDiagnosticsModal: React.FC<NetworkDiagnosticsModalProps> = (
           >
             <Wifi className="w-3.5 h-3.5" />
             <span>RF Spekter & Kanalid</span>
+          </button>
+
+          <button
+            id="tab-btn-solar-diagnostics"
+            type="button"
+            onClick={() => setActiveTab('solar')}
+            className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
+              activeTab === 'solar'
+                ? 'bg-[#E9C46A] text-[#203A2A] font-bold shadow-xs'
+                : 'text-[#637062] dark:text-[#A8BDA5] hover:bg-black/5 dark:hover:bg-white/5'
+            }`}
+          >
+            <Sun className="w-3.5 h-3.5 text-[#E9C46A]" />
+            <span>Päike & Võimsus (Solar Diagnostics)</span>
           </button>
 
           <button
@@ -796,6 +827,17 @@ export const NetworkDiagnosticsModal: React.FC<NetworkDiagnosticsModalProps> = (
 
         {/* Tab Content Container */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+          {/* ========================================================================= */}
+          {/* TAB: MESH HEALTH & PLACEMENT OPTIMIZER */}
+          {/* ========================================================================= */}
+          {activeTab === 'mesh_health' && (
+            <MeshHealthOptimizerView
+              peers={peers}
+              batteryStatus={batteryStatus}
+              isNightMode={isNightMode}
+            />
+          )}
+
           {/* ========================================================================= */}
           {/* TAB 1: SÕLMEDE MAATRIKS (NODE MATRIX & LINK TELEMETRY) */}
           {/* ========================================================================= */}
@@ -1117,6 +1159,19 @@ export const NetworkDiagnosticsModal: React.FC<NetworkDiagnosticsModalProps> = (
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB: PÄIKESEENERGIA & VÕIMSUS (REAL-TIME SOLAR POWER GENERATION CHART) */}
+          {/* ========================================================================= */}
+          {activeTab === 'solar' && (
+            <div className="space-y-4">
+              <RealtimeSolarGenerationChart
+                batteryStatus={batteryStatus}
+                isNightMode={isNightMode}
+                embedded={false}
+              />
             </div>
           )}
 

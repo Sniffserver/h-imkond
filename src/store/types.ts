@@ -15,6 +15,14 @@ export interface RevealedCircle {
   radius: number;
 }
 
+export interface SyncPulseEvent {
+  peerId?: string;
+  callsign?: string;
+  timestamp: number;
+  packetCount?: number;
+  isBackgroundSync?: boolean;
+}
+
 export interface MeshState {
   gpsPosition: GpsCoordinate | null;
   peers: Map<string, MeshNode>;
@@ -23,6 +31,8 @@ export interface MeshState {
   activeLayer: ActiveMapLayerType;
   showMeshNodes: boolean;
   lastSyncTimestamp: number | null;
+  lastSyncPulse: SyncPulseEvent | null;
+  recentSyncPulses: Record<string, number>;
 }
 
 export interface MeshActions {
@@ -38,6 +48,8 @@ export interface MeshActions {
   setActiveLayer: (layer: ActiveMapLayerType) => void;
   setShowMeshNodes: (show: boolean) => void;
   setLastSyncTimestamp: (timestamp: number | null) => void;
+  triggerSyncPulse: (pulse?: Partial<SyncPulseEvent>) => void;
+  clearSyncPulse: () => void;
 
   getPeersArray: () => MeshNode[];
 }

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { MeshMessage, MeshNode } from '../types';
 import { SolarpunkAvatarCanvas } from './SolarpunkAvatarCanvas';
 import { Send, Radio, Lock, CheckCheck, Clock, AlertCircle, X, RotateCcw, ShieldAlert } from 'lucide-react';
+import { EmptyState } from './EmptyState';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface MeshChatDrawerProps {
   isOpen: boolean;
@@ -26,6 +28,11 @@ export const MeshChatDrawer: React.FC<MeshChatDrawerProps> = ({
 }) => {
   const [inputText, setInputText] = useState('');
   const MAX_CHARS = 256;
+  const drawerRef = useFocusTrap({
+    isOpen,
+    onClose,
+    modalName: activePeer ? `Mesh Chat with ${activePeer.callsign}` : 'Bioregional Mesh Broadcast Chat',
+  });
 
   if (!isOpen) return null;
 
@@ -55,7 +62,13 @@ export const MeshChatDrawer: React.FC<MeshChatDrawerProps> = ({
   const isNearLimit = charsRemaining <= 30;
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-[#FAF6EE] shadow-2xl border-l border-[#87A878]/35 flex flex-col animate-in slide-in-from-right duration-200">
+    <div
+      ref={drawerRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="mesh-chat-title"
+      className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-[#FAF6EE] shadow-2xl border-l border-[#87A878]/35 flex flex-col animate-in slide-in-from-right duration-200"
+    >
       {/* Header */}
       <div className="p-4 bg-white/95 border-b border-[#87A878]/20 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -67,7 +80,7 @@ export const MeshChatDrawer: React.FC<MeshChatDrawerProps> = ({
             </div>
           )}
           <div>
-            <h3 className="font-display font-bold text-sm text-[#203A2A]">
+            <h3 id="mesh-chat-title" className="font-display font-bold text-sm text-[#203A2A]">
               {activePeer ? activePeer.callsign : 'Bioregional Mesh Broadcast'}
             </h3>
             <p className="text-[11px] text-[#588157] font-mono flex items-center gap-1">
@@ -82,7 +95,8 @@ export const MeshChatDrawer: React.FC<MeshChatDrawerProps> = ({
         <button
           type="button"
           onClick={onClose}
-          className="p-1.5 rounded-full text-[#637062] hover:bg-[#E6EDE1] transition-colors"
+          aria-label="Close mesh chat drawer"
+          className="p-1.5 rounded-full text-[#637062] hover:bg-[#E6EDE1] transition-colors cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
         >
           <X className="w-5 h-5" />
         </button>
@@ -97,13 +111,12 @@ export const MeshChatDrawer: React.FC<MeshChatDrawerProps> = ({
       {/* Message List */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {conversationMessages.length === 0 ? (
-          <div className="text-center py-12 text-xs text-[#637062]">
-            <Radio className="w-8 h-8 text-[#87A878]/60 mx-auto mb-2" />
-            <p className="font-medium">No mesh packets exchanged yet.</p>
-            <p className="text-[11px] text-[#7C8C77] mt-1">
-              Send a lightweight packet to coordinate mutual aid or share status.
-            </p>
-          </div>
+          <EmptyState
+            icon={<Radio />}
+            title="No mesh packets exchanged yet"
+            message="Send a lightweight packet to coordinate mutual aid or share status."
+            isNightMode={false} // Assume false for now, would need to wire it down if needed
+          />
         ) : (
           conversationMessages.map((msg) => {
             const isSelf = msg.senderId === currentUserId;

@@ -85,6 +85,10 @@ export const MapGestures: React.FC<MapGesturesProps> = ({
             coord: approxCoord,
           });
 
+          if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+            try { navigator.vibrate(30); } catch {}
+          }
+
           if (onLongPressCoordinate) onLongPressCoordinate(approxCoord);
         }
       }, 500);
@@ -131,6 +135,9 @@ export const MapGestures: React.FC<MapGesturesProps> = ({
         );
 
         if (distFromLast < 30) {
+          if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+            try { navigator.vibrate(12); } catch {}
+          }
           if (onDoubleTap) {
             const rect = containerRef.current?.getBoundingClientRect();
             onDoubleTap({
@@ -192,6 +199,9 @@ export const MapGestures: React.FC<MapGesturesProps> = ({
             type="button"
             role="menuitem"
             onClick={() => {
+              if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                try { navigator.vibrate(10); } catch {}
+              }
               if (onAddMarker) onAddMarker(contextMenu.coord);
               dismissMenu();
             }}
@@ -205,6 +215,9 @@ export const MapGestures: React.FC<MapGesturesProps> = ({
             type="button"
             role="menuitem"
             onClick={() => {
+              if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                try { navigator.vibrate(10); } catch {}
+              }
               if (onShareLocation) onShareLocation(contextMenu.coord);
               dismissMenu();
             }}
@@ -218,6 +231,9 @@ export const MapGestures: React.FC<MapGesturesProps> = ({
             type="button"
             role="menuitem"
             onClick={() => {
+              if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                try { navigator.vibrate(10); } catch {}
+              }
               if (onNavigateHere) onNavigateHere(contextMenu.coord);
               dismissMenu();
             }}

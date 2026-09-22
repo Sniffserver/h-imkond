@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { MeshNode, BridgePeer } from '../types';
 import { INITIAL_PEERS } from '../data/initialData';
 import { getSecureLocalStorage, setSecureLocalStorage } from '../utils/localStorageValidator';
-import { MeshStoreState, RevealedCircle } from './types';
+import { MeshStoreState, RevealedCircle, SyncPulseEvent } from './types';
 import { buildUnifiedPeersArray } from './selectors';
 
 export * from './types';
@@ -49,6 +49,8 @@ export const useMeshStore = create<MeshStoreState>((set, get) => ({
   activeLayer: 'infrastructure',
   showMeshNodes: loadInitialShowMeshNodes(),
   lastSyncTimestamp: Date.now(),
+  lastSyncPulse: null,
+  recentSyncPulses: {},
 
   setGpsPosition: (pos) => {
     set({ gpsPosition: pos });
@@ -152,6 +154,41 @@ export const useMeshStore = create<MeshStoreState>((set, get) => ({
 
   setLastSyncTimestamp: (timestamp) => {
     set({ lastSyncTimestamp: timestamp });
+  },
+
+  triggerSyncPulse: (pulse) => {
+    const now = Date.now();
+    const event: SyncPulseEvent = {
+      peerId: pulse?.peerId,
+      callsign: pulse?.callsign,
+      timestamp: pulse?.timestamp || now,
+      packetCount: pulse?.packetCount ?? 1,
+      isBackgroundSync: pulse?.isBackgroundSync ?? true,
+    };
+
+    const nextRecent = { ...get().recentSyncPulses };
+    if (event.peerId) {
+      nextRecent[event.peerId] = now;
+    }
+    if (event.callsign) {
+      nextRecent[event.callsign] = now;
+    }
+
+    set({
+      lastSyncPulse: event,
+      lastSyncTimestamp: now,
+      recentSyncPulses: nextRecent,
+    });
+
+    if (typeof window !== 'undefined') {
+      try {
+        window.dispatchEvent(new CustomEvent('hoimu:sync-pulse', { detail: event }));
+      } catch {}
+    }
+  },
+
+  clearSyncPulse: () => {
+    set({ lastSyncPulse: null });
   },
 
   getPeersArray: () => {

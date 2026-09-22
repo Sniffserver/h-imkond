@@ -1,4 +1,4 @@
-import { estimateTileCountForBounds, downloadRasterTilesForBounds } from '../services/map/rasterTileCacheService';
+import { estimateTileCountForBounds, downloadRasterTilesForBounds } from '../../services/map/rasterTileCacheService';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, useAnimation } from 'motion/react';
 import {
@@ -17,40 +17,41 @@ import {
   UserProfile,
   OfflineMapRegion,
   BatteryManagerStatus,
-} from '../types';
-import { offlineMapService } from '../services/map/offlineMapService';
-import { pathfinderScanner, PathfinderActiveState } from '../services/scanner/pathfinderScanner';
-import { initPathfinderDB, getLoadedPathfinderData } from '../utils/pathfinderStorage';
-import { CITY_MAPS } from '../data/cityMaps';
-import { pedometerService } from '../services/utils/pedometerService';
-import { deadReckoningService, DeadReckoningState } from '../services/utils/deadReckoning';
-import { mapRevealService, localGridToGeoPoint, geoPointToLocalGrid } from '../services/map/mapRevealService';
-import { useMeshStore, selectPeersArray } from '../store/meshStore';
-import { StepProgressWidget } from './StepProgressWidget';
-import { SolarpunkAvatarCanvas } from './SolarpunkAvatarCanvas';
-import { ReputationPill } from './ReputationPill';
-import { MapLegendComponent } from './MapLegendComponent';
-import { HeatmapMode } from '../utils/d3BioregionalHeatmap';
-import { NearbyResourcesOverlay } from './NearbyResourcesOverlay';
-import { DynamicScaleRuler } from './DynamicScaleRuler';
+} from '../../types';
+import { offlineMapService } from '../../services/map/offlineMapService';
+import { pathfinderScanner, PathfinderActiveState } from '../../services/scanner/pathfinderScanner';
+import { initPathfinderDB, getLoadedPathfinderData } from '../../utils/pathfinderStorage';
+import { CITY_MAPS } from '../../data/cityMaps';
+import { pedometerService } from '../../services/utils/pedometerService';
+import { deadReckoningService, DeadReckoningState } from '../../services/utils/deadReckoning';
+import { mapRevealService, localGridToGeoPoint, geoPointToLocalGrid } from '../../services/map/mapRevealService';
+import { useMeshStore, selectPeersArray } from '../../store/meshStore';
+import { StepProgressWidget } from '../../components/StepProgressWidget';
+import { SolarpunkAvatarCanvas } from '../../components/SolarpunkAvatarCanvas';
+import { ReputationPill } from '../../components/ReputationPill';
+import { MapLegendComponent } from '../../components/MapLegendComponent';
+import type { HeatmapMode } from '../../utils/d3BioregionalHeatmap';
+import { MapSkeleton } from './MapSkeleton';
+import { NearbyResourcesOverlay } from '../../components/NearbyResourcesOverlay';
+import { DynamicScaleRuler } from '../../components/DynamicScaleRuler';
 
 // Lazy-loaded Map Renderers & Modals
-const OfflineMapCanvas = React.lazy(() => import('./OfflineMapCanvas').then((m) => ({ default: m.OfflineMapCanvas })));
-const WebGlMapCanvas = React.lazy(() => import('./WebGlMapCanvas').then((m) => ({ default: m.WebGlMapCanvas })));
-const AsciiMap = React.lazy(() => import('./AsciiMap').then((m) => ({ default: m.AsciiMap })));
-const CitySelectionModal = React.lazy(() => import('./CitySelectionModal').then((m) => ({ default: m.CitySelectionModal })));
-const PathfinderModal = React.lazy(() => import('./PathfinderModal').then((m) => ({ default: m.PathfinderModal })));
-const DownloadOfflineRegionModal = React.lazy(() => import('./DownloadOfflineRegionModal').then((m) => ({ default: m.DownloadOfflineRegionModal })));
-const D3HeatmapLegend = React.lazy(() => import('./D3HeatmapLegend').then((m) => ({ default: m.D3HeatmapLegend })));
-const MeshActivityHubsD3 = React.lazy(() => import('./MeshActivityHubsD3').then((m) => ({ default: m.MeshActivityHubsD3 })));
+const OfflineMapCanvas = React.lazy(() => import('../../components/OfflineMapCanvas').then((m) => ({ default: m.OfflineMapCanvas })));
+const WebGlMapCanvas = React.lazy(() => import('../../components/WebGlMapCanvas').then((m) => ({ default: m.WebGlMapCanvas })));
+const AsciiMap = React.lazy(() => import('../../components/AsciiMap').then((m) => ({ default: m.AsciiMap })));
+const CitySelectionModal = React.lazy(() => import('../../components/CitySelectionModal').then((m) => ({ default: m.CitySelectionModal })));
+const PathfinderModal = React.lazy(() => import('../../components/PathfinderModal').then((m) => ({ default: m.PathfinderModal })));
+const DownloadOfflineRegionModal = React.lazy(() => import('../../components/DownloadOfflineRegionModal').then((m) => ({ default: m.DownloadOfflineRegionModal })));
+const D3HeatmapLegend = React.lazy(() => import('../../components/D3HeatmapLegend').then((m) => ({ default: m.D3HeatmapLegend })));
+const MeshActivityHubsD3 = React.lazy(() => import('../../components/MeshActivityHubsD3').then((m) => ({ default: m.MeshActivityHubsD3 })));
 import {
   calculatePolygonArea,
   calculatePerimeterLength,
   encodePerimeterToken,
   decodePerimeterToken,
   saveCustomPerimeter,
-} from '../utils/mapTileCache';
-import { planOfflineRoute, RouteResult, RouteStep } from '../utils/offlineRouter';
+} from '../../utils/mapTileCache';
+import { planOfflineRoute, RouteResult, RouteStep } from '../../utils/offlineRouter';
 import {
   MapPin,
   Layers,
@@ -129,6 +130,14 @@ interface MapViewTabProps {
   onOpenChatWithPeer: (peer: MeshNode) => void;
   onOpenReputation: (peer: MeshNode) => void;
   batteryStatus?: BatteryManagerStatus;
+  activeLayers?: {
+    peers: boolean;
+    resources: boolean;
+    heatmap: boolean;
+    terrain: boolean;
+  };
+  onToggleLayer?: (layerKey: 'peers' | 'resources' | 'heatmap' | 'terrain') => void;
+  onZoomChange?: (zoom: number) => void;
 }
 
 export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
@@ -144,6 +153,9 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
   onOpenChatWithPeer,
   onOpenReputation,
   batteryStatus,
+  activeLayers,
+  onToggleLayer,
+  onZoomChange,
 }) => {
   const userSymbiosisScore = user.symbiosisScore;
   const userCallsign = user.callsign;
@@ -784,7 +796,11 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
   const latestTransformRef = useRef(transform);
   useEffect(() => {
     latestTransformRef.current = transform;
-  }, [transform]);
+    if (onZoomChange) {
+      const zoom = Math.round((13 + Math.log2(transform.scale)) * 10) / 10;
+      onZoomChange(zoom);
+    }
+  }, [transform, onZoomChange]);
 
   const animateMapTo = useCallback((targetX: number, targetY: number, targetScale: number) => {
     const startScale = latestTransformRef.current.scale;
@@ -1821,23 +1837,28 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
   const activeResourceCount = resources.filter((r) => r.isActive).length;
 
   // Layer & Category Visibility Effective States for Map Markers
-  const effectiveShowMeshLinks = !showMeshNodes ? false : (activeMapLayer === 'Terrain' ? false : showMeshLinks);
-  const effectiveShowDensityHeatmap = activeMapLayer === 'Mesh Coverage' ? false : (activeMapLayer === 'Terrain' ? false : showDensityHeatmap);
-  const effectiveShowSignalHeatmap = !showMeshNodes ? false : (activeMapLayer === 'Terrain' ? false : showSignalHeatmap);
-  const effectiveShowCachedZones = !showMeshNodes ? false : (activeMapLayer === 'Terrain' ? false : showCachedZones);
+  const isPeersVisible = activeLayers?.peers !== undefined ? (activeLayers.peers && showMeshNodes) : showMeshNodes;
+  const isHeatmapVisible = activeLayers?.heatmap !== undefined ? (activeLayers.heatmap && showDensityHeatmap) : showDensityHeatmap;
+  const isTerrainVisible = activeLayers?.terrain !== undefined ? activeLayers.terrain : true;
+
+  const effectiveShowMeshLinks = !isPeersVisible ? false : (activeMapLayer === 'Terrain' ? false : showMeshLinks);
+  const effectiveShowDensityHeatmap = !isHeatmapVisible ? false : (activeMapLayer === 'Mesh Coverage' ? false : (activeMapLayer === 'Terrain' ? false : showDensityHeatmap));
+  const effectiveShowSignalHeatmap = !isPeersVisible ? false : (activeMapLayer === 'Terrain' ? false : showSignalHeatmap);
+  const effectiveShowCachedZones = !isTerrainVisible ? false : (!isPeersVisible ? false : (activeMapLayer === 'Terrain' ? false : showCachedZones));
 
   const storePeers = useMeshStore(selectPeersArray);
   const stablePeers = peers && peers.length > 0 ? peers : storePeers;
 
   const effectivePeers = useMemo(() => {
-    return showMeshNodes ? stablePeers : [];
-  }, [showMeshNodes, stablePeers]);
+    return isPeersVisible ? stablePeers : [];
+  }, [isPeersVisible, stablePeers]);
   const effectiveResources = useMemo(() => {
+    if (activeLayers?.resources === false) return [];
     return resources.filter((r) => visibleCategories.has(r.category));
-  }, [resources, visibleCategories]);
+  }, [resources, visibleCategories, activeLayers?.resources]);
 
   return (
-    <React.Suspense fallback={<div className="min-h-[400px] flex items-center justify-center font-mono text-xs text-[#588157]">Loading Map Layers...</div>}>
+    <React.Suspense fallback={<MapSkeleton isNightMode={isNightMode} />}>
       <div className="space-y-6 animate-in fade-in duration-150">
       {/* Top Banner Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -4419,27 +4440,30 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
       )}
 
       {/* Pathfinder Mode Control Center & Novelty Radar Modal */}
-
-      <PathfinderModal
-        isOpen={isPathfinderModalOpen}
-        onClose={() => setIsPathfinderModalOpen(false)}
-        isNightMode={isNightMode}
-        pathfinderFilter={pathfinderFilter}
-        onUpdateFilter={setPathfinderFilter}
-        onCenterMapOnLocation={(lat, lon) => {
-          // Convert lat/lon to world coords and center map
-          const centerLat = 58.3780;
-          const centerLon = 26.7290;
-          const worldX = (lon - centerLon) * 5828.0;
-          const worldY = -(lat - centerLat) * 11113.9;
-          setTransform((prev) => ({
-            ...prev,
-            offsetX: -worldX * prev.scale,
-            offsetY: -worldY * prev.scale,
-          }));
-          setIsPathfinderModalOpen(false);
-        }}
-      />
+      {isPathfinderModalOpen && (
+        <React.Suspense fallback={null}>
+          <PathfinderModal
+            isOpen={isPathfinderModalOpen}
+            onClose={() => setIsPathfinderModalOpen(false)}
+            isNightMode={isNightMode}
+            pathfinderFilter={pathfinderFilter}
+            onUpdateFilter={setPathfinderFilter}
+            onCenterMapOnLocation={(lat, lon) => {
+              // Convert lat/lon to world coords and center map
+              const centerLat = 58.3780;
+              const centerLon = 26.7290;
+              const worldX = (lon - centerLon) * 5828.0;
+              const worldY = -(lat - centerLat) * 11113.9;
+              setTransform((prev) => ({
+                ...prev,
+                offsetX: -worldX * prev.scale,
+                offsetY: -worldY * prev.scale,
+              }));
+              setIsPathfinderModalOpen(false);
+            }}
+          />
+        </React.Suspense>
+      )}
     </div>
     </React.Suspense>
   );

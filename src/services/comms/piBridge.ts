@@ -1,5 +1,6 @@
 import { BridgeStatus, BridgePeer } from '../../types';
 import { useMeshStore } from '../../store/meshStore';
+import { getSecureLocalStorage, setSecureLocalStorage } from '../../utils/localStorageValidator';
 
 /**
  * Service for communicating with the Raspberry Pi Zero 2 W Hardware Bridge.
@@ -10,7 +11,7 @@ import { useMeshStore } from '../../store/meshStore';
 const DEFAULT_BRIDGE_IP = '192.168.4.1:8080';
 const STORAGE_KEY_IP = 'hoimu_pi_bridge_ip';
 const STORAGE_KEY_MOCK = 'hoimu_pi_bridge_mock';
-const STORAGE_KEY_TOKEN = 'hoimu_pi_bridge_token';
+const STORAGE_KEY_TOKEN = 'hoimu_pi_bridge_token_sec';
 const STORAGE_KEY_CLIENT_ID = 'hoimu_pi_bridge_client_id';
 
 // Read Client ID (non-secret identifier) from environment or storage
@@ -28,9 +29,16 @@ let currentClientId = typeof window !== 'undefined'
   ? (localStorage.getItem(STORAGE_KEY_CLIENT_ID) || ENV_CLIENT_ID || 'HOIMU-CLIENT-APP')
   : (ENV_CLIENT_ID || 'HOIMU-CLIENT-APP');
 
+// Encrypted device-bound credential storage for Pi bridge bearer token
 let currentAuthToken = typeof window !== 'undefined'
-  ? (localStorage.getItem(STORAGE_KEY_TOKEN) || '')
+  ? getSecureLocalStorage<string>(STORAGE_KEY_TOKEN, '')
   : '';
+
+// Rate limiting state for pairing attempts (Anti-Brute Force)
+const MAX_PAIRING_ATTEMPTS = 5;
+const PAIRING_COOLDOWN_MS = 30000;
+let failedPairingAttempts = 0;
+let lastPairingAttemptTime = 0;
 
 // Check for MOCK_BRIDGE=true in environment
 const isEnvMock = (() => {
@@ -92,6 +100,19 @@ export async function startPairing(customIp?: string, clientId?: string): Promis
   if (customIp) setCustomBridgeIp(customIp);
   if (clientId) setClientId(clientId);
 
+  const now = Date.now();
+  if (failedPairingAttempts >= MAX_PAIRING_ATTEMPTS) {
+    const timeRemaining = Math.ceil((PAIRING_COOLDOWN_MS - (now - lastPairingAttemptTime)) / 1000);
+    if (timeRemaining > 0) {
+      return {
+        success: false,
+        error: `Too many failed pairing attempts. Please wait ${timeRemaining}s before trying again.`,
+      };
+    } else {
+      failedPairingAttempts = 0;
+    }
+  }
+
   if (useMockBridge || isEnvMock) {
     return {
       success: true,
@@ -136,10 +157,24 @@ export async function confirmPairing(
   if (customIp) setCustomBridgeIp(customIp);
   if (clientId) setClientId(clientId);
 
+  const now = Date.now();
+  if (failedPairingAttempts >= MAX_PAIRING_ATTEMPTS) {
+    const timeRemaining = Math.ceil((PAIRING_COOLDOWN_MS - (now - lastPairingAttemptTime)) / 1000);
+    if (timeRemaining > 0) {
+      return {
+        success: false,
+        error: `Pairing rate-limited. Cooldown active for ${timeRemaining}s.`,
+      };
+    } else {
+      failedPairingAttempts = 0;
+    }
+  }
+
   if (useMockBridge || isEnvMock) {
     const mockToken = 'hoimu_ptk_mock_dev_credential_token';
     setBridgeAuthToken(mockToken);
     cachedStatus.connected = true;
+    failedPairingAttempts = 0;
     notifyListeners();
     return { success: true, deviceId: 'dev-mock-01' };
   }
@@ -159,12 +194,20 @@ export async function confirmPairing(
     if (res.ok && data.auth_token) {
       setBridgeAuthToken(data.auth_token);
       cachedStatus.connected = true;
+      failedPairingAttempts = 0;
       notifyListeners();
       await syncBridgePeersToStore();
       return { success: true, deviceId: data.device_id };
     }
+    
+    // Increment failure counter for rate limiting
+    failedPairingAttempts += 1;
+    lastPairingAttemptTime = Date.now();
+
     return { success: false, error: data.message || 'Invalid PIN' };
   } catch (err: any) {
+    failedPairingAttempts += 1;
+    lastPairingAttemptTime = Date.now();
     return { success: false, error: err.message || 'Network error confirming PIN' };
   }
 }
@@ -249,7 +292,7 @@ export function getCustomBridgeIp(): string {
 export function setBridgeAuthToken(token: string): void {
   currentAuthToken = token.trim();
   if (typeof window !== 'undefined') {
-    localStorage.setItem(STORAGE_KEY_TOKEN, currentAuthToken);
+    setSecureLocalStorage(STORAGE_KEY_TOKEN, currentAuthToken);
   }
 }
 

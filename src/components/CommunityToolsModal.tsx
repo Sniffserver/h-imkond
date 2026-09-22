@@ -12,11 +12,18 @@ import {
   Landmark,
   Search,
   ArrowRight,
+  ArrowLeft,
   Radio,
   Cpu,
   HelpCircle,
   Keyboard,
+  Signal,
+  Sun,
 } from 'lucide-react';
+import { MeshNode, BatteryManagerStatus } from '../types';
+import { MeshHealthOptimizerView } from './MeshHealthOptimizerView';
+import { SolarDeviceTimeToEmptyWidget } from './SolarDeviceTimeToEmptyWidget';
+import { soundFeedback } from '../services/utils/soundFeedback';
 
 interface CommunityToolsModalProps {
   isOpen: boolean;
@@ -35,6 +42,9 @@ interface CommunityToolsModalProps {
   onToggleCrisisMode?: () => void;
   isCrisisMode?: boolean;
   isNightMode?: boolean;
+  peers?: MeshNode[];
+  batteryStatus?: BatteryManagerStatus;
+  onToggleSolarAware?: () => void;
 }
 
 interface ToolItem {
@@ -65,9 +75,13 @@ export const CommunityToolsModal: React.FC<CommunityToolsModalProps> = ({
   onToggleCrisisMode,
   isCrisisMode = false,
   isNightMode = false,
+  peers = [],
+  batteryStatus,
+  onToggleSolarAware,
 }) => {
   const [filterQuery, setFilterQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<'all' | 'community' | 'mesh' | 'guides'>('all');
+  const [selectedToolView, setSelectedToolView] = useState<'directory' | 'mesh_health' | 'solar_autonomy'>('directory');
 
   if (!isOpen) return null;
 
@@ -112,11 +126,37 @@ export const CommunityToolsModal: React.FC<CommunityToolsModalProps> = ({
 
     // Mesh & Field Utilities
     {
+      id: 'solar_autonomy',
+      title: 'Solar Device Time-to-Empty Estimator',
+      description: 'Calculates estimated runtime and battery depletion curves for solar-powered mesh nodes based on current consumption rates.',
+      category: 'mesh',
+      icon: Sun,
+      color: '#E9C46A',
+      badge: 'Live Calculator',
+      action: () => {
+        soundFeedback.playClick();
+        setSelectedToolView('solar_autonomy');
+      },
+    },
+    {
+      id: 'mesh_health',
+      title: 'Mesh Health & Signal Optimizer',
+      description: 'Real-time RSSI signal histograms, packet loss % analysis, node hop-count distribution, and device placement tips.',
+      category: 'mesh',
+      icon: Activity,
+      color: '#2A9D8F',
+      badge: 'D3/Recharts',
+      action: () => {
+        soundFeedback.playClick();
+        setSelectedToolView('mesh_health');
+      },
+    },
+    {
       id: 'diagnostics',
       title: 'Network Diagnostics',
       description: 'Analyze 2.4GHz RF spectrum, BLE beacon health, node hop counts, and packet traceroutes.',
       category: 'mesh',
-      icon: Activity,
+      icon: Radio,
       color: '#2A9D8F',
       action: onOpenDiagnostics,
     },
@@ -207,6 +247,10 @@ export const CommunityToolsModal: React.FC<CommunityToolsModalProps> = ({
   });
 
   const handleSelectTool = (tool: ToolItem) => {
+    if (tool.id === 'mesh_health' || tool.id === 'solar_autonomy') {
+      tool.action();
+      return;
+    }
     onClose();
     tool.action();
   };
@@ -219,166 +263,287 @@ export const CommunityToolsModal: React.FC<CommunityToolsModalProps> = ({
     >
       <div
         id="community-tools-modal"
-        className={`w-full max-w-2xl max-h-[90vh] rounded-3xl border shadow-2xl flex flex-col overflow-hidden transition-all ${
+        className={`w-full max-w-3xl max-h-[92vh] rounded-3xl border shadow-2xl flex flex-col overflow-hidden transition-all ${
           isNightMode
             ? 'bg-[#182315] border-[#2A3B26] text-[#FAF6EE]'
             : 'bg-[#FAF6EE] border-[#87A878]/40 text-[#203A2A]'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Modal Header */}
-        <div
-          className={`p-4 sm:p-5 border-b flex items-center justify-between shrink-0 ${
-            isNightMode ? 'border-[#2A3B26] bg-[#121A10]' : 'border-[#87A878]/20 bg-white/60'
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#588157]/20 flex items-center justify-center text-[#588157] dark:text-[#E9C46A]">
-              <Globe className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="font-display font-bold text-lg sm:text-xl">
-                Community Hub & Tools
-              </h2>
-              <p className={`text-xs ${isNightMode ? 'text-[#A8BDA5]' : 'text-[#637062]'}`}>
-                All off-grid utilities, collaborative directories, and resilience guides
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            id="close-tools-modal-btn"
-            onClick={onClose}
-            aria-label="Close community tools modal"
-            className={`p-2 rounded-2xl border transition-all cursor-pointer ${
-              isNightMode
-                ? 'border-[#2A3B26] text-[#A8BDA5] hover:text-white hover:bg-[#2A3B26]'
-                : 'border-[#87A878]/30 text-[#637062] hover:text-[#203A2A] hover:bg-[#87A878]/15'
-            }`}
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Search & Category Filter */}
-        <div className="p-4 sm:p-5 pb-2 shrink-0 space-y-3">
-          <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-            <input
-              type="text"
-              value={filterQuery}
-              onChange={(e) => setFilterQuery(e.target.value)}
-              placeholder="Search tools, guides, or utilities..."
-              className={`w-full pl-10 pr-4 py-2.5 rounded-2xl text-xs sm:text-sm border transition-colors focus:outline-none ${
-                isNightMode
-                  ? 'bg-[#121A10] border-[#2A3B26] text-[#FAF6EE] focus:border-[#87A878]'
-                  : 'bg-white border-[#87A878]/40 text-[#203A2A] focus:border-[#588157]'
+        {selectedToolView === 'solar_autonomy' ? (
+          <>
+            {/* Solar Autonomy Subview Header */}
+            <div
+              className={`p-4 sm:p-5 border-b flex items-center justify-between shrink-0 ${
+                isNightMode ? 'border-[#2A3B26] bg-[#121A10]' : 'border-[#87A878]/20 bg-white/60'
               }`}
-            />
-            {filterQuery && (
-              <button
-                type="button"
-                onClick={() => setFilterQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono text-neutral-400 hover:text-neutral-600"
-              >
-                Clear
-              </button>
-            )}
-          </div>
+            >
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  id="back-to-tools-from-solar-btn"
+                  onClick={() => {
+                    soundFeedback.playClick();
+                    setSelectedToolView('directory');
+                  }}
+                  className={`px-3 py-1.5 rounded-2xl border transition-all cursor-pointer flex items-center gap-1.5 text-xs font-bold ${
+                    isNightMode
+                      ? 'border-[#2A3B26] text-[#A8BDA5] hover:text-white hover:bg-[#2A3B26]'
+                      : 'border-[#87A878]/30 text-[#637062] hover:text-[#203A2A] hover:bg-[#87A878]/15'
+                  }`}
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Tagasi tööriistadesse (Back to Tools)</span>
+                </button>
+              </div>
 
-          {/* Filter Categories */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-            {[
-              { id: 'all', label: 'All Tools' },
-              { id: 'community', label: '🤝 Community' },
-              { id: 'mesh', label: '📡 Mesh & Utilities' },
-              { id: 'guides', label: '📖 Guides & Manuals' },
-            ].map((cat) => (
               <button
-                key={cat.id}
                 type="button"
-                onClick={() => setActiveCategory(cat.id as any)}
-                className={`px-3 py-1.5 rounded-xl font-semibold transition-all shrink-0 cursor-pointer ${
-                  activeCategory === cat.id
-                    ? isNightMode
-                      ? 'bg-[#2A3B26] text-[#E9C46A]'
-                      : 'bg-[#203A2A] text-white'
-                    : isNightMode
-                    ? 'text-[#A8BDA5] hover:bg-[#1C2918]'
-                    : 'text-[#637062] hover:bg-[#87A878]/15'
+                id="close-tools-modal-btn"
+                onClick={onClose}
+                aria-label="Close community tools modal"
+                className={`p-2 rounded-2xl border transition-all cursor-pointer ${
+                  isNightMode
+                    ? 'border-[#2A3B26] text-[#A8BDA5] hover:text-white hover:bg-[#2A3B26]'
+                    : 'border-[#87A878]/30 text-[#637062] hover:text-[#203A2A] hover:bg-[#87A878]/15'
                 }`}
               >
-                {cat.label}
+                <X className="w-5 h-5" />
               </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Tools Grid */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 pt-2 space-y-2.5">
-          {filteredTools.length === 0 ? (
-            <div className="py-12 text-center text-xs opacity-60">
-              No matching tools found for "{filterQuery}". Try a different keyword.
             </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {filteredTools.map((tool) => {
-                const Icon = tool.icon;
-                return (
+
+            {/* Solar Autonomy Subview Body */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+              <SolarDeviceTimeToEmptyWidget
+                batteryStatus={batteryStatus}
+                isNightMode={isNightMode}
+                onToggleSolarAware={onToggleSolarAware}
+                variant="full"
+              />
+            </div>
+          </>
+        ) : selectedToolView === 'mesh_health' ? (
+          <>
+            {/* Mesh Health Header */}
+            <div
+              className={`p-4 sm:p-5 border-b flex items-center justify-between shrink-0 ${
+                isNightMode ? 'border-[#2A3B26] bg-[#121A10]' : 'border-[#87A878]/20 bg-white/60'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  id="back-to-tools-btn"
+                  onClick={() => {
+                    soundFeedback.playClick();
+                    setSelectedToolView('directory');
+                  }}
+                  className={`px-3 py-1.5 rounded-2xl border transition-all cursor-pointer flex items-center gap-1.5 text-xs font-bold ${
+                    isNightMode
+                      ? 'border-[#2A3B26] text-[#A8BDA5] hover:text-white hover:bg-[#2A3B26]'
+                      : 'border-[#87A878]/30 text-[#637062] hover:text-[#203A2A] hover:bg-[#87A878]/15'
+                  }`}
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Tagasi tööriistadesse (Back to Tools)</span>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                id="close-tools-modal-btn"
+                onClick={onClose}
+                aria-label="Close community tools modal"
+                className={`p-2 rounded-2xl border transition-all cursor-pointer ${
+                  isNightMode
+                    ? 'border-[#2A3B26] text-[#A8BDA5] hover:text-white hover:bg-[#2A3B26]'
+                    : 'border-[#87A878]/30 text-[#637062] hover:text-[#203A2A] hover:bg-[#87A878]/15'
+                }`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Mesh Health Subview Body */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+              <MeshHealthOptimizerView
+                peers={peers}
+                batteryStatus={batteryStatus}
+                isNightMode={isNightMode}
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Modal Header */}
+            <div
+              className={`p-4 sm:p-5 border-b flex items-center justify-between shrink-0 ${
+                isNightMode ? 'border-[#2A3B26] bg-[#121A10]' : 'border-[#87A878]/20 bg-white/60'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#588157]/20 flex items-center justify-center text-[#588157] dark:text-[#E9C46A]">
+                  <Globe className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="font-display font-bold text-lg sm:text-xl">
+                    Community Hub & Tools
+                  </h2>
+                  <p className={`text-xs ${isNightMode ? 'text-[#A8BDA5]' : 'text-[#637062]'}`}>
+                    All off-grid utilities, collaborative directories, and resilience guides
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                id="close-tools-modal-btn"
+                onClick={onClose}
+                aria-label="Close community tools modal"
+                className={`p-2 rounded-2xl border transition-all cursor-pointer ${
+                  isNightMode
+                    ? 'border-[#2A3B26] text-[#A8BDA5] hover:text-white hover:bg-[#2A3B26]'
+                    : 'border-[#87A878]/30 text-[#637062] hover:text-[#203A2A] hover:bg-[#87A878]/15'
+                }`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Search & Category Filter */}
+            <div className="p-4 sm:p-5 pb-2 shrink-0 space-y-3">
+              <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                <input
+                  type="text"
+                  value={filterQuery}
+                  onChange={(e) => setFilterQuery(e.target.value)}
+                  placeholder="Search tools, guides, or utilities..."
+                  className={`w-full pl-10 pr-4 py-2.5 rounded-2xl text-xs sm:text-sm border transition-colors focus:outline-none ${
+                    isNightMode
+                      ? 'bg-[#121A10] border-[#2A3B26] text-[#FAF6EE] focus:border-[#87A878]'
+                      : 'bg-white border-[#87A878]/40 text-[#203A2A] focus:border-[#588157]'
+                  }`}
+                />
+                {filterQuery && (
                   <button
-                    key={tool.id}
-                    id={`tool-card-${tool.id}`}
                     type="button"
-                    onClick={() => handleSelectTool(tool)}
-                    className={`p-3.5 rounded-2xl border text-left flex items-start gap-3 transition-all duration-150 hover:scale-[1.01] active:scale-[0.99] cursor-pointer group ${
-                      isNightMode
-                        ? 'bg-[#121A10] border-[#2A3B26] hover:border-[#87A878] hover:bg-[#1A2617]'
-                        : 'bg-white border-[#87A878]/30 hover:border-[#588157] hover:bg-[#FAF6EE]'
+                    onClick={() => setFilterQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono text-neutral-400 hover:text-neutral-600"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {/* Filter Categories */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                {[
+                  { id: 'all', label: 'All Tools' },
+                  { id: 'community', label: '🤝 Community' },
+                  { id: 'mesh', label: '📡 Mesh & Utilities' },
+                  { id: 'guides', label: '📖 Guides & Manuals' },
+                ].map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setActiveCategory(cat.id as any)}
+                    className={`px-3 py-1.5 rounded-xl font-semibold transition-all shrink-0 cursor-pointer ${
+                      activeCategory === cat.id
+                        ? isNightMode
+                          ? 'bg-[#2A3B26] text-[#E9C46A]'
+                          : 'bg-[#203A2A] text-white'
+                        : isNightMode
+                        ? 'text-[#A8BDA5] hover:bg-[#1C2918]'
+                        : 'text-[#637062] hover:bg-[#87A878]/15'
                     }`}
                   >
-                    <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform"
-                      style={{ backgroundColor: `${tool.color}20`, color: tool.color }}
-                    >
-                      <Icon className="w-5 h-5" />
-                    </div>
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1.5">
-                        <span className="font-display font-bold text-xs sm:text-sm truncate">
-                          {tool.title}
-                        </span>
-                        {tool.badge && (
-                          <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-red-600 text-white animate-pulse">
-                            {tool.badge}
-                          </span>
-                        )}
-                        <ArrowRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-[#588157] shrink-0" />
-                      </div>
-                      <p
-                        className={`text-[11px] leading-relaxed mt-0.5 line-clamp-2 ${
-                          isNightMode ? 'text-[#A8BDA5]' : 'text-[#637062]'
+            {/* Dashboard Widget: Solar Device Time-to-Empty */}
+            <div className="px-4 sm:px-5 pb-1 shrink-0">
+              <SolarDeviceTimeToEmptyWidget
+                batteryStatus={batteryStatus}
+                isNightMode={isNightMode}
+                onToggleSolarAware={onToggleSolarAware}
+                variant="dashboard"
+                onExpand={() => {
+                  soundFeedback.playClick();
+                  setSelectedToolView('solar_autonomy');
+                }}
+              />
+            </div>
+
+            {/* Tools Grid */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 pt-2 space-y-2.5">
+              {filteredTools.length === 0 ? (
+                <div className="py-12 text-center text-xs opacity-60">
+                  No matching tools found for "{filterQuery}". Try a different keyword.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {filteredTools.map((tool) => {
+                    const Icon = tool.icon;
+                    return (
+                      <button
+                        key={tool.id}
+                        id={`tool-card-${tool.id}`}
+                        type="button"
+                        onClick={() => handleSelectTool(tool)}
+                        className={`p-3.5 rounded-2xl border text-left flex items-start gap-3 transition-all duration-150 hover:scale-[1.01] active:scale-[0.99] cursor-pointer group ${
+                          isNightMode
+                            ? 'bg-[#121A10] border-[#2A3B26] hover:border-[#87A878] hover:bg-[#1A2617]'
+                            : 'bg-white border-[#87A878]/30 hover:border-[#588157] hover:bg-[#FAF6EE]'
                         }`}
                       >
-                        {tool.description}
-                      </p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                        <div
+                          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform"
+                          style={{ backgroundColor: `${tool.color}20`, color: tool.color }}
+                        >
+                          <Icon className="w-5 h-5" />
+                        </div>
 
-        {/* Modal Footer Tip */}
-        <div
-          className={`p-3 sm:px-5 text-center text-[11px] border-t shrink-0 ${
-            isNightMode ? 'border-[#2A3B26] text-[#87A878] bg-[#121A10]' : 'border-[#87A878]/20 text-[#588157] bg-white/40'
-          }`}
-        >
-          💡 Tip: Press <kbd className="px-1.5 py-0.5 rounded border text-[10px] font-mono">⌘K</kbd> anywhere in the app to quickly search resources, nodes, and commands.
-        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1.5">
+                            <span className="font-display font-bold text-xs sm:text-sm truncate">
+                              {tool.title}
+                            </span>
+                            {tool.badge && (
+                              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[#2A9D8F] text-white">
+                                {tool.badge}
+                              </span>
+                            )}
+                            <ArrowRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-[#588157] shrink-0" />
+                          </div>
+                          <p
+                            className={`text-[11px] leading-relaxed mt-0.5 line-clamp-2 ${
+                              isNightMode ? 'text-[#A8BDA5]' : 'text-[#637062]'
+                            }`}
+                          >
+                            {tool.description}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer Tip */}
+            <div
+              className={`p-3 sm:px-5 text-center text-[11px] border-t shrink-0 ${
+                isNightMode ? 'border-[#2A3B26] text-[#87A878] bg-[#121A10]' : 'border-[#87A878]/20 text-[#588157] bg-white/40'
+              }`}
+            >
+              💡 Tip: Press <kbd className="px-1.5 py-0.5 rounded border text-[10px] font-mono">⌘K</kbd> anywhere in the app to quickly search resources, nodes, and commands.
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

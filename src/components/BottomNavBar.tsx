@@ -28,7 +28,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
 
   const tabs = [
     {
-      id: 'mesh' as NavTab, // Today / Home
+      id: 'today' as NavTab, // Today / Home
       label: 'Today',
       sublabel: 'What matters now',
       icon: Home,
@@ -63,7 +63,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
 
   // Helper to determine active tab section
   const isTabActive = (tabId: NavTab) => {
-    if (tabId === 'mesh') return activeTab === 'mesh' || activeTab === 'home';
+    if (tabId === 'today') return activeTab === 'today' || activeTab === 'mesh' || activeTab === 'home';
     if (tabId === 'map') return activeTab === 'map' || activeTab === 'nearby' || activeTab === 'pathfinder';
     if (tabId === 'messages') return activeTab === 'messages' || activeTab === 'connect';
     if (tabId === 'sos') return activeTab === 'sos' || activeTab === 'help';

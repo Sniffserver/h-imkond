@@ -38,10 +38,19 @@ export const LayerToggleButton: React.FC<LayerToggleButtonProps> = ({
   count,
   isNightMode = false,
 }) => {
+  const handleClick = () => {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(8);
+      } catch {}
+    }
+    onToggle();
+  };
+
   return (
     <button
       type="button"
-      onClick={onToggle}
+      onClick={handleClick}
       aria-pressed={isActive}
       aria-label={`${label} layer ${isActive ? 'visible' : 'hidden'}${
         count !== undefined ? ` (${count} items)` : ''

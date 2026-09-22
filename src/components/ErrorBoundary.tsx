@@ -41,6 +41,8 @@ export function isHmrOrWebSocketError(error: unknown): boolean {
     msg.includes('hmr') ||
     msg.includes('hot reload') ||
     msg.includes('vite') ||
+    msg.includes('dynamically imported module') ||
+    msg.includes('failed to fetch dynamically imported') ||
     stack.includes('websocket') ||
     stack.includes('@vite/client') ||
     stack.includes('vite-plugin-pwa')

@@ -23,6 +23,7 @@ import { cacheCityMapData, getCustomPerimeters, saveCustomPerimeter, CustomPerim
 import { clusterResourcePins, ResourceCluster, CATEGORY_COLORS, clusterPeerNodes, PeerCluster, RawPeerPosition } from '../utils/resourceClustering';
 import { computeD3BioregionalHeatmap, drawD3HeatmapOnCanvas, HeatmapMode, BioregionalHeatmapResult } from '../utils/d3BioregionalHeatmap';
 import { rafScheduler } from '../utils/rafScheduler';
+import { useMeshStore } from '../store/meshStore';
 
 export type NodeFreshnessTier = 'fresh' | 'warm' | 'stale' | 'dormant';
 
@@ -507,6 +508,7 @@ export const BioregionalMapCanvas: React.FC<BioregionalMapCanvasProps> = React.m
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef<{ x: number; y: number; initialOffsetX: number; initialOffsetY: number } | null>(null);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastTouchTapRef = useRef<{ time: number; x: number; y: number } | null>(null);
   const touchStartRef = useRef<{
     dist: number;
     angle: number;
@@ -2160,6 +2162,59 @@ export const BioregionalMapCanvas: React.FC<BioregionalMapCanvasProps> = React.m
         ctx.restore();
       }
 
+      // F2. Real-time background sync pulse data propagation ripple on target mesh node
+      const currentSyncPulse = useMeshStore.getState().lastSyncPulse;
+      if (currentSyncPulse) {
+        const pulseAgeSec = (Date.now() - currentSyncPulse.timestamp) / 1000;
+        if (pulseAgeSec >= 0 && pulseAgeSec < 2.6) {
+          const pulseProgress = pulseAgeSec / 2.6; // [0, 1]
+          const targetPeer = peerWorldPositions.find(
+            (pp) =>
+              pp.peer.id === currentSyncPulse.peerId ||
+              (currentSyncPulse.callsign &&
+                pp.peer.callsign.toLowerCase() === currentSyncPulse.callsign.toLowerCase())
+          );
+          const originX = targetPeer ? targetPeer.x : userWorldPos.x;
+          const originY = targetPeer ? targetPeer.y : userWorldPos.y;
+
+          if (isWorldPointInViewport(originX, originY, 140)) {
+            ctx.save();
+
+            // Outer primary expanding teal propagation wave
+            const rippleR1 = (14 + pulseProgress * 78) / transform.scale;
+            const alpha1 = Math.max(0, (1 - pulseProgress) * 0.85);
+            ctx.beginPath();
+            ctx.arc(originX, originY, rippleR1, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(42, 157, 143, ${alpha1})`;
+            ctx.lineWidth = Math.max(1, (2.6 * (1 - pulseProgress * 0.6)) / transform.scale);
+            ctx.stroke();
+
+            // Secondary amber harmonic echo ripple
+            if (pulseProgress > 0.15) {
+              const echoProg = (pulseProgress - 0.15) / 0.85;
+              const rippleR2 = (14 + echoProg * 58) / transform.scale;
+              const alpha2 = Math.max(0, (1 - echoProg) * 0.7);
+              ctx.beginPath();
+              ctx.arc(originX, originY, rippleR2, 0, Math.PI * 2);
+              ctx.strokeStyle = isNightMode
+                ? `rgba(233, 196, 106, ${alpha2})`
+                : `rgba(88, 129, 87, ${alpha2})`;
+              ctx.lineWidth = Math.max(0.8, (1.8 * (1 - echoProg * 0.5)) / transform.scale);
+              ctx.stroke();
+            }
+
+            // Central beacon flash
+            const coreAlpha = Math.max(0, Math.sin(pulseProgress * Math.PI) * 0.6);
+            ctx.beginPath();
+            ctx.arc(originX, originY, 8 / transform.scale, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(42, 157, 143, ${coreAlpha})`;
+            ctx.fill();
+
+            ctx.restore();
+          }
+        }
+      }
+
       // G. Draw Mesh Links with Active Signal Path Strengths & Health Metrics
       if (showMeshLinks) {
         ctx.save();
@@ -3553,6 +3608,11 @@ export const BioregionalMapCanvas: React.FC<BioregionalMapCanvasProps> = React.m
       const mouseScreenX = clientX - rect.left;
       const mouseScreenY = clientY - rect.top;
       const { worldX, worldY } = getWorldCoords(mouseScreenX, mouseScreenY, rect.width, rect.height);
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        try {
+          navigator.vibrate(30);
+        } catch {}
+      }
       onLongPress({ x: worldX, y: worldY });
     }, 600);
   };
@@ -3976,6 +4036,9 @@ export const BioregionalMapCanvas: React.FC<BioregionalMapCanvasProps> = React.m
       const distHead = Math.hypot(worldX - cluster.x, worldY - (cluster.y - 18 / currentScale));
 
       if (distTip < radius || (!cluster.isCluster && distHead < radius)) {
+        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+          try { navigator.vibrate(15); } catch {}
+        }
         if (cluster.isCluster) {
           setSelectedPoiPopup(null);
           setSelectedPeerClusterPopup(null);
@@ -3998,6 +4061,9 @@ export const BioregionalMapCanvas: React.FC<BioregionalMapCanvasProps> = React.m
     for (const cluster of peerClusters) {
       const radius = cluster.isCluster ? 22 / currentScale : 20 / currentScale;
       if (Math.hypot(worldX - cluster.x, worldY - cluster.y) < radius) {
+        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+          try { navigator.vibrate(15); } catch {}
+        }
         if (cluster.isCluster) {
           setSelectedPoiPopup(null);
           setSelectedClusterPopup(null);
@@ -4021,6 +4087,9 @@ export const BioregionalMapCanvas: React.FC<BioregionalMapCanvasProps> = React.m
         if (visiblePoiCategories && !visiblePoiCategories.has(poi.category)) continue;
 
         if (Math.hypot(worldX - poi.x, worldY - poi.y) < 20 / currentScale) {
+          if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+            try { navigator.vibrate(15); } catch {}
+          }
           setSelectedPoiPopup({ poi, x: mouseScreenX, y: mouseScreenY });
           return;
         }
@@ -4044,6 +4113,9 @@ export const BioregionalMapCanvas: React.FC<BioregionalMapCanvasProps> = React.m
           if (pathfinderFilter?.onlyNewDiscoveries && activeSessionId && spot.walkSessionId !== activeSessionId) continue;
           const pos = latLonToWorld(spot.latitude, spot.longitude);
           if (Math.hypot(worldX - pos.x, worldY - pos.y) < 20 / currentScale) {
+            if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+              try { navigator.vibrate(15); } catch {}
+            }
             onSelectPathfinderSpot?.({ type: 'wifi', data: spot });
             return;
           }
@@ -4055,6 +4127,9 @@ export const BioregionalMapCanvas: React.FC<BioregionalMapCanvasProps> = React.m
           if (pathfinderFilter?.onlyNewDiscoveries && activeSessionId && spot.walkSessionId !== activeSessionId) continue;
           const pos = latLonToWorld(spot.latitude, spot.longitude);
           if (Math.hypot(worldX - pos.x, worldY - pos.y) < 20 / currentScale) {
+            if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+              try { navigator.vibrate(15); } catch {}
+            }
             onSelectPathfinderSpot?.({ type: 'ble', data: spot });
             return;
           }
@@ -4246,6 +4321,66 @@ export const BioregionalMapCanvas: React.FC<BioregionalMapCanvasProps> = React.m
     cancelLongPressTimer();
     e.stopPropagation();
     if (e.touches.length === 0) {
+      const now = performance.now();
+      const changedTouch = e.changedTouches[0];
+      if (changedTouch && dragStartRef.current) {
+        const dragDist = Math.hypot(
+          changedTouch.clientX - dragStartRef.current.x,
+          changedTouch.clientY - dragStartRef.current.y
+        );
+        // Only evaluate double-tap if finger didn't drag extensively
+        if (dragDist < 12) {
+          const lastTap = lastTouchTapRef.current;
+          if (lastTap && now - lastTap.time < 340) {
+            const tapDist = Math.hypot(changedTouch.clientX - lastTap.x, changedTouch.clientY - lastTap.y);
+            if (tapDist < 40) {
+              // Double tap detected! Focal-point zoom in by 1.4x
+              stopKineticPan();
+              const canvas = canvasRef.current;
+              if (canvas) {
+                const rect = canvas.getBoundingClientRect();
+                const cursorScreenX = changedTouch.clientX - rect.left;
+                const cursorScreenY = changedTouch.clientY - rect.top;
+                const current = transformRef.current;
+                const targetScale = Math.min(5.0, current.scale * 1.4);
+
+                const newTrans = calculateFocalPointZoom(
+                  current,
+                  cursorScreenX,
+                  cursorScreenY,
+                  rect.width,
+                  rect.height,
+                  targetScale
+                );
+
+                const { worldX, worldY } = getWorldCoords(cursorScreenX, cursorScreenY, rect.width, rect.height);
+                activeFocalPointRef.current = {
+                  screenX: cursorScreenX,
+                  screenY: cursorScreenY,
+                  worldX,
+                  worldY,
+                  scale: targetScale,
+                  timestamp: performance.now(),
+                };
+
+                if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                  try {
+                    navigator.vibrate(12);
+                  } catch {}
+                }
+
+                updateTransform(() => newTrans, false);
+                lastTouchTapRef.current = null;
+              }
+            } else {
+              lastTouchTapRef.current = { time: now, x: changedTouch.clientX, y: changedTouch.clientY };
+            }
+          } else {
+            lastTouchTapRef.current = { time: now, x: changedTouch.clientX, y: changedTouch.clientY };
+          }
+        }
+      }
+
       setIsDragging(false);
       dragStartRef.current = null;
       touchStartRef.current = null;

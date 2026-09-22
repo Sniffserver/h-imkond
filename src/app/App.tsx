@@ -15,9 +15,12 @@ import { OfflineIndicator } from '../components/OfflineIndicator';
 import { OfflineTransitionIndicator } from '../components/OfflineTransitionIndicator';
 import { OfflineSyncProgress } from '../components/OfflineSyncProgress';
 import { SosAlertBanner } from '../components/SosAlertBanner';
+import { A11yLiveAnnouncer } from '../components/A11yLiveAnnouncer';
+import { a11yAnnouncer } from '../services/a11y/a11yAnnouncer';
 import { useAppToasts, AppProviders } from './providers';
 import { useAppThemeModes } from '../hooks/useAppThemeModes';
 import { useAppDomainState } from '../hooks/useAppDomainState';
+import { useHighTrustProximityNotifier } from '../hooks/useHighTrustProximityNotifier';
 import { soundFeedback } from '../services/utils/soundFeedback';
 import { stringResource, R } from '../utils/stringResource';
 import { getSafeLocalStorage, setSafeLocalStorage, setSecureLocalStorage } from '../utils/localStorageValidator';
@@ -41,7 +44,7 @@ export function AppContent() {
   } = useAppThemeModes({ addToast });
 
   // Navigation State
-  const [activeTab, setActiveTab] = useState<NavTab>('mesh');
+  const [activeTab, setActiveTab] = useState<NavTab>('today');
   const [filterOnlyNewMap, setFilterOnlyNewMap] = useState(false);
 
   // Modals Visibility & Floating States
@@ -134,6 +137,7 @@ export function AppContent() {
     handleToggleRsvp,
     handleAddSkill,
     handleRequestSkillSession,
+    handleEndorseSkillTrade,
     handleEndorseTransaction,
     handleBroadcastAlert,
     handleResolveAlert,
@@ -153,6 +157,13 @@ export function AppContent() {
     handleResetDemoData,
     handleImportIdentity,
   } = useAppDomainState({ addToast, isWishlistOpen });
+
+  // High-Trust Peer Bluetooth Proximity Notifier (Triggers Haptic & Audible chime for RSSI > -70 dBm)
+  useHighTrustProximityNotifier({
+    peers,
+    addToast,
+    enabled: true,
+  });
 
   // Onboarding Handlers
   const handleCloseOnboarding = useCallback(() => {
@@ -379,6 +390,17 @@ export function AppContent() {
           : 'bg-[#FAF6EE] text-[#243128]'
       }`}
     >
+      {/* Keyboard Accessibility: Skip to Main Content Link */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:px-4 focus:py-2.5 focus:bg-[#203A2A] focus:text-[#E9C46A] focus:font-bold focus:rounded-xl focus:shadow-2xl focus:border-2 focus:border-[#E9C46A] focus:outline-none"
+      >
+        Skip to main content
+      </a>
+
+      {/* Screen Reader Live Announcements Container (Polite & Assertive) */}
+      <A11yLiveAnnouncer />
+
       {/* Emergency SOS Received Alert Banner */}
       <SosAlertBanner
         userCallsign={user.callsign}
@@ -436,56 +458,61 @@ export function AppContent() {
         onAddToast={addToast}
       />
 
-      {/* Main Tab Content View via Feature Routes */}
-      <AppRoutes
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        user={user}
-        peers={peers}
-        resources={resources}
-        transactions={transactions}
-        journal={journal}
-        messages={messages}
-        daoProposals={daoProposals}
-        endorsements={endorsements}
-        crisisAlerts={crisisAlerts}
-        batteryStatus={batteryStatus}
-        isNightMode={isNightMode}
-        isFocusMode={isFocusMode}
-        isGloveMode={isGloveMode}
-        isHighContrast={isHighContrast}
-        isDirectSun={isDirectSun}
-        isCrisisMode={isCrisisMode}
-        isScanning={isScanning}
-        filterOnlyNewMap={filterOnlyNewMap}
-        setFilterOnlyNewMap={setFilterOnlyNewMap}
-        onToggleNightMode={handleToggleNightMode}
-        onToggleGloveMode={handleToggleGloveMode}
-        onToggleHighContrast={handleToggleHighContrast}
-        onToggleDirectSun={handleToggleDirectSun}
-        onToggleSolarAware={handleToggleSolarAware}
-        onToggleCrisisMode={() => setIsCrisisMode(!isCrisisMode)}
-        onBroadcastAlert={handleBroadcastAlert}
-        onResolveAlert={handleResolveAlert}
-        onSelectPeerForDetail={(peer) => setSelectedPeerForDetail(peer)}
-        onSelectPeerForReputation={(peer) => setSelectedPeerForReputation(peer)}
-        onSelectResourceForDetail={(res) => setSelectedResourceForDetail(res)}
-        onOpenChatWithPeer={handleOpenChatWithPeer}
-        onRefreshScan={handleRefreshScan}
-        onDiscoverPeer={handleDiscoverNewPeer}
-        onOpenDiagnostics={() => setIsDiagnosticsOpen(true)}
-        onUpdateUser={handleUpdateUser}
-        onUpdateProfile={handleUpdateProfile}
-        onResetDemoData={handleResetDemoData}
-        onOpenQuickAdd={() => setIsQuickAddOpen(true)}
-        onOpenWishlist={() => setIsWishlistOpen(true)}
-        onOpenDaoModal={() => setIsDaoModalOpen(true)}
-        onOpenToolsModal={() => setIsToolsModalOpen(true)}
-        onOpenManual={() => setIsManualOpen(true)}
-        onOpenBackupSetup={() => setIsBackupPromptOpen(true)}
-        onOpenLandingPage={() => setIsLandingPageView(true)}
-        addToast={addToast}
-      />
+      {/* Main Tab Content Landmark */}
+      <main id="main-content" role="main" tabIndex={-1} className="outline-none flex-1">
+        <AppRoutes
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          user={user}
+          peers={peers}
+          resources={resources}
+          transactions={transactions}
+          journal={journal}
+          messages={messages}
+          daoProposals={daoProposals}
+          endorsements={endorsements}
+          crisisAlerts={crisisAlerts}
+          batteryStatus={batteryStatus}
+          isNightMode={isNightMode}
+          isFocusMode={isFocusMode}
+          isGloveMode={isGloveMode}
+          isHighContrast={isHighContrast}
+          isDirectSun={isDirectSun}
+          isCrisisMode={isCrisisMode}
+          isScanning={isScanning}
+          filterOnlyNewMap={filterOnlyNewMap}
+          setFilterOnlyNewMap={setFilterOnlyNewMap}
+          onToggleNightMode={handleToggleNightMode}
+          onToggleGloveMode={handleToggleGloveMode}
+          onToggleHighContrast={handleToggleHighContrast}
+          onToggleDirectSun={handleToggleDirectSun}
+          onToggleSolarAware={handleToggleSolarAware}
+          onToggleCrisisMode={() => setIsCrisisMode(!isCrisisMode)}
+          onBroadcastAlert={handleBroadcastAlert}
+          onResolveAlert={handleResolveAlert}
+          onSelectPeerForDetail={(peer) => setSelectedPeerForDetail(peer)}
+          onSelectPeerForReputation={(peer) => setSelectedPeerForReputation(peer)}
+          onSelectResourceForDetail={(res) => setSelectedResourceForDetail(res)}
+          onOpenChatWithPeer={handleOpenChatWithPeer}
+          onRefreshScan={handleRefreshScan}
+          onDiscoverPeer={handleDiscoverNewPeer}
+          onOpenDiagnostics={() => setIsDiagnosticsOpen(true)}
+          onUpdateUser={handleUpdateUser}
+          onUpdateProfile={handleUpdateProfile}
+          onResetDemoData={handleResetDemoData}
+          onOpenQuickAdd={() => setIsQuickAddOpen(true)}
+          onOpenWishlist={() => setIsWishlistOpen(true)}
+          onOpenDaoModal={() => setIsDaoModalOpen(true)}
+          onOpenToolsModal={() => setIsToolsModalOpen(true)}
+          onOpenManual={() => setIsManualOpen(true)}
+          onOpenBackupSetup={() => setIsBackupPromptOpen(true)}
+          onOpenLandingPage={() => setIsLandingPageView(true)}
+          onOpenTrustModal={() => setIsTrustOpen(true)}
+          onOpenSkillsModal={() => setIsSkillsOpen(true)}
+          onOpenSecurityKeys={() => setIsSecurityKeysOpen(true)}
+          addToast={addToast}
+        />
+      </main>
 
       {/* Screen Reader Live Region for Mesh Network Status */}
       <div className="sr-only" aria-live="polite" aria-atomic="true" id="sr-mesh-announcer">
@@ -618,6 +645,7 @@ export function AppContent() {
         handleToggleRsvp={handleToggleRsvp}
         handleAddSkill={handleAddSkill}
         handleRequestSkillSession={handleRequestSkillSession}
+        handleEndorseSkillTrade={handleEndorseSkillTrade}
         handleEndorseTransaction={handleEndorseTransaction}
         handleExportLocalDataJSON={handleExportLocalDataJSON}
         handleOpenChatWithPeer={handleOpenChatWithPeer}

@@ -35,20 +35,38 @@ export class MapQualityManager {
     this.mapEngine = mapEngine;
 
     // Monitor Battery Status
-    if (typeof window !== 'undefined' && 'getBattery' in navigator) {
-      (navigator as any).getBattery?.().then((battery: any) => {
-        this.batteryObj = battery;
-        battery.addEventListener('levelchange', this.onBatteryChange);
-        battery.addEventListener('chargingchange', this.onBatteryChange);
-        this.recommendQualityMode();
-      }).catch(() => {
-        // Battery API permission or error ignored
-      });
+    if (typeof window !== 'undefined' && typeof (navigator as any)?.getBattery === 'function') {
+      try {
+        (navigator as any).getBattery().then((battery: any) => {
+          if (!battery) return;
+          this.batteryObj = battery;
+          if (typeof battery.addEventListener === 'function') {
+            try {
+              battery.addEventListener('levelchange', this.onBatteryChange);
+              battery.addEventListener('chargingchange', this.onBatteryChange);
+            } catch {
+              // Ignore event listener attach errors on non-standard battery implementations
+            }
+          }
+          this.recommendQualityMode();
+        }).catch(() => {
+          // Battery API permission or error ignored
+        });
+      } catch {
+        // Ignore synchronous getBattery errors
+      }
     }
 
     // Monitor Network Connection (Save-Data, 2G, 3G)
     if (typeof window !== 'undefined' && (navigator as any).connection) {
-      (navigator as any).connection.addEventListener('change', this.onConnectionChange);
+      const conn = (navigator as any).connection;
+      if (typeof conn?.addEventListener === 'function') {
+        try {
+          conn.addEventListener('change', this.onConnectionChange);
+        } catch {
+          // Ignore
+        }
+      }
     }
 
     // Monitor Memory Pressure (Chrome/Edge/Chromium)
@@ -182,11 +200,25 @@ export class MapQualityManager {
       this.memoryIntervalId = null;
     }
     if (this.batteryObj) {
-      this.batteryObj.removeEventListener('levelchange', this.onBatteryChange);
-      this.batteryObj.removeEventListener('chargingchange', this.onBatteryChange);
+      if (typeof this.batteryObj.removeEventListener === 'function') {
+        try {
+          this.batteryObj.removeEventListener('levelchange', this.onBatteryChange);
+          this.batteryObj.removeEventListener('chargingchange', this.onBatteryChange);
+        } catch {
+          // Ignore unlisten errors
+        }
+      }
+      this.batteryObj = null;
     }
     if (typeof window !== 'undefined' && (navigator as any).connection) {
-      (navigator as any).connection.removeEventListener('change', this.onConnectionChange);
+      const conn = (navigator as any).connection;
+      if (typeof conn?.removeEventListener === 'function') {
+        try {
+          conn.removeEventListener('change', this.onConnectionChange);
+        } catch {
+          // Ignore
+        }
+      }
     }
     this.listeners.clear();
     this.notificationHandlers.clear();

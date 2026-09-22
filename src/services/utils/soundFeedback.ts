@@ -112,6 +112,11 @@ class SoundFeedbackService {
     }
   }
 
+  // Success chime for trades, endorsements, and completions
+  public playSuccess() {
+    this.playDiscoveryChime();
+  }
+
   // RF Packet transmit pulse
   public playPacketTransmit() {
     if (this.isMuted) return;
@@ -164,6 +169,47 @@ class SoundFeedbackService {
 
       osc.start(now);
       osc.stop(now + 0.2);
+    } catch {
+      // Audio autoplay policy fallback
+    }
+  }
+
+  // High-Trust Peer Proximity Entry Notification (Haptic + Harmonious Resonant Chime)
+  public playHighTrustProximityNotification() {
+    if (this.isMuted) return;
+    // Distinctive resonant haptic pattern: double heartbeat pulse + long flourish
+    this.vibrate([60, 40, 100, 40, 180]);
+    this.initCtx();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      // High-trust Solarpunk pentatonic ascending arpeggio: C5 (523.25), E5 (659.25), G5 (783.99), B5 (987.77), C6 (1046.5)
+      const frequencies = [523.25, 659.25, 783.99, 987.77, 1046.5];
+      
+      frequencies.forEach((freq, index) => {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const noteTime = now + index * 0.055;
+
+        // Sine with slight warm harmonic overtone
+        osc.type = index === frequencies.length - 1 ? 'sine' : 'triangle';
+        osc.frequency.setValueAtTime(freq, noteTime);
+
+        // Attack and sustain
+        gain.gain.setValueAtTime(0.0001, noteTime);
+        gain.gain.linearRampToValueAtTime(0.045, noteTime + 0.015);
+        // Exponential tail
+        const duration = index === frequencies.length - 1 ? 0.6 : 0.28;
+        gain.gain.exponentialRampToValueAtTime(0.0001, noteTime + duration);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(noteTime);
+        osc.stop(noteTime + duration + 0.05);
+      });
     } catch {
       // Audio autoplay policy fallback
     }

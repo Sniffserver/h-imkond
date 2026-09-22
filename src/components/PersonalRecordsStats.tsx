@@ -113,14 +113,14 @@ export const PersonalRecordsStats: React.FC<PersonalRecordsStatsProps> = ({
           </div>
         </div>
 
-        {/* Record 2: Longest Streak */}
+        {/* Record 2: Active Consistency Rhythm */}
         <div className="p-4 rounded-2xl bg-white/60 dark:bg-white/5 border border-[#87A878]/25 space-y-2">
           <div className="flex items-center justify-between text-[#F4A261]">
             <span className="p-1.5 rounded-lg bg-[#F4A261]/10">
               <Flame className="w-4 h-4 text-orange-500" />
             </span>
             <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#588157] dark:text-[#A0B49E]">
-              Praegu: {records.currentStreakDays}p
+              Omas tempos: {records.currentStreakDays}p
             </span>
           </div>
           <div>
@@ -128,7 +128,7 @@ export const PersonalRecordsStats: React.FC<PersonalRecordsStatsProps> = ({
               {records.longestStreakDays} päeva
             </div>
             <div className="text-xs font-bold text-[#588157] dark:text-[#A8BEA5]">
-              Pikim seeria järjest
+              Aktiivsed vaatluspäevad
             </div>
           </div>
         </div>

@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { BatteryManagerStatus, MeshNode } from '../types';
 import { calculateMeshHealthScore } from '../utils/meshHealthCalculator';
-import { Radio, Sun, Zap, BatteryCharging, RefreshCw, ShieldAlert, Cpu, Activity, Gauge, Signal, Clock, Network, Info, MessageSquare } from 'lucide-react';
+import { Radio, Sun, Zap, BatteryCharging, RefreshCw, ShieldAlert, Cpu, Activity, Gauge, Signal, Clock, Network, Info, MessageSquare, Check } from 'lucide-react';
 import { getUnreadCount, subscribeToMessages } from '../services/comms/messageService';
+import { useMeshStore } from '../store/meshStore';
+import { simulatePeerSyncPulse } from '../services/mesh/meshSync';
+import { BackgroundSyncAdjusterCard } from './BackgroundSyncAdjusterCard';
 
 interface MeshStatusCardProps {
   peerCount: number;
@@ -27,6 +30,8 @@ export const MeshStatusCard: React.FC<MeshStatusCardProps> = ({
 }) => {
   const healthMetrics = calculateMeshHealthScore(peers);
   const [unreadCount, setUnreadCount] = useState<number>(0);
+  const lastSyncPulse = useMeshStore((state) => state.lastSyncPulse);
+  const isSyncPulsing = Boolean(lastSyncPulse && Date.now() - lastSyncPulse.timestamp < 2600);
 
   useEffect(() => {
     let isMounted = true;
@@ -78,6 +83,29 @@ export const MeshStatusCard: React.FC<MeshStatusCardProps> = ({
 
         {/* Scan & Diagnostics Action Buttons */}
         <div className="flex items-center gap-2">
+          {/* Active Data Propagation Sync Pulse Badge */}
+          {isSyncPulsing && (
+            <span
+              id="mesh-sync-pulse-active-badge"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#2A9D8F]/20 text-[#2A9D8F] border border-[#2A9D8F]/40 rounded-xl text-xs font-bold shadow-2xs animate-pulse"
+              title="Data successfully propagated through mesh network from peer"
+            >
+              <Radio className="w-3.5 h-3.5 text-[#2A9D8F]" />
+              <span>Data Propagated: {lastSyncPulse?.callsign || 'Peer'}</span>
+            </span>
+          )}
+
+          {/* Sync Pulse Trigger Button */}
+          <button
+            type="button"
+            onClick={() => simulatePeerSyncPulse()}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2A9D8F]/15 hover:bg-[#2A9D8F]/25 text-[#2A9D8F] border border-[#2A9D8F]/30 rounded-xl text-xs font-semibold shadow-2xs transition-all active:scale-95 cursor-pointer"
+            title="Trigger a background sync pulse from a peer node to propagate data"
+          >
+            <Radio className="w-3.5 h-3.5 text-[#2A9D8F]" />
+            <span>Sync Pulse</span>
+          </button>
+
           {/* Message Notifications (Red dot when unread > 0) */}
           {unreadCount > 0 && (
             <button
@@ -319,6 +347,9 @@ export const MeshStatusCard: React.FC<MeshStatusCardProps> = ({
           {batteryStatus.isSolarAwareActive ? 'Switch to Full Mode' : 'Enable Solar-Saver'}
         </button>
       </div>
+
+      {/* Background Sync Interval Adjuster (<15% Battery Radio Protection) */}
+      <BackgroundSyncAdjusterCard />
 
       {/* Prototype Disclaimer */}
       <div className="text-[11px] text-[#637062] font-mono flex items-center gap-1.5 px-1">

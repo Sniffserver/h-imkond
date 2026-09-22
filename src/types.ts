@@ -16,6 +16,7 @@ export type TransactionStatus = 'pending' | 'active' | 'completed';
 export type ConnectionState = 'direct' | 'relayed' | 'store_forward';
 
 export type NavTab = 
+  | 'today'
   | 'home' 
   | 'nearby' 
   | 'messages' 
@@ -233,9 +234,24 @@ export interface SkillExchangeItem {
   locationNote?: string;
   availabilityText?: string;
   availability?: string;
+  sessionFormat?: string;
+  prerequisites?: string;
+  desiredTrade?: string;
+  sessionRequestsCount?: number;
   createdAt?: number;
   endorsementsCount: number;
   isVerified?: boolean;
+  tags?: string[];
+  endorsements?: Array<{
+    id: string;
+    endorserCallsign: string;
+    rating: number;
+    comment: string;
+    timestamp: number;
+    signatureHash: string;
+    isTradeVerified: boolean;
+    tags?: string[];
+  }>;
 }
 
 export interface TrustEndorsement {
@@ -247,6 +263,11 @@ export interface TrustEndorsement {
   timestamp: number;
   comment: string;
   reputationBonus: number;
+  skillId?: string;
+  skillTitle?: string;
+  rating?: number;
+  tags?: string[];
+  isTradeVerified?: boolean;
 }
 
 export interface CrisisAlert {
@@ -577,6 +598,8 @@ export interface OfflineMapRegion {
   cachedPoiNames: string[];
   signatureHash?: string;
   isActiveOffline?: boolean;
+  isPinned?: boolean;
+  tileCount?: number;
 }
 
 export interface BridgeStatus {

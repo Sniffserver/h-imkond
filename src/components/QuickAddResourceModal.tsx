@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { ResourceCategory } from '../types';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import {
   X,
   PlusCircle,
@@ -63,6 +64,7 @@ export const QuickAddResourceModal: React.FC<QuickAddResourceModalProps> = ({
   const [selectedLocation, setSelectedLocation] = useState<string>('Home Node (Cascadia-44N)');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const modalRef = useFocusTrap({ isOpen, onClose, modalName: 'Quick Add Resource Modal' });
 
   if (!isOpen) return null;
 
@@ -124,6 +126,10 @@ export const QuickAddResourceModal: React.FC<QuickAddResourceModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="quick-add-modal-title"
         className={`relative w-full max-w-lg rounded-3xl border shadow-2xl overflow-hidden p-6 transition-colors duration-200 ${
           isNightMode
             ? 'bg-[#182315] border-[#364E30] text-[#F0F5EE]'
@@ -134,7 +140,8 @@ export const QuickAddResourceModal: React.FC<QuickAddResourceModalProps> = ({
         <button
           type="button"
           onClick={onClose}
-          className={`absolute top-4 right-4 p-2 rounded-full transition-colors cursor-pointer ${
+          aria-label="Close modal"
+          className={`absolute top-4 right-4 p-2 rounded-full transition-colors cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center ${
             isNightMode ? 'hover:bg-[#2A3B26] text-[#A8BDA5]' : 'hover:bg-[#E6EDE1] text-[#637062]'
           }`}
         >
@@ -148,7 +155,7 @@ export const QuickAddResourceModal: React.FC<QuickAddResourceModalProps> = ({
               <PlusCircle className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="font-display font-bold text-lg">
+              <h2 id="quick-add-modal-title" className="font-display font-bold text-lg">
                 {step === 1 && '1. Choose Type & Category'}
                 {step === 2 && '2. Asset Title & Details'}
                 {step === 3 && '3. Cryptographic Mesh Preview'}

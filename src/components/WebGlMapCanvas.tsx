@@ -1,12 +1,17 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Layers, Activity, Compass, Shield, Zap } from 'lucide-react';
-import { BioregionalMapCanvas, BioregionalMapCanvasProps } from './BioregionalMapCanvas';
+import type { BioregionalMapCanvasProps } from './BioregionalMapCanvas';
+import { MapSkeleton } from '../features/map/MapSkeleton';
 import { rafScheduler } from '../utils/rafScheduler';
 import { getOfflineMaplibreProtocol } from '../services/map/rasterTileCacheService';
 import { CITY_MAPS } from '../data/cityMaps';
 import { parseCenterCoords, localGridToGeoPoint } from '../services/map/mapRevealService';
+
+const BioregionalMapCanvas = lazy(() =>
+  import('./BioregionalMapCanvas').then((m) => ({ default: m.BioregionalMapCanvas }))
+);
 
 // Ensure protocol is registered only once globally
 try {
@@ -212,7 +217,11 @@ export const WebGlMapCanvas: React.FC<BioregionalMapCanvasProps & { onToggleFall
 
   if (!webGlSupported) {
     // Graceful fallback to the high-performance 2D Canvas component
-    return <BioregionalMapCanvas {...props} />;
+    return (
+      <Suspense fallback={<MapSkeleton isNightMode={props.isNightMode} />}>
+        <BioregionalMapCanvas {...props} />
+      </Suspense>
+    );
   }
 
   return (
@@ -223,7 +232,9 @@ export const WebGlMapCanvas: React.FC<BioregionalMapCanvasProps & { onToggleFall
 
         {/* 2D Canvas Layer Overlay (The hybrid mix described in the optimization blueprint) */}
         <div className="absolute inset-0 pointer-events-none">
-          <BioregionalMapCanvas {...props} isOverlay={true} mapInstance={mapInstance} />
+          <Suspense fallback={null}>
+            <BioregionalMapCanvas {...props} isOverlay={true} mapInstance={mapInstance} />
+          </Suspense>
         </div>
 
         {/* Top-Right Telemetry Badge */}

@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import App from '../App';
 import { useMeshStore } from '../store/meshStore';
 import { broadcastSOS } from '../services/utils/sosService';
+import { getSecureLocalStorage, setSecureLocalStorage } from '../utils/localStorageValidator';
 
 describe('E2E Smoke Scenarios (Vitest Suite)', () => {
   beforeEach(() => {
@@ -39,12 +40,12 @@ describe('E2E Smoke Scenarios (Vitest Suite)', () => {
         isRead: false,
       },
     ];
-    localStorage.setItem('hoimu_messages', JSON.stringify(mockMessages));
+    setSecureLocalStorage('hoimu_messages', mockMessages);
 
     const { container } = render(<App />);
     expect(container).toBeDefined();
 
-    const stored = JSON.parse(localStorage.getItem('hoimu_messages') || '[]');
+    const stored = getSecureLocalStorage('hoimu_messages', []);
     expect(stored.length).toBe(1);
     expect(stored[0].content).toBe('E2E Test Message Recovery');
   });

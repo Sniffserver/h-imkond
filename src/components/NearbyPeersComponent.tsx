@@ -3,8 +3,11 @@ import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { MeshNode, ConnectionState, ReputationTier } from '../types';
 import { SolarpunkAvatarCanvas } from './SolarpunkAvatarCanvas';
 import { ReputationPill, getReputationTier } from './ReputationPill';
+import { PeerTrustBadge } from './PeerTrustBadge';
+import { PeerTrustScoreIndicator } from './PeerTrustScoreIndicator';
 import { PeerSignalPulseSVG, SignalStrengthMeterSVG } from './PeerSignalPulseSVG';
 import { MeshEmptyState } from './EmptyStates/MeshEmptyState';
+import { EmptyState } from './EmptyState';
 import {
   Radio,
   MessageSquare,
@@ -20,6 +23,7 @@ import {
   UserPlus,
 } from 'lucide-react';
 import { useMeshStore, selectPeersArray } from '../store/meshStore';
+import { simulatePeerSyncPulse } from '../services/mesh/meshSync';
 
 interface NearbyPeersComponentProps {
   peers?: MeshNode[];
@@ -68,6 +72,8 @@ export const NearbyPeersComponent: React.FC<NearbyPeersComponentProps> = ({
 }) => {
   const storePeersMap = useMeshStore((state) => state.peers);
   const storePeersArray = useMeshStore(selectPeersArray);
+  const lastSyncPulse = useMeshStore((state) => state.lastSyncPulse);
+  const recentSyncPulses = useMeshStore((state) => state.recentSyncPulses);
   const peers = propPeers && propPeers.length > 0 ? propPeers : storePeersArray;
 
   const [connectionFilter, setConnectionFilter] = useState<ConnectionFilterType>('all');
@@ -240,6 +246,21 @@ export const NearbyPeersComponent: React.FC<NearbyPeersComponentProps> = ({
 
         {/* Discovery & Scan Quick Actions */}
         <div className="flex items-center gap-1.5">
+          <button
+            id="trigger-mesh-sync-pulse-btn"
+            type="button"
+            onClick={() => simulatePeerSyncPulse()}
+            className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-xl border transition-all active:scale-95 cursor-pointer ${
+              isNightMode
+                ? 'bg-[#182315] hover:bg-[#2A3B26] text-[#2A9D8F] border-[#364E30]'
+                : 'bg-white hover:bg-[#FAF6EE] text-[#2A9D8F] border-[#87A878]/30 shadow-2xs'
+            }`}
+            title="Trigger a background sync pulse from a peer node to demonstrate ripple data propagation"
+          >
+            <Radio className="w-3.5 h-3.5 text-[#2A9D8F]" />
+            <span>Sync Pulse</span>
+          </button>
+
           {onDiscoverPeer && (
             <button
               id="simulate-discover-peer-btn"
@@ -502,15 +523,19 @@ export const NearbyPeersComponent: React.FC<NearbyPeersComponentProps> = ({
           isNightMode={isNightMode}
         />
       ) : filteredAndSortedPeers.length === 0 ? (
-        <div
-          className={`text-center py-8 rounded-2xl border text-xs font-mono ${
-            isNightMode
-              ? 'bg-[#182315] border-[#2A3B26] text-[#A8BDA5]'
-              : 'bg-white/60 border-[#87A878]/25 text-[#637062]'
-          }`}
-        >
-          No peers match current connection or reputation filters.
-        </div>
+        <EmptyState
+          icon={<Radio />}
+          title="No peers match current filters"
+          message="Try adjusting your connection or reputation filters to see more nearby nodes."
+          primaryAction={{
+            label: 'Reset filters',
+            onClick: () => {
+              setConnectionFilter('all');
+              setRepputationFilter('all');
+            }
+          }}
+          isNightMode={isNightMode}
+        />
       ) : (
         <motion.div
           variants={containerVariants}
@@ -595,6 +620,14 @@ export const NearbyPeersComponent: React.FC<NearbyPeersComponentProps> = ({
                         isDirect={peer.isDirect}
                         size={44}
                         isNightMode={isNightMode}
+                        peerId={peer.id}
+                        peerCallsign={peer.callsign}
+                        isSyncPulsing={Boolean(
+                          (lastSyncPulse?.peerId === peer.id) ||
+                          (lastSyncPulse?.callsign?.toLowerCase() === peer.callsign.toLowerCase()) ||
+                          (recentSyncPulses[peer.id] && (Date.now() - recentSyncPulses[peer.id] < 2600)) ||
+                          (recentSyncPulses[peer.callsign] && (Date.now() - recentSyncPulses[peer.callsign] < 2600))
+                        )}
                       >
                         <SolarpunkAvatarCanvas seed={peer.avatarSeed} size={32} />
                       </PeerSignalPulseSVG>
@@ -610,6 +643,24 @@ export const NearbyPeersComponent: React.FC<NearbyPeersComponentProps> = ({
                         >
                           {peer.callsign}
                         </h3>
+
+                        {Boolean(
+                          (lastSyncPulse?.peerId === peer.id) ||
+                          (lastSyncPulse?.callsign?.toLowerCase() === peer.callsign.toLowerCase()) ||
+                          (recentSyncPulses[peer.id] && (Date.now() - recentSyncPulses[peer.id] < 2600)) ||
+                          (recentSyncPulses[peer.callsign] && (Date.now() - recentSyncPulses[peer.callsign] < 2600))
+                        ) && (
+                          <motion.span
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.8 }}
+                            className="text-[9px] font-mono px-1.5 py-0.2 rounded-full font-bold bg-[#2A9D8F]/25 text-[#2A9D8F] border border-[#2A9D8F]/50 flex items-center gap-1 shadow-2xs shrink-0 animate-pulse"
+                            title="Data successfully propagated through this node via peer sync pulse"
+                          >
+                            <Radio className="w-2.5 h-2.5 text-[#2A9D8F]" />
+                            SYNC PULSE
+                          </motion.span>
+                        )}
 
                         {isHighTrustNewDiscovery ? (
                           <motion.span
@@ -645,6 +696,26 @@ export const NearbyPeersComponent: React.FC<NearbyPeersComponentProps> = ({
                         >
                           {peer.radioType || 'BLE'}
                         </span>
+
+                        {/* Visual Trust Score Indicator based on Exchanges & Endorsements */}
+                        <PeerTrustScoreIndicator
+                          completedExchanges={peer.completedExchanges}
+                          endorsementsCount={peer.endorsementsCount}
+                          peerId={peer.id}
+                          callsign={peer.callsign}
+                          isNightMode={isNightMode}
+                          size="xs"
+                          onClick={() => onOpenReputation(peer)}
+                        />
+
+                        {/* Peer-to-Peer Exchange Trust Badge */}
+                        <PeerTrustBadge
+                          completedExchanges={peer.completedExchanges}
+                          peerId={peer.id}
+                          isNightMode={isNightMode}
+                          size="xs"
+                          onClick={() => onOpenReputation(peer)}
+                        />
 
                         {sortBy === 'reliability' && (
                           <span
@@ -683,8 +754,19 @@ export const NearbyPeersComponent: React.FC<NearbyPeersComponentProps> = ({
                     </div>
                   </div>
 
-                  {/* Right: Reputation Pill + Telemetry with SVG Signal Bars + Chat Action */}
-                  <div className="flex items-center gap-2.5 shrink-0 ml-2">
+                  {/* Right: Trust Score Indicator + Reputation Pill + Telemetry with SVG Signal Bars + Chat Action */}
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                    <div className="hidden sm:block">
+                      <PeerTrustScoreIndicator
+                        completedExchanges={peer.completedExchanges}
+                        endorsementsCount={peer.endorsementsCount}
+                        peerId={peer.id}
+                        callsign={peer.callsign}
+                        isNightMode={isNightMode}
+                        size="sm"
+                        onClick={() => onOpenReputation(peer)}
+                      />
+                    </div>
                     <ReputationPill
                       completedExchanges={peer.completedExchanges}
                       onClick={() => onOpenReputation(peer)}

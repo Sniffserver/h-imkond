@@ -6,6 +6,8 @@ export * from './MapSkeleton';
 export * from './components/SmartZoomLayerController';
 export * from './components/MapLayerControls';
 export * from './components/MapGestures';
+export * from './components/D3MeshTopologyMap';
+export * from './components/D3CommunityResourceMap';
 export * from './qualityManager';
 export { LocationIndicator } from '../../components/LocationIndicator';
 export { MapPerformanceOverlay } from '../../components/MapPerformanceOverlay';
