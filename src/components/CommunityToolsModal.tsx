@@ -19,10 +19,12 @@ import {
   Keyboard,
   Signal,
   Sun,
+  TrendingUp,
 } from 'lucide-react';
 import { MeshNode, BatteryManagerStatus } from '../types';
 import { MeshHealthOptimizerView } from './MeshHealthOptimizerView';
 import { SolarDeviceTimeToEmptyWidget } from './SolarDeviceTimeToEmptyWidget';
+import { Solar24HourTrendChart } from './Solar24HourTrendChart';
 import { soundFeedback } from '../services/utils/soundFeedback';
 
 interface CommunityToolsModalProps {
@@ -82,6 +84,7 @@ export const CommunityToolsModal: React.FC<CommunityToolsModalProps> = ({
   const [filterQuery, setFilterQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<'all' | 'community' | 'mesh' | 'guides'>('all');
   const [selectedToolView, setSelectedToolView] = useState<'directory' | 'mesh_health' | 'solar_autonomy'>('directory');
+  const [solarSubTab, setSolarSubTab] = useState<'simulator' | 'trend'>('simulator');
 
   if (!isOpen) return null;
 
@@ -126,6 +129,20 @@ export const CommunityToolsModal: React.FC<CommunityToolsModalProps> = ({
 
     // Mesh & Field Utilities
     {
+      id: 'solar_trend',
+      title: '24-Hour Solar & Battery Trend',
+      description: 'Historical 24-hour telemetry of solar intake vs battery charge percentage with diurnal insolation and energy planning advice.',
+      category: 'mesh',
+      icon: TrendingUp,
+      color: '#2A9D8F',
+      badge: 'Recharts Trend',
+      action: () => {
+        soundFeedback.playClick();
+        setSelectedToolView('solar_autonomy');
+        setSolarSubTab('trend');
+      },
+    },
+    {
       id: 'solar_autonomy',
       title: 'Solar Device Time-to-Empty Estimator',
       description: 'Calculates estimated runtime and battery depletion curves for solar-powered mesh nodes based on current consumption rates.',
@@ -136,6 +153,7 @@ export const CommunityToolsModal: React.FC<CommunityToolsModalProps> = ({
       action: () => {
         soundFeedback.playClick();
         setSelectedToolView('solar_autonomy');
+        setSolarSubTab('simulator');
       },
     },
     {
@@ -247,7 +265,7 @@ export const CommunityToolsModal: React.FC<CommunityToolsModalProps> = ({
   });
 
   const handleSelectTool = (tool: ToolItem) => {
-    if (tool.id === 'mesh_health' || tool.id === 'solar_autonomy') {
+    if (tool.id === 'mesh_health' || tool.id === 'solar_autonomy' || tool.id === 'solar_trend') {
       tool.action();
       return;
     }
@@ -274,7 +292,7 @@ export const CommunityToolsModal: React.FC<CommunityToolsModalProps> = ({
           <>
             {/* Solar Autonomy Subview Header */}
             <div
-              className={`p-4 sm:p-5 border-b flex items-center justify-between shrink-0 ${
+              className={`p-4 sm:p-5 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 ${
                 isNightMode ? 'border-[#2A3B26] bg-[#121A10]' : 'border-[#87A878]/20 bg-white/60'
               }`}
             >
@@ -297,6 +315,43 @@ export const CommunityToolsModal: React.FC<CommunityToolsModalProps> = ({
                 </button>
               </div>
 
+              {/* Sub-view Segmented Tab Selector */}
+              <div className="flex items-center gap-1 bg-[#FAF6EE] dark:bg-[#182315] p-1 rounded-2xl border border-[#87A878]/30">
+                <button
+                  type="button"
+                  id="tab-solar-simulator-btn"
+                  onClick={() => {
+                    soundFeedback.playClick();
+                    setSolarSubTab('simulator');
+                  }}
+                  className={`px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    solarSubTab === 'simulator'
+                      ? 'bg-[#203A2A] text-white dark:bg-[#E9C46A] dark:text-[#141E12] shadow-xs'
+                      : 'text-[#637062] dark:text-[#A8BDA5] hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <Sun className="w-3.5 h-3.5 text-[#E9C46A]" />
+                  <span>Time-to-Empty</span>
+                </button>
+
+                <button
+                  type="button"
+                  id="tab-solar-trend-btn"
+                  onClick={() => {
+                    soundFeedback.playClick();
+                    setSolarSubTab('trend');
+                  }}
+                  className={`px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    solarSubTab === 'trend'
+                      ? 'bg-[#203A2A] text-white dark:bg-[#E9C46A] dark:text-[#141E12] shadow-xs'
+                      : 'text-[#637062] dark:text-[#A8BDA5] hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <TrendingUp className="w-3.5 h-3.5 text-[#2A9D8F]" />
+                  <span>24h Trend (Recharts)</span>
+                </button>
+              </div>
+
               <button
                 type="button"
                 id="close-tools-modal-btn"
@@ -314,12 +369,20 @@ export const CommunityToolsModal: React.FC<CommunityToolsModalProps> = ({
 
             {/* Solar Autonomy Subview Body */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-5">
-              <SolarDeviceTimeToEmptyWidget
-                batteryStatus={batteryStatus}
-                isNightMode={isNightMode}
-                onToggleSolarAware={onToggleSolarAware}
-                variant="full"
-              />
+              {solarSubTab === 'trend' ? (
+                <Solar24HourTrendChart
+                  batteryStatus={batteryStatus}
+                  isNightMode={isNightMode}
+                />
+              ) : (
+                <SolarDeviceTimeToEmptyWidget
+                  batteryStatus={batteryStatus}
+                  isNightMode={isNightMode}
+                  onToggleSolarAware={onToggleSolarAware}
+                  variant="full"
+                  onOpenTrend={() => setSolarSubTab('trend')}
+                />
+              )}
             </div>
           </>
         ) : selectedToolView === 'mesh_health' ? (
@@ -474,6 +537,12 @@ export const CommunityToolsModal: React.FC<CommunityToolsModalProps> = ({
                 onExpand={() => {
                   soundFeedback.playClick();
                   setSelectedToolView('solar_autonomy');
+                  setSolarSubTab('simulator');
+                }}
+                onOpenTrend={() => {
+                  soundFeedback.playClick();
+                  setSelectedToolView('solar_autonomy');
+                  setSolarSubTab('trend');
                 }}
               />
             </div>

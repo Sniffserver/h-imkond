@@ -18,6 +18,7 @@ import {
   Gauge,
   Activity,
   Maximize2,
+  TrendingUp,
 } from 'lucide-react';
 import { BatteryManagerStatus } from '../types';
 import {
@@ -27,6 +28,7 @@ import {
   getDefaultSolarDevices,
 } from '../utils/solarAutonomyCalculator';
 import { soundFeedback } from '../services/utils/soundFeedback';
+import { Solar24HourTrendChart } from './Solar24HourTrendChart';
 
 export interface SolarDeviceTimeToEmptyWidgetProps {
   batteryStatus?: BatteryManagerStatus;
@@ -34,6 +36,7 @@ export interface SolarDeviceTimeToEmptyWidgetProps {
   onToggleSolarAware?: () => void;
   variant?: 'dashboard' | 'full';
   onExpand?: () => void;
+  onOpenTrend?: () => void;
   className?: string;
 }
 
@@ -43,6 +46,7 @@ export const SolarDeviceTimeToEmptyWidget: React.FC<SolarDeviceTimeToEmptyWidget
   onToggleSolarAware,
   variant = 'dashboard',
   onExpand,
+  onOpenTrend,
   className = '',
 }) => {
   // Initialize device roster
@@ -227,25 +231,47 @@ export const SolarDeviceTimeToEmptyWidget: React.FC<SolarDeviceTimeToEmptyWidget
             </div>
           </div>
 
-          {onExpand && (
-            <button
-              type="button"
-              id="expand-solar-autonomy-btn"
-              onClick={() => {
-                soundFeedback.playClick();
-                onExpand();
-              }}
-              className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${
-                isNightMode
-                  ? 'border-[#2A3B26] hover:bg-[#2A3B26] text-[#A8BDA5]'
-                  : 'border-[#87A878]/30 hover:bg-[#87A878]/15 text-[#588157]'
-              }`}
-              title="Open Full Solar Device Autonomy Simulator"
-            >
-              <Maximize2 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline text-[11px]">Full Simulator</span>
-            </button>
-          )}
+          <div className="flex items-center gap-1.5">
+            {onOpenTrend && (
+              <button
+                type="button"
+                id="open-solar-trend-from-widget-btn"
+                onClick={() => {
+                  soundFeedback.playClick();
+                  onOpenTrend();
+                }}
+                className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${
+                  isNightMode
+                    ? 'border-[#2A3B26] hover:bg-[#2A3B26] text-[#2A9D8F]'
+                    : 'border-[#87A878]/30 hover:bg-[#87A878]/15 text-[#2A9D8F]'
+                }`}
+                title="View 24-Hour Historical Trend (Recharts)"
+              >
+                <TrendingUp className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline text-[11px]">24h Trend</span>
+              </button>
+            )}
+
+            {onExpand && (
+              <button
+                type="button"
+                id="expand-solar-autonomy-btn"
+                onClick={() => {
+                  soundFeedback.playClick();
+                  onExpand();
+                }}
+                className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${
+                  isNightMode
+                    ? 'border-[#2A3B26] hover:bg-[#2A3B26] text-[#A8BDA5]'
+                    : 'border-[#87A878]/30 hover:bg-[#87A878]/15 text-[#588157]'
+                }`}
+                title="Open Full Solar Device Autonomy Simulator"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline text-[11px]">Full Simulator</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Device Quick Selector Tabs */}
@@ -718,6 +744,14 @@ export const SolarDeviceTimeToEmptyWidget: React.FC<SolarDeviceTimeToEmptyWidget
           </div>
         </div>
       </div>
+
+      {/* 24-Hour Historical Trend Visualization (Recharts) */}
+      <Solar24HourTrendChart
+        batteryStatus={batteryStatus}
+        isNightMode={isNightMode}
+        defaultDeviceId={selectedDeviceId}
+        onSelectDevice={(id) => setSelectedDeviceId(id)}
+      />
     </div>
   );
 };
