@@ -1,0 +1,3 @@
+# HÕIMU Raspberry Pi Gateway Dependencies
+spidev>=3.5
+RPi.GPIO>=0.7.0

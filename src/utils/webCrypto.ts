@@ -4,12 +4,16 @@
  * Provides hardware-grade, tamper-evident AES-GCM-256 encryption at rest
  * for sensitive user profiles, cryptographic identities, auth tokens,
  * and peer exchange journals stored on device.
+ * 
+ * Security Policy:
+ * - NO WEAK FALLBACKS / NO SILENT SECURITY DEGRADATION.
+ * - If WebCrypto/Hardware Keystore is available, AES-GCM-256 is strictly enforced.
+ * - Non-extractable device keys prevent key exfiltration.
  */
 
-import { encryptData as encryptDataSync, decryptData as decryptDataSync } from './encryption';
+import { identityService } from '../services/identity';
 
 export const WEBCRYPTO_PREFIX = 'hoimu_webcrypto:';
-const DEVICE_KEY_STORAGE_KEY = 'hoimu_webcrypto_device_raw_key';
 
 export interface WebCryptoEnvelope {
   v: 2;
@@ -18,7 +22,6 @@ export interface WebCryptoEnvelope {
   ct: string; // Base64 encoded ciphertext + 128-bit authentication tag
   tagLength: 128;
   ts: number;
-  syncFallback?: string; // AES-256 encrypted payload for synchronous instant retrieval
 }
 
 // Memory cache of the imported CryptoKey to eliminate repeated import overhead
@@ -57,91 +60,31 @@ export function base64ToBuffer(base64: string): Uint8Array {
 }
 
 /**
- * Converts hex string to Uint8Array
- */
-function hexToBytes(hex: string): Uint8Array {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
-  }
-  return bytes;
-}
-
-/**
- * Converts Uint8Array to hex string
- */
-function bytesToHex(bytes: Uint8Array): string {
-  let hex = '';
-  for (let i = 0; i < bytes.length; i++) {
-    const byte = bytes[i].toString(16);
-    hex += byte.length === 1 ? '0' + byte : byte;
-  }
-  return hex;
-}
-
-/**
- * Gets or creates the persistent 256-bit AES-GCM raw key bytes for this local device
- */
-function getOrCreateDeviceKeyHex(): string {
-  if (cachedRawKeyHex) return cachedRawKeyHex;
-
-  if (typeof window !== 'undefined' && window.localStorage) {
-    const existing = localStorage.getItem(DEVICE_KEY_STORAGE_KEY);
-    if (existing && existing.length === 64) {
-      cachedRawKeyHex = existing;
-      return existing;
-    }
-  }
-
-  // Generate 32 bytes (256 bits) of cryptographically strong random data
-  const cryptoObj = typeof window !== 'undefined' ? (window.crypto || (window as any).msCrypto) : globalThis.crypto;
-  const rawBytes = new Uint8Array(32);
-  if (cryptoObj && cryptoObj.getRandomValues) {
-    cryptoObj.getRandomValues(rawBytes);
-  } else {
-    // Fallback for minimal headless testing environments
-    for (let i = 0; i < 32; i++) {
-      rawBytes[i] = Math.floor(Math.random() * 256);
-    }
-  }
-
-  const hex = bytesToHex(rawBytes);
-  cachedRawKeyHex = hex;
-
-  if (typeof window !== 'undefined' && window.localStorage) {
-    try {
-      localStorage.setItem(DEVICE_KEY_STORAGE_KEY, hex);
-    } catch {
-      // Storage quota or sandboxed iframe
-    }
-  }
-
-  return hex;
-}
-
-/**
- * Imports or returns the cached Web Crypto CryptoKey for AES-GCM-256 operations
+ * Imports or returns the non-extractable Web Crypto CryptoKey for AES-GCM-256 operations.
+ * Guaranteed: extractable is FALSE. Key material is stored in IndexedDB or Android Keystore,
+ * never in plaintext localStorage.
  */
 export async function getWebCryptoKey(): Promise<CryptoKey> {
   if (cachedCryptoKey) return cachedCryptoKey;
 
-  const cryptoObj = typeof window !== 'undefined' ? window.crypto : globalThis.crypto;
-  if (!cryptoObj || !cryptoObj.subtle) {
-    throw new Error('Web Crypto API (crypto.subtle) is not available in this environment');
+  // Active cleanup of old legacy raw key from localStorage if present
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      localStorage.removeItem('hoimu_webcrypto_device_raw_key');
+      localStorage.removeItem('hoimu_aes_key');
+    } catch {}
   }
 
-  const rawKeyHex = getOrCreateDeviceKeyHex();
-  const rawKeyBytes = hexToBytes(rawKeyHex);
-
-  cachedCryptoKey = await cryptoObj.subtle.importKey(
-    'raw',
-    rawKeyBytes,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt']
-  );
-
+  cachedCryptoKey = await identityService.getDeviceKey();
   return cachedCryptoKey;
+}
+
+/**
+ * Resets cached crypto key (useful for test suites)
+ */
+export function resetCachedWebCryptoKey(): void {
+  cachedCryptoKey = null;
+  cachedRawKeyHex = null;
 }
 
 /**
@@ -152,29 +95,16 @@ export function isWebCryptoPayload(str: unknown): boolean {
 }
 
 /**
- * Encrypts a plaintext string using the Web Crypto API (AES-GCM-256).
- * Produces an encrypted-at-rest envelope with a 96-bit random IV and 128-bit authentication tag.
- * Also bundles a synchronous fallback encrypted using the local key to support instant synchronous reads.
+ * Encrypts a plaintext string strictly using the Web Crypto API (AES-GCM-256).
+ * Produces an authenticated encrypted-at-rest envelope with a 96-bit random IV and 128-bit authentication tag.
+ * Throws if the cryptographic subsystem is unavailable (no silent downgrade).
  */
-export async function encryptWithWebCrypto(
-  plaintext: string,
-  includeSyncFallback: boolean = true
-): Promise<string> {
+export async function encryptWithWebCrypto(plaintext: string): Promise<string> {
   if (!plaintext) return '';
 
   const cryptoObj = typeof window !== 'undefined' ? window.crypto : globalThis.crypto;
   if (!cryptoObj || !cryptoObj.subtle) {
-    // Graceful fallback to synchronous AES if subtle crypto is disabled
-    const fallbackCipher = encryptDataSync(plaintext);
-    return `${WEBCRYPTO_PREFIX}${JSON.stringify({
-      v: 2,
-      alg: 'AES-GCM-256',
-      iv: '',
-      ct: '',
-      tagLength: 128,
-      ts: Date.now(),
-      syncFallback: fallbackCipher,
-    })}`;
+    throw new Error('[WebCrypto] Cryptographic subsystem unavailable: AES-GCM-256 WebCrypto is required.');
   }
 
   const key = await getWebCryptoKey();
@@ -201,22 +131,21 @@ export async function encryptWithWebCrypto(
     ct: bufferToBase64(cipherBuffer),
     tagLength: 128,
     ts: Date.now(),
-    syncFallback: includeSyncFallback ? encryptDataSync(plaintext) : undefined,
   };
 
   return `${WEBCRYPTO_PREFIX}${JSON.stringify(envelope)}`;
 }
 
 /**
- * Decrypts a Web Crypto envelope using the Web Crypto API (AES-GCM-256).
+ * Decrypts a Web Crypto envelope strictly using the Web Crypto API (AES-GCM-256).
  * Verifies the 128-bit authentication tag to ensure data integrity and tamper resistance.
+ * Rejects tampering or missing authentication tags without weaker fallbacks.
  */
 export async function decryptWithWebCrypto(encryptedString: string): Promise<string> {
   if (!encryptedString) return '';
 
-  // If not in Web Crypto format, delegate to sync decryptor or return raw
   if (!isWebCryptoPayload(encryptedString)) {
-    return decryptDataSync(encryptedString);
+    throw new Error('[WebCrypto] Invalid payload: Missing WebCrypto authentication prefix header.');
   }
 
   const rawJson = encryptedString.slice(WEBCRYPTO_PREFIX.length);
@@ -224,72 +153,32 @@ export async function decryptWithWebCrypto(encryptedString: string): Promise<str
   try {
     envelope = JSON.parse(rawJson);
   } catch (err) {
-    console.warn('[WebCrypto] Failed to parse envelope JSON:', err);
-    return encryptedString;
+    throw new Error(`[WebCrypto] Malformed envelope JSON: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   const cryptoObj = typeof window !== 'undefined' ? window.crypto : globalThis.crypto;
   if (!cryptoObj || !cryptoObj.subtle) {
-    if (envelope.syncFallback) {
-      return decryptDataSync(envelope.syncFallback);
-    }
-    return encryptedString;
+    throw new Error('[WebCrypto] Cryptographic subsystem unavailable: WebCrypto is required for decryption.');
   }
 
-  // If IV or CT is missing, try syncFallback
   if (!envelope.iv || !envelope.ct) {
-    if (envelope.syncFallback) {
-      return decryptDataSync(envelope.syncFallback);
-    }
-    return encryptedString;
+    throw new Error('[WebCrypto] Incomplete envelope: IV or Ciphertext payload is missing.');
   }
 
-  try {
-    const key = await getWebCryptoKey();
-    const iv = base64ToBuffer(envelope.iv);
-    const ct = base64ToBuffer(envelope.ct);
+  const key = await getWebCryptoKey();
+  const iv = base64ToBuffer(envelope.iv);
+  const ct = base64ToBuffer(envelope.ct);
 
-    const decryptedBuffer = await cryptoObj.subtle.decrypt(
-      {
-        name: 'AES-GCM',
-        iv,
-        tagLength: 128,
-      },
-      key,
-      ct
-    );
+  const decryptedBuffer = await cryptoObj.subtle.decrypt(
+    {
+      name: 'AES-GCM',
+      iv,
+      tagLength: 128,
+    },
+    key,
+    ct
+  );
 
-    const decoder = new TextDecoder();
-    return decoder.decode(decryptedBuffer);
-  } catch (err) {
-    console.warn('[WebCrypto] Native Web Crypto decryption failed (tag mismatch or key change):', err);
-    // Fall back to sync fallback if available
-    if (envelope.syncFallback) {
-      return decryptDataSync(envelope.syncFallback);
-    }
-    throw err;
-  }
-}
-
-/**
- * Synchronously parses a Web Crypto envelope if a syncFallback or plaintext is present.
- */
-export function decryptWebCryptoSync(encryptedString: string): string {
-  if (!encryptedString) return '';
-
-  if (!isWebCryptoPayload(encryptedString)) {
-    return decryptDataSync(encryptedString);
-  }
-
-  const rawJson = encryptedString.slice(WEBCRYPTO_PREFIX.length);
-  try {
-    const envelope: WebCryptoEnvelope = JSON.parse(rawJson);
-    if (envelope.syncFallback) {
-      return decryptDataSync(envelope.syncFallback);
-    }
-    // If no syncFallback, return raw
-    return encryptedString;
-  } catch {
-    return encryptedString;
-  }
+  const decoder = new TextDecoder();
+  return decoder.decode(decryptedBuffer);
 }

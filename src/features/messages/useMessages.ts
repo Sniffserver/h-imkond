@@ -3,6 +3,7 @@ import { MeshMessage, MeshNode } from '../../types';
 import { getSecureLocalStorage, setSecureLocalStorage } from '../../utils/localStorageValidator';
 import { INITIAL_MESSAGES } from '../../data/initialData';
 import { initMessageStorage } from '../../services/comms/messageService';
+import { signCanonicalPayload } from '../../services/crypto/meshCrypto';
 
 export function useMessages(userCallsign: string, userId: string) {
   const [messages, setMessages] = useState<MeshMessage[]>(() => {
@@ -23,26 +24,43 @@ export function useMessages(userCallsign: string, userId: string) {
     (text: string, recipient?: MeshNode | null) => {
       const targetCallsign = recipient?.callsign || 'Broadcast-Mesh';
       const targetId = recipient?.id || 'broadcast';
+      const timestamp = Date.now();
+      const id = `msg-${timestamp}`;
+      const content = btoa(JSON.stringify({ text }));
 
       const newMessage: MeshMessage = {
-        id: `msg-${Date.now()}`,
+        id,
         from: userCallsign,
         to: targetCallsign,
-        content: btoa(JSON.stringify({ text })),
+        content,
         ttl: 3,
-        signature: `SIG_ED25519_${Date.now()}`,
+        signature: '',
         senderId: userId,
         senderCallsign: userCallsign,
         recipientId: targetId,
         recipientCallsign: targetCallsign,
         text: text,
         decryptedText: text,
-        timestamp: Date.now(),
+        timestamp,
         status: 'pending',
         hopCount: targetId === 'broadcast' ? 1 : 1,
         rssi: -58,
         isRead: true,
       };
+
+      signCanonicalPayload({
+        id,
+        from: userCallsign,
+        to: targetCallsign,
+        content,
+        timestamp,
+      })
+        .then((sig) => {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === id ? { ...m, signature: sig } : m))
+          );
+        })
+        .catch(() => {});
 
       setMessages((prev) => [...prev, newMessage]);
 

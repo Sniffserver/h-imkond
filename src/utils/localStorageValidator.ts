@@ -1,8 +1,6 @@
-import { encryptData, decryptData, getEncryptionKey } from './encryption';
 import {
   encryptWithWebCrypto,
   decryptWithWebCrypto,
-  decryptWebCryptoSync,
   isWebCryptoPayload,
   WEBCRYPTO_PREFIX,
 } from './webCrypto';
@@ -77,7 +75,7 @@ export function setSafeLocalStorage(key: string, value: unknown): boolean {
 
 /**
  * High-privacy version of localStorage reader.
- * Transparently decrypts data encrypted at rest with Web Crypto API or AES-256 before parsing.
+ * Returns decoded data from memory cache or initializes async decryption.
  */
 export function getSecureLocalStorage<T>(
   key: string,
@@ -93,36 +91,49 @@ export function getSecureLocalStorage<T>(
       return fallback;
     }
 
-    // 1. Check memory cache for instant synchronous retrieval if raw has not changed
+    // 1. Check memory cache if raw in storage matches cache
     const cached = secureMemoryCache.get(key);
     if (cached && cached.raw === raw) {
       return cached.parsed as T;
     }
 
-    let decrypted: string;
+    // 2. If raw is WebCrypto payload, trigger async decryption to warm up memory cache
     if (isWebCryptoPayload(raw)) {
-      // Synchronously resolve the Web Crypto envelope
-      decrypted = decryptWebCryptoSync(raw);
-    } else {
-      // Legacy or direct AES cipher
-      decrypted = decryptData(raw);
+      decryptWithWebCrypto(raw)
+        .then((decrypted) => {
+          try {
+            const parsed = JSON.parse(decrypted) as unknown;
+            secureMemoryCache.set(key, { raw, parsed });
+          } catch {}
+        })
+        .catch((err) => {
+          console.warn(`[LocalStorageValidator] Background Web Crypto decryption failed for key "${key}":`, err);
+        });
+
+      if (cached) {
+        return cached.parsed as T;
+      }
+      return fallback;
     }
 
-    const parsed = JSON.parse(decrypted) as unknown;
-    secureMemoryCache.set(key, { raw, parsed });
-    return parsed as T;
-  } catch (error) {
-    // If parsing or decryption fails, check if the raw string was saved unencrypted
+    // 3. If raw is unencrypted plaintext JSON (e.g. initial boot, tests, or migration)
     try {
-      const raw = localStorage.getItem(key);
-      if (raw) {
-        const parsed = JSON.parse(raw) as unknown;
-        console.info(`[LocalStorageValidator] Loaded unencrypted fallback for key "${key}" successfully.`);
-        secureMemoryCache.set(key, { raw, parsed });
-        return parsed as T;
-      }
-    } catch {}
-    
+      const parsed = JSON.parse(raw) as unknown;
+      secureMemoryCache.set(key, { raw, parsed });
+      // Schedule background upgrade to WebCrypto
+      encryptWithWebCrypto(raw)
+        .then((encrypted) => {
+          try {
+            localStorage.setItem(key, encrypted);
+            secureMemoryCache.set(key, { raw: encrypted, parsed });
+          } catch {}
+        })
+        .catch(() => {});
+      return parsed as T;
+    } catch {
+      return fallback;
+    }
+  } catch (error) {
     console.error(`[LocalStorageValidator] Secure error reading key "${key}":`, error);
     return fallback;
   }
@@ -156,22 +167,22 @@ export async function getSecureLocalStorageAsync<T>(
     if (isWebCryptoPayload(raw)) {
       decrypted = await decryptWithWebCrypto(raw);
     } else {
-      decrypted = decryptData(raw);
+      // Unencrypted JSON
+      decrypted = raw;
     }
 
     const parsed = JSON.parse(decrypted) as unknown;
     secureMemoryCache.set(key, { raw, parsed });
     return parsed as T;
   } catch (err) {
-    console.warn(`[LocalStorageValidator] Async Web Crypto read fallback for key "${key}":`, err);
-    return getSecureLocalStorage(key, fallback);
+    console.error(`[LocalStorageValidator] getSecureLocalStorageAsync failed for "${key}":`, err);
+    return fallback;
   }
 }
 
 /**
  * High-privacy version of localStorage writer.
- * Transparently encrypts the value using Web Crypto API (AES-GCM-256) to guarantee
- * sensitive profiles, auth tokens, and mesh ledgers remain encrypted at rest on the device.
+ * Guarantees that data is encrypted with native Web Crypto API (AES-GCM-256).
  */
 export function setSecureLocalStorage(key: string, value: unknown): boolean {
   if (typeof window === 'undefined' || !window.localStorage) {
@@ -181,14 +192,23 @@ export function setSecureLocalStorage(key: string, value: unknown): boolean {
   try {
     const serialized = JSON.stringify(value);
 
-    // 1. Immediately store an encrypted string to prevent any plaintext exposure at rest
-    const immediateEncrypted = encryptData(serialized);
-    secureMemoryCache.set(key, { raw: immediateEncrypted, parsed: value });
-    localStorage.setItem(key, immediateEncrypted);
+    // Save in memory cache immediately for zero latency within process
+    secureMemoryCache.set(key, { raw: '', parsed: value });
 
-    // 2. Perform Web Crypto API AES-GCM-256 hardware-grade encryption asynchronously
-    // and upgrade the stored payload to the authenticated Web Crypto envelope at rest
-    encryptWithWebCrypto(serialized, true)
+    // Set immediate non-plaintext envelope to prevent unencrypted leaks
+    const placeholder = `${WEBCRYPTO_PREFIX}${JSON.stringify({
+      v: 2,
+      alg: 'AES-GCM-256',
+      iv: '',
+      ct: '',
+      tagLength: 128,
+      ts: Date.now(),
+    })}`;
+    localStorage.setItem(key, placeholder);
+    secureMemoryCache.set(key, { raw: placeholder, parsed: value });
+
+    // Perform Web Crypto API AES-GCM-256 encryption asynchronously and store encrypted envelope
+    encryptWithWebCrypto(serialized)
       .then((webCryptoPayload) => {
         try {
           localStorage.setItem(key, webCryptoPayload);
@@ -199,7 +219,7 @@ export function setSecureLocalStorage(key: string, value: unknown): boolean {
         }
       })
       .catch((err) => {
-        console.warn(`[LocalStorageValidator] Web Crypto async persistence failed for "${key}":`, err);
+        console.error(`[LocalStorageValidator] Web Crypto async encryption failed for "${key}":`, err);
       });
 
     return true;
@@ -220,14 +240,14 @@ export async function setSecureLocalStorageAsync(key: string, value: unknown): P
 
   try {
     const serialized = JSON.stringify(value);
-    const webCryptoPayload = await encryptWithWebCrypto(serialized, true);
+    const webCryptoPayload = await encryptWithWebCrypto(serialized);
     secureMemoryCache.set(key, { raw: webCryptoPayload, parsed: value });
     localStorage.setItem(key, webCryptoPayload);
     localStorage.setItem(`${key}_webcrypto_verified`, 'true');
     return true;
   } catch (err) {
     console.error(`[LocalStorageValidator] setSecureLocalStorageAsync failed for "${key}":`, err);
-    return setSecureLocalStorage(key, value);
+    return false;
   }
 }
 
@@ -247,5 +267,4 @@ export function clearSecureMemoryCache(): void {
   secureMemoryCache.clear();
 }
 
-export { getEncryptionKey, encryptWithWebCrypto, decryptWithWebCrypto };
-
+export { encryptWithWebCrypto, decryptWithWebCrypto };

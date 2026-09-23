@@ -12,6 +12,8 @@ Restart=always
 RestartSec=5
 Environment=HOIMU_CONFIG=/etc/hoimu/config.json
 Environment=HOIMU_DB=/var/lib/hoimu/sparse_map.db
+Environment=HOIMU_CREDENTIALS=/var/lib/hoimu/paired_devices.json
+EnvironmentFile=-/etc/hoimu/secret.env
 
 # Security & Sandboxing
 ProtectSystem=full

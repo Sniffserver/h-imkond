@@ -330,6 +330,85 @@ class CapacitorBridgeService {
     await this.sendLedAction(deviceId, payload);
     console.info('[CapacitorBridge] Dispatched mesh message packet over BLE link to ESP32');
   }
+
+  /**
+   * Checks if native Android Keystore or SecureStorage plugins are available
+   */
+  public isNativeKeystoreAvailable(): boolean {
+    if (!this.isNative) return false;
+    const cap = typeof window !== 'undefined' ? (window as any).Capacitor : undefined;
+    return Boolean(cap?.Plugins?.SecureStorage || cap?.Plugins?.NativeKeystore);
+  }
+
+  /**
+   * Native Android Secure Storage write (backed by Android Keystore / EncryptedSharedPreferences)
+   */
+  public async setNativeSecureItem(key: string, value: string): Promise<boolean> {
+    if (!this.isNative) return false;
+    const cap = typeof window !== 'undefined' ? (window as any).Capacitor : undefined;
+    if (cap?.Plugins?.SecureStorage?.set) {
+      try {
+        await cap.Plugins.SecureStorage.set({ key, value });
+        return true;
+      } catch (err) {
+        console.error('[CapacitorBridge] setNativeSecureItem failed:', err);
+        return false;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Native Android Secure Storage read (backed by Android Keystore)
+   */
+  public async getNativeSecureItem(key: string): Promise<string | null> {
+    if (!this.isNative) return null;
+    const cap = typeof window !== 'undefined' ? (window as any).Capacitor : undefined;
+    if (cap?.Plugins?.SecureStorage?.get) {
+      try {
+        const res = await cap.Plugins.SecureStorage.get({ key });
+        return res?.value ?? null;
+      } catch (err) {
+        console.error('[CapacitorBridge] getNativeSecureItem failed:', err);
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Native Android Secure Storage remove
+   */
+  public async removeNativeSecureItem(key: string): Promise<boolean> {
+    if (!this.isNative) return false;
+    const cap = typeof window !== 'undefined' ? (window as any).Capacitor : undefined;
+    if (cap?.Plugins?.SecureStorage?.remove) {
+      try {
+        await cap.Plugins.SecureStorage.remove({ key });
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Native Android Secure Storage clear
+   */
+  public async clearNativeSecureStorage(): Promise<boolean> {
+    if (!this.isNative) return false;
+    const cap = typeof window !== 'undefined' ? (window as any).Capacitor : undefined;
+    if (cap?.Plugins?.SecureStorage?.clear) {
+      try {
+        await cap.Plugins.SecureStorage.clear();
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  }
 }
 
 export const CapacitorBridge = new CapacitorBridgeService();

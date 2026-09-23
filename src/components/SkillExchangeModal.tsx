@@ -109,8 +109,6 @@ export const SkillExchangeModal: React.FC<SkillExchangeModalProps> = ({
   const [postTagsInput, setPostTagsInput] = useState('');
   const [requireVerifiedHandshake, setRequireVerifiedHandshake] = useState(true);
 
-  if (!isOpen) return null;
-
   const categoriesList = [
     'ALL',
     'Energy & Solar',
@@ -193,6 +191,8 @@ export const SkillExchangeModal: React.FC<SkillExchangeModalProps> = ({
 
     return list.sort((a, b) => b.timestamp - a.timestamp);
   }, [endorsements, skills]);
+
+  if (!isOpen) return null;
 
   // Handle Submitting a New Skill-Sharing Session
   const handleCreatePost = (e: React.FormEvent) => {

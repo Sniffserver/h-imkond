@@ -26,9 +26,14 @@ import type { PathfinderActiveState } from './scanner/pathfinderScanner';
 export interface IMessageService {
   initMessageStorage(): Promise<void>;
   getLocalUserCrypto(): Promise<{ publicKeyHex: string; keyPair: CryptoKeyPair }>;
+  getLocalUserDualCrypto?(): Promise<{
+    identity: { publicKeyHex: string; keyPair: CryptoKeyPair };
+    encryption: { publicKeyHex: string; keyPair: CryptoKeyPair };
+  }>;
   getPeerPublicKey(peerCallsignOrId: string): string;
+  getPeerEncryptionKey?(peerCallsignOrId: string): Promise<string>;
   encryptWithPublicKey(plaintext: string, recipientPublicKeyHex: string): Promise<string>;
-  decryptWithKey(encryptedBase64: string, expectedKeyHex: string): Promise<string>;
+  decryptWithKey(encryptedBase64: string, expectedKeyHex?: string): Promise<string>;
   sendDirectMessage(peerId: string, content: string): Promise<MeshMessage>;
   getConversation(peerId: string): Promise<MeshMessage[]>;
   getUnreadCount(): Promise<number>;

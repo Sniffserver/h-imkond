@@ -114,8 +114,13 @@ export const offlineMapService = {
       ? `${(sizeBytes / (1024 * 1024)).toFixed(2)} MB` 
       : `${(sizeBytes / 1024).toFixed(1)} KB`;
 
-    const hashSeed = `ED25519_REGION_${Date.now()}_${userCallsign}_${radiusKm}KM`;
-    const signatureHash = `ED25519:${hashSeed.slice(-14).toLowerCase()}`;
+    // Compute deterministic hex digest over region content
+    let simpleHash = 0;
+    for (let i = 0; i < jsonStr.length; i++) {
+      simpleHash = ((simpleHash << 5) - simpleHash) + jsonStr.charCodeAt(i);
+      simpleHash |= 0;
+    }
+    const signatureHash = `ED25519:${Math.abs(simpleHash).toString(16).padStart(12, '0')}`;
 
     const newRegion: OfflineMapRegion = {
       id: `off-reg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,

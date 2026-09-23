@@ -1,27 +1,29 @@
 import { StorageCapability } from './types';
 import { getPlatformInfo } from './platform';
-import { encryptData, decryptData } from '../../utils/encryption';
-
-/**
- * In-memory fallback store for non-browser or test environments
- */
-const memoryStorage = new Map<string, string>();
+import {
+  getIdentityService,
+  getSecureItem as getIdentitySecureItem,
+  setSecureItem as setIdentitySecureItem,
+  removeSecureItem as removeIdentitySecureItem,
+  clearSecureStorage as clearIdentitySecureStorage,
+} from '../identity';
 
 /**
  * Securely retrieves an encrypted item from persistent device storage.
+ * - On Web: AES-GCM-256 with non-extractable CryptoKey in IndexedDB.
+ * - On Android: Backed by Android Keystore hardware TEE / StrongBox.
  */
 export async function getSecureItem(key: string): Promise<string | null> {
-  const platform = getPlatformInfo();
-
-  if (platform.isTest || typeof window === 'undefined' || !window.localStorage) {
-    const raw = memoryStorage.get(key) || null;
-    return raw ? decryptData(raw) : null;
-  }
-
   try {
-    const raw = localStorage.getItem(`secure_${key}`);
-    if (!raw) return null;
-    return decryptData(raw);
+    const val = await getIdentitySecureItem(key);
+    if (val !== null) return val;
+
+    // Backward compatibility fallback for legacy items
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const raw = localStorage.getItem(`secure_${key}`);
+      if (raw) return raw;
+    }
+    return null;
   } catch (e) {
     console.warn('[SecureStorage] Error reading secure item:', key, e);
     return null;
@@ -29,19 +31,11 @@ export async function getSecureItem(key: string): Promise<string | null> {
 }
 
 /**
- * Securely persists an item using AES-256 encryption.
+ * Securely persists an item into hardware-bound or non-extractable storage.
  */
 export async function setSecureItem(key: string, value: string): Promise<void> {
-  const platform = getPlatformInfo();
-  const encrypted = encryptData(value);
-
-  if (platform.isTest || typeof window === 'undefined' || !window.localStorage) {
-    memoryStorage.set(key, encrypted);
-    return;
-  }
-
   try {
-    localStorage.setItem(`secure_${key}`, encrypted);
+    await setIdentitySecureItem(key, value);
   } catch (e) {
     console.error('[SecureStorage] Error saving secure item:', key, e);
   }
@@ -51,15 +45,11 @@ export async function setSecureItem(key: string, value: string): Promise<void> {
  * Removes a secure item from storage.
  */
 export async function removeSecureItem(key: string): Promise<void> {
-  const platform = getPlatformInfo();
-
-  if (platform.isTest || typeof window === 'undefined' || !window.localStorage) {
-    memoryStorage.delete(key);
-    return;
-  }
-
   try {
-    localStorage.removeItem(`secure_${key}`);
+    await removeIdentitySecureItem(key);
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.removeItem(`secure_${key}`);
+    }
   } catch (e) {
     console.error('[SecureStorage] Error removing secure item:', key, e);
   }
@@ -69,22 +59,18 @@ export async function removeSecureItem(key: string): Promise<void> {
  * Clears secure storage
  */
 export async function clearSecureStorage(): Promise<void> {
-  const platform = getPlatformInfo();
-
-  if (platform.isTest || typeof window === 'undefined' || !window.localStorage) {
-    memoryStorage.clear();
-    return;
-  }
-
   try {
-    const keysToRemove: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k?.startsWith('secure_')) {
-        keysToRemove.push(k);
+    await clearIdentitySecureStorage();
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k?.startsWith('secure_')) {
+          keysToRemove.push(k);
+        }
       }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
     }
-    keysToRemove.forEach((k) => localStorage.removeItem(k));
   } catch (e) {
     console.error('[SecureStorage] Error clearing secure storage:', e);
   }
@@ -95,11 +81,19 @@ export async function clearSecureStorage(): Promise<void> {
  */
 export async function getStorageCapability(): Promise<StorageCapability> {
   const platform = getPlatformInfo();
+  const identity = getIdentityService();
+
+  const baseStorageType = identity.providerType === 'android_keystore'
+    ? 'android_keystore'
+    : identity.providerType === 'webcrypto_indexeddb'
+      ? 'webcrypto_indexeddb'
+      : 'memory';
 
   if (platform.isTest || typeof navigator === 'undefined' || !navigator.storage) {
     return {
       secureStorageAvailable: true,
-      storageType: platform.isAndroid ? 'capacitor_secure' : 'memory',
+      storageType: baseStorageType,
+      isHardwareBacked: identity.isHardwareBacked,
     };
   }
 
@@ -107,14 +101,16 @@ export async function getStorageCapability(): Promise<StorageCapability> {
     const estimate = await navigator.storage.estimate();
     return {
       secureStorageAvailable: true,
-      storageType: platform.isAndroid ? 'capacitor_secure' : 'encrypted_localStorage',
+      storageType: baseStorageType,
+      isHardwareBacked: identity.isHardwareBacked,
       quotaBytes: estimate.quota,
       usageBytes: estimate.usage,
     };
   } catch {
     return {
       secureStorageAvailable: true,
-      storageType: 'encrypted_localStorage',
+      storageType: baseStorageType,
+      isHardwareBacked: identity.isHardwareBacked,
     };
   }
 }

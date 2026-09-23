@@ -1,6 +1,6 @@
 # HÕIMU Pi Bridge Protocol Specification
 
-**Version:** `1.0.0`  
+**Version:** `1.2.0`  
 **Base Path:** `/api/v1`
 
 ---
@@ -8,220 +8,136 @@
 ## 1. Overview
 
 The **HÕIMU Pi Bridge Daemon** runs on a Raspberry Pi Zero 2 W as a low-power hardware mesh gateway. It exposes a versioned REST API for:
-- 868MHz SX1262 LoRa packet transmission and reception
+- 868MHz SX1262 LoRa packet transmission and reception with 1% ETSI duty cycle enforcement
 - 2.4GHz BLE Long Range (Coded PHY) peer discovery
 - Solar PV voltage and battery telemetry monitoring (MCP3008 ADC)
 - ASCII map generation for headless displays and e-Paper screens
+- Mutual authentication & cryptographic Scoped Capability Tokens
 
 ---
 
-## 2. Authentication & Device Pairing
+## 2. Security Architecture & Capability Token Handshake
 
-To prevent client bundle token leakage in client web and Capacitor builds (`VITE_` prefix values are public), client applications pass a non-secret identifier (`VITE_PI_BRIDGE_CLIENT_ID`, e.g. `HOIMU-CLIENT-APP`) and retrieve dynamic per-device credentials via a 2-step PIN pairing protocol.
-
-### 2.1. Dynamic 2-Step PIN Pairing Flow
-
-1. **Initiate Session (`POST /api/v1/pair/start`)**
-   - **Public Endpoint** (Rate-limited to 5 requests/min per IP)
-   - **Request Body:**
-     ```json
-     {
-       "client_id": "HOIMU-CLIENT-APP",
-       "device_name": "Pixel 8 Pro"
-     }
-     ```
-   - **Response `200 OK`:**
-     ```json
-     {
-       "status": "ok",
-       "session_id": "pair-a1b2c3d4e5f67890",
-       "expires_in": 300,
-       "pin_required": true,
-       "dev_pin": "840192" // Provided in dev_mode only; production logs to Pi terminal/systemd
-     }
-     ```
-
-2. **Confirm PIN & Mint Scoped Credential (`POST /api/v1/pair/confirm`)**
-   - **Public Endpoint** (Rate-limited to 5 requests/min per IP)
-   - **Request Body:**
-     ```json
-     {
-       "session_id": "pair-a1b2c3d4e5f67890",
-       "pin": "840192",
-       "client_id": "HOIMU-CLIENT-APP"
-     }
-     ```
-   - **Response `200 OK`:**
-     ```json
-     {
-       "success": true,
-       "auth_token": "hoimu_ptk_a9b8c7d6e5f43210...",
-       "device_id": "dev-f1e2d3",
-       "message": "Device successfully paired and minted scoped credential."
-     }
-     ```
-   - **Response `401 Unauthorized`:**
-     ```json
-     {
-       "error": "INVALID_PIN",
-       "message": "Provided pairing PIN is incorrect",
-       "details": {}
-     }
-     ```
-
-3. **Revoke Device Credential (`POST /api/v1/devices/revoke`)**
-   - **Auth:** Bearer token required
-   - **Request Body:**
-     ```json
-     {
-       "device_id": "dev-f1e2d3"
-     }
-     ```
-   - **Response `200 OK`:**
-     ```json
-     {
-       "success": true,
-       "revoked_device_id": "dev-f1e2d3"
-     }
-     ```
+### 2.1. Production Boot vs Explicit Dev Mode
+- **Production Mode (`dev_mode: false`, default)**:
+  - Gateway boots in strict production security posture.
+  - Ephemeral pairing PINs are generated using `secrets.randbelow(900000) + 100000` (cryptographically random 6-digit PIN).
+  - PIN is NEVER returned in HTTP responses. It is output exclusively to the Pi's local systemd journal / physical e-Paper display for physical possession verification.
+- **Explicit Dev Mode (`HOIMU_DEV_MODE=1` or `dev_mode: true` in config.json)**:
+  - Enabled ONLY when explicitly configured by the developer.
+  - Returns `dev_pin` in response body to facilitate rapid automated testing.
 
 ---
 
-## 3. Rate Limiting & Hashed Logging Security
+### 2.2. Mutual Authentication & Scoped Capability Token Flow
 
-- **Hashed Log Tracing:** The daemon hashes client identifiers and device tokens using SHA-256 (`hashlib.sha256`) and logs truncated `client_hash` (`a1b2c3d4e5f6`) in JSON stdout logs. Raw Bearer tokens are NEVER logged to disk or console.
-- **Rate Limits:**
+```
++----------------+                               +--------------------+
+|  Client Device |                               |  Pi Bridge Daemon  |
+|  (Phone / App) |                               |   (Zero 2 W)       |
++--------+-------+                               +---------+----------+
+         |                                                 |
+         |  1. POST /api/v1/pair/start                     |
+         |     { client_id, public_key, device_name }      |
+         +------------------------------------------------>|
+         |                                                 | Generate Session Nonce
+         |                                                 | & Random 6-Digit PIN
+         |  2. 200 OK                                      | Display PIN on e-Paper
+         |     { session_id, session_nonce, expires_in }   |
+         |<------------------------------------------------+
+         |                                                 |
+         |  (User reads PIN from Pi physical screen)       |
+         |                                                 |
+         |  3. POST /api/v1/pair/confirm                   |
+         |     { session_id, pin, scopes: [...] }          |
+         +------------------------------------------------>|
+         |                                                 | Verify PIN & Mint Signed
+         |                                                 | Capability Token:
+         |                                                 | hoimu_cap_<b64>.<hmac>
+         |  4. 200 OK                                      |
+         |     { auth_token, device_id, scope, ... }       |
+         |<------------------------------------------------+
+```
+
+### 2.3. Scoped Capability Token Structure
+
+The authenticated Bearer token format is:
+`hoimu_cap_<base64url(payload)>.<hmac_sha256_signature>`
+
+Decoded Payload:
+```json
+{
+  "token_type": "hoimu_capability_token",
+  "v": 1,
+  "deviceId": "dev-4a2b8e",
+  "clientId": "HOIMU-CLIENT-APP",
+  "keyId": "key_0x8f2a1b9c",
+  "scope": [
+    "mesh.read",
+    "mesh.send",
+    "telemetry.read"
+  ],
+  "issuedAt": 1790110000000,
+  "expiresAt": 1792702000000
+}
+```
+
+### 2.4. Capability Scopes & RBAC Matrix
+
+| Scope | Allowed Operations & Endpoints |
+| :--- | :--- |
+| `mesh.read` | `/api/v1/peers`, `/api/v1/map/ascii`, commands: `scan`, `ascii_map`, `sync_peers` |
+| `mesh.send` | `/api/v1/broadcast`, `/mesh/broadcast`, commands: `broadcast` |
+| `telemetry.read` | `/api/v1/status`, `/telemetry`, commands: `status` |
+| `config.admin` | `/api/v1/config` (mutates only whitelisted operational params) |
+| `device.admin` | Super-admin scope: `/api/v1/config`, `/api/v1/devices/revoke` |
+
+---
+
+### 2.5. Configuration Hardening & Parameter Whitelist (`/api/v1/config`)
+To eliminate arbitrary remote daemon compromise, `/api/v1/config` is strictly restricted to `config.admin` or `device.admin` scopes, and only allows mutating a safe operational parameter whitelist:
+- `relay_cadence_sec` (integer)
+- `solar_threshold_watts` (float / int)
+- `night_sleep_multiplier` (float / int)
+- `grid_cols` (integer)
+- `grid_rows` (integer)
+- `grid_scale_m` (float / int)
+- `eink_enabled` (boolean)
+
+All attempts to modify core system parameters (`host`, `port`, `dev_mode`, `radio_modules`, `lora_config`, `auth_token`, `allowed_commands`, `spi_bus`, `spi_device`) are immediately rejected with `403 Forbidden` (`FORBIDDEN_PARAMETER`).
+
+---
+
+### 2.6. Production GPS Hardware Boundary (`set_gps`)
+- In **Production (`DEV_MODE=False`)**, GPS coordinates are acquired exclusively from hardware (physical serial / UART NMEA GPS module).
+- The `set_gps` command is strictly disabled in production mode (`403 Forbidden`).
+- The `set_gps` simulator command is enabled only when `HOIMU_DEV_MODE=1` is explicitly set in the daemon environment.
+
+---
+
+## 3. Rate Limiting & Hashed Logging
+
+- **Hashed Log Tracing**: The daemon hashes client identifiers and tokens using SHA-256 (`hashlib.sha256`) and logs truncated `client_hash` (`a1b2c3d4e5f6`) in structured JSON stdout logs. Raw secrets and tokens are never logged.
+- **Rate Limits**:
   - Pairing Endpoints (`/api/v1/pair/start`, `/api/v1/pair/confirm`): Max 5 requests/min per IP.
   - Auth Failures (`401 Unauthorized`): Max 10 failures/min per IP before returning `429 Too Many Requests`.
   - SOS Broadcast Commands (`type == "sos"`): Max 5 broadcasts/min per device.
   - Hardware Scan Command (`scan`): Max 10 scans/min per device.
-- **Interface Binding Notice:** Daemon MUST bind to private P2P / LAN / USB OTG interfaces (`192.168.4.1`, `10.42.0.1`). Direct public WAN binding is strictly forbidden without Tailscale or WireGuard VPN tunnels.
 
 ---
 
-## 4. Standard Error Envelope
+## 4. REST API Reference
 
-When an error occurs, responses use standard JSON error envelopes with appropriate HTTP status codes:
+### Public Endpoints
+- `GET /health` or `GET /api/v1/health`
+- `POST /api/v1/pair/start`
+- `POST /api/v1/pair/confirm`
 
-```json
-{
-  "error": "INVALID_COMMAND",
-  "message": "Unknown or disallowed command 'reboot'",
-  "details": {
-    "allowed_commands": ["scan", "status", "broadcast", "ascii_map", "set_gps", "sync_peers"]
-  }
-}
-```
-
----
-
-## 4. Endpoints
-
-### 4.1. Health Check (Unauthenticated)
-- **Method:** `GET`
-- **Route:** `/api/v1/health` (also aliased to `/health`)
-- **Response `200 OK`:**
-```json
-{
-  "status": "ok",
-  "version": "1.0.0",
-  "min_client_version": "0.2.0",
-  "uptimeSeconds": 18450
-}
-```
-
----
-
-### 4.2. Current Daemon & Hardware Status
-- **Method:** `GET`
-- **Route:** `/api/v1/status` (also aliased to `/telemetry`)
-- **Auth:** Bearer token required
-- **Response `200 OK`:**
-```json
-{
-  "status": "ok",
-  "version": "1.0.0",
-  "connected": true,
-  "ipAddress": "192.168.4.1:8080",
-  "piBatteryPercent": 87,
-  "batteryVoltage": 3.92,
-  "solarVoltage": 14.2,
-  "solarWatts": 12.4,
-  "cpuTempC": 42.5,
-  "radioModules": ["ble", "lora_868", "wifi_direct"],
-  "uptimeSeconds": 18450,
-  "relayedPacketsCount": 421,
-  "gps": {
-    "lat": 58.3780,
-    "lng": 26.7290,
-    "x": 0,
-    "y": 0
-  }
-}
-```
-
----
-
-### 4.3. Universal Command Execution
-- **Method:** `POST`
-- **Route:** `/api/v1/command`
-- **Auth:** Bearer token required
-- **Request Body:**
-```json
-{
-  "command": "scan" | "status" | "broadcast" | "ascii_map" | "set_gps" | "sync_peers",
-  "params": {}
-}
-```
-
-#### Supported Commands & Parameters:
-
-1. **`scan`**:
-   - `params`: `{ "timeoutMs": 1500 }`
-   - Returns: `{ "peers": [...], "scannedChannels": ["BLE 37-39", "LoRa 868.1MHz"] }`
-
-2. **`broadcast`**:
-   - `params`: `{ "type": "chat", "from": "TAMM-01", "to": "KASK-02", "payload": "..." }`
-   - Returns: `{ "success": true, "txId": "tx-pi-1725700000000", "relayedTotal": 422 }`
-
-3. **`ascii_map`**:
-   - `params`: `{ "cols": 80, "rows": 40 }`
-   - Returns: `{ "cols": 80, "rows": 40, "gridText": "...", "updatedAt": 1725700000000 }`
-
-4. **`set_gps`**:
-   - `params`: `{ "lat": 58.3780, "lng": 26.7290 }`
-   - Returns: `{ "success": true, "gps": { ... } }`
-
-5. **`sync_peers`**:
-   - `params`: `{}`
-   - Returns: `{ "peers": [...] }`
-
----
-
-### 4.4. Peers Listing
-- **Method:** `GET`
-- **Route:** `/api/v1/peers` (aliased to `/mesh/peers`)
-- **Auth:** Bearer token required
-- **Response `200 OK`:**
-```json
-[
-  {
-    "id": "TARTU-LORA-NODE-01",
-    "callsign": "TARTU-LORA-01",
-    "rssi": -68,
-    "protocol": "lora",
-    "lastHeard": 1725699996000,
-    "hops": 1,
-    "role": "Relay Node"
-  }
-]
-```
-
----
-
-### 4.5. ASCII Map Text Grid
-- **Method:** `GET`
-- **Route:** `/api/v1/map/ascii`
-- **Auth:** Bearer token required
-- **Query Params:** `?cols=80&rows=40`
-- **Response:** `text/plain` or JSON
+### Authenticated Endpoints (Bearer Capability Token Required)
+- `POST /api/v1/devices/revoke`
+- `GET /api/v1/status` (requires `telemetry.read`)
+- `GET /api/v1/peers` (requires `mesh.read`)
+- `POST /api/v1/broadcast` (requires `mesh.send`)
+- `POST /api/v1/command` (enforces per-command scopes)
+- `GET /api/v1/map/ascii` (requires `mesh.read`)
+- `POST /api/v1/config` (requires `device.admin`)

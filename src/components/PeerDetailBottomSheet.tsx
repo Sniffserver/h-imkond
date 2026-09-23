@@ -59,10 +59,6 @@ export const PeerDetailBottomSheet: React.FC<PeerDetailBottomSheetProps> = ({
   onOpenChat,
   isNightMode = false,
 }) => {
-  if (!peer) return null;
-
-  const tier = getReputationTier(peer.completedExchanges);
-
   // Private Local Notes State
   const [noteText, setNoteText] = useState('');
   const [lastSavedTime, setLastSavedTime] = useState<number | null>(null);
@@ -71,21 +67,6 @@ export const PeerDetailBottomSheet: React.FC<PeerDetailBottomSheetProps> = ({
   // Low-Energy BLE Heartbeat Ping State
   const [isPinging, setIsPinging] = useState(false);
   const [lastPingResult, setLastPingResult] = useState<PeerPingResult | null>(null);
-
-  const handlePingPeer = async () => {
-    if (!peer || isPinging) return;
-    try {
-      setIsPinging(true);
-      soundFeedback.playClick();
-      const result = await peerPingService.pingPeer(peer);
-      setLastPingResult(result);
-      soundFeedback.playSuccess();
-    } catch (err) {
-      console.error('Ping failed:', err);
-    } finally {
-      setIsPinging(false);
-    }
-  };
 
   const sheetRef = useFocusTrap({
     isOpen: Boolean(peer),
@@ -110,6 +91,25 @@ export const PeerDetailBottomSheet: React.FC<PeerDetailBottomSheetProps> = ({
     }
     setSaveStatus('idle');
   }, [peer]);
+
+  if (!peer) return null;
+
+  const tier = getReputationTier(peer.completedExchanges);
+
+  const handlePingPeer = async () => {
+    if (!peer || isPinging) return;
+    try {
+      setIsPinging(true);
+      soundFeedback.playClick();
+      const result = await peerPingService.pingPeer(peer);
+      setLastPingResult(result);
+      soundFeedback.playSuccess();
+    } catch (err) {
+      console.error('Ping failed:', err);
+    } finally {
+      setIsPinging(false);
+    }
+  };
 
   // Save note to AES-256 encrypted local storage
   const handleSaveNote = () => {

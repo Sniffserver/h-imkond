@@ -145,15 +145,34 @@ export async function startPairing(customIp?: string, clientId?: string): Promis
   }
 }
 
+export interface ScopedCapabilityToken {
+  token_type: 'hoimu_capability_token';
+  v: number;
+  deviceId: string;
+  clientId: string;
+  keyId: string;
+  scope: string[];
+  issuedAt: number;
+  expiresAt: number;
+}
+
 /**
- * Confirms PIN and retrieves per-device Bearer credential (/api/v1/pair/confirm)
+ * Confirms PIN and retrieves per-device Scoped Capability credential (/api/v1/pair/confirm)
  */
 export async function confirmPairing(
   sessionId: string,
   pin: string,
   customIp?: string,
-  clientId?: string
-): Promise<{ success: boolean; deviceId?: string; error?: string }> {
+  clientId?: string,
+  scopes?: string[]
+): Promise<{
+  success: boolean;
+  deviceId?: string;
+  authToken?: string;
+  scopes?: string[];
+  capabilityToken?: ScopedCapabilityToken;
+  error?: string;
+}> {
   if (customIp) setCustomBridgeIp(customIp);
   if (clientId) setClientId(clientId);
 
@@ -171,12 +190,17 @@ export async function confirmPairing(
   }
 
   if (useMockBridge || isEnvMock) {
-    const mockToken = 'hoimu_ptk_mock_dev_credential_token';
+    const mockToken = 'hoimu_cap_eyJ0b2tlbl90eXBlIjoiaG9pbXVfY2FwYWJpbGl0eV90b2tlbiJ9.mock';
     setBridgeAuthToken(mockToken);
     cachedStatus.connected = true;
     failedPairingAttempts = 0;
     notifyListeners();
-    return { success: true, deviceId: 'dev-mock-01' };
+    return {
+      success: true,
+      deviceId: 'dev-mock-01',
+      authToken: mockToken,
+      scopes: scopes || ['mesh.read', 'mesh.send', 'telemetry.read']
+    };
   }
 
   try {
@@ -186,7 +210,8 @@ export async function confirmPairing(
       body: JSON.stringify({
         session_id: sessionId,
         pin,
-        client_id: currentClientId
+        client_id: currentClientId,
+        scopes: scopes || ['mesh.read', 'mesh.send', 'telemetry.read']
       })
     });
 
@@ -197,7 +222,13 @@ export async function confirmPairing(
       failedPairingAttempts = 0;
       notifyListeners();
       await syncBridgePeersToStore();
-      return { success: true, deviceId: data.device_id };
+      return {
+        success: true,
+        deviceId: data.device_id,
+        authToken: data.auth_token,
+        scopes: data.scope,
+        capabilityToken: data.capability_token
+      };
     }
     
     // Increment failure counter for rate limiting

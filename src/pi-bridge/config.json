@@ -1,7 +1,7 @@
 {
   "host": "0.0.0.0",
   "port": 8080,
-  "auth_token": "hoimu_secret_token",
+  "dev_mode": false,
   "allowed_commands": [
     "scan",
     "status",
@@ -23,5 +23,14 @@
     "ble",
     "lora_868",
     "wifi_direct"
-  ]
+  ],
+  "lora_config": {
+    "frequency_mhz": 868.1,
+    "bandwidth_khz": 125,
+    "spreading_factor": 7,
+    "coding_rate": "4/5",
+    "tx_power_dbm": 14,
+    "sync_word": "0x12",
+    "duty_cycle_limit_pct": 1.0
+  }
 }

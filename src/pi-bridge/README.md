@@ -1,6 +1,6 @@
 # HÕIMU Raspberry Pi Zero 2 W Hardware Gateway Specification
 
-The **HÕIMU Pi Bridge** is a low-power, solar-assisted headless mesh radio relay daemon running on Raspberry Pi Zero 2 W hardware. It bridges smartphones (via WiFi Direct or USB OTG Ethernet) to SX1262 868MHz LoRa long-range radio hardware and BLE long-range Coded PHY nodes.
+The **HÕIMU Pi Bridge** is a low-power, solar-assisted headless mesh radio relay daemon running on Raspberry Pi Zero 2 W hardware. It bridges smartphones (via WiFi Direct or USB OTG Ethernet) to SX1262/SX1276 868MHz LoRa long-range radio hardware and BLE long-range Coded PHY nodes.
 
 ---
 
@@ -42,48 +42,48 @@ The **HÕIMU Pi Bridge** is a low-power, solar-assisted headless mesh radio rela
 
 ---
 
-## 2. API Endpoints & Dynamic Pairing
+## 2. Radio Hardware Abstraction Layer (HAL) & RF Features
+
+- **EU868 Spectrum Scanner**: Actively samples 868.1, 868.3, 868.5, and 869.525 MHz ISM channels, measuring real RSSI noise floors and preamble triggers.
+- **Airtime & Duty Cycle Tracker**: Calculates exact packet Time-on-Air (ToA) using Semtech SX126x equations and enforces the ETSI EN 300 220 1% duty cycle limit (max 36s airtime per sliding 1-hour window).
+- **CSMA / CAD (Channel Activity Detection)**: Verifies RF channel state prior to transmission, applying random backoff to avoid in-air packet collisions.
+- **Dynamic Peer Discovery**: Real-time OTA packet parsing populates and ages out active mesh nodes with real RSSI, SNR, frequency, and hop telemetry.
+
+---
+
+## 3. Production Security & Credential Model
+
+### No Hardcoded Master Secrets
+All static master secrets are removed from repository config files. Configuration is strictly separated:
+- **Operational parameters**: `/etc/hoimu/config.json` (host, port, RF frequencies, grid settings).
+- **Secrets & Salts**: `/etc/hoimu/secret.env` (`chmod 600`, loaded by systemd via `EnvironmentFile=-/etc/hoimu/secret.env`).
+- **Paired Client Credentials**: `/var/lib/hoimu/paired_devices.json` (`chmod 600`).
+
+### Dynamic Device Pairing Flow
+1. App initiates pairing: `POST /api/v1/pair/start` (returns ephemeral session ID & requires 6-digit PIN).
+2. User enters physical PIN on device: `POST /api/v1/pair/confirm`.
+3. Daemon mints a scoped, per-device token (`hoimu_ptk_<hex>`) and registers the device hash.
+4. App authenticates subsequent calls using `Authorization: Bearer hoimu_ptk_<hex>`.
+
+---
+
+## 4. REST API Endpoints
 
 | Method | Endpoint | Description | Auth & Security |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/health` / `/api/v1/health` | Public health check | Unauthenticated |
+| `GET` | `/health` / `/api/v1/health` | Public health & radio hardware status | Unauthenticated |
 | `POST` | `/api/v1/pair/start` | Start 2-step PIN pairing | Rate limited (5/min), Public |
 | `POST` | `/api/v1/pair/confirm` | Confirm 6-digit PIN & mint token | Rate limited (5/min), Public |
 | `POST` | `/api/v1/devices/revoke` | Revoke device pairing credential | Bearer Auth Required |
-| `GET` | `/api/v1/status` / `/telemetry` | System, battery, solar state | Bearer Auth Required |
-| `GET` | `/api/v1/peers` / `/mesh/peers` | List heard BLE / LoRa nodes | Bearer Auth Required |
-| `POST` | `/api/v1/broadcast` | Broadcast JSON packet | Bearer Auth Required, Rate Limited |
-| `POST` | `/api/v1/command` | Universal command handler | Bearer Auth Required, Rate Limited |
+| `GET` | `/api/v1/status` / `/telemetry` | System, solar, battery, & duty-cycle telemetry | Bearer Auth Required |
+| `GET` | `/api/v1/peers` / `/mesh/peers` | Discovered live BLE / LoRa nodes | Bearer Auth Required |
+| `POST` | `/api/v1/broadcast` | Broadcast radio packet with ToA & duty tracking | Bearer Auth Required, Rate Limited |
+| `POST` | `/api/v1/command` | Universal command handler (`scan`, `broadcast`, etc.) | Bearer Auth Required, Rate Limited |
 | `GET` | `/api/v1/map/ascii` | Monospace ASCII map grid | Bearer Auth Required |
 
-> **Security Note**: Never embed static secrets in client environment variables prefixed `VITE_` (e.g. `VITE_PI_BRIDGE_TOKEN`). Instead, supply `VITE_PI_BRIDGE_CLIENT_ID="HOIMU-CLIENT-APP"` and obtain dynamic scoped device tokens via `/api/v1/pair`.
-
 ---
 
-## 3. WiFi Direct & Access Point Setup
-
-On boot, `hoimu.service` ensures the Pi runs as a WiFi Direct Group Owner (`_hoimu-bridge`) or falls back to an Access Point on `192.168.4.1`.
-
-### `/etc/wpa_supplicant/wpa_supplicant_p2p.conf`
-```ini
-ctrl_interface=/var/run/wpa_supplicant
-update_config=1
-device_name=HOIMU-PI-BRIDGE
-device_type=1-0050F204-1
-p2p_go_intent=15
-p2p_go_persistent=1
-
-network={
-    ssid="HOIMU-MESH-GATEWAY"
-    psk="hoimu-mesh-2026"
-    mode=2
-    frequency=2412
-}
-```
-
----
-
-## 4. One-Line Installation
+## 5. One-Line Installation
 
 To deploy the daemon on a fresh Raspberry Pi OS (Lite 64-bit):
 
@@ -95,23 +95,3 @@ Or execute directly from the repository:
 ```bash
 sudo bash src/pi-bridge/install.sh
 ```
-
----
-
-## 5. Systemd Service
-
-The daemon is managed as a system service `/etc/systemd/system/hoimu.service`:
-
-```bash
-sudo systemctl status hoimu.service
-sudo journalctl -u hoimu.service -f
-```
-
----
-
-## 6. ASCII Map Algorithm Compatibility
-
-The Pi daemon generates text-based ASCII maps using the same viewport projection algorithm as `src/components/AsciiMap.tsx`:
-- **Center**: `@` represents the user's reference node.
-- **Peers**: `O` / `☉` represents surrounding active mesh nodes.
-- **Terrain**: `~` (Water / Emajõgi), `♣` (Forest), `□` (Structures), `·` (Explored).

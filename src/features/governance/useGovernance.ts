@@ -1,35 +1,21 @@
 import { useState, useCallback, useEffect } from 'react';
 import { DaoProposal, ProposalCategory } from '../../types';
 import { INITIAL_DAO_PROPOSALS } from '../../data/communityData';
+import {
+  calculateQuadraticVoteCost,
+  canAffordQuadraticVote,
+  createSignedVoteEvent,
+  projectProposalsWithTallies,
+} from '../../services/governance/daoVoteEngine';
+import { INITIAL_USER } from '../../data/initialData';
 
-/**
- * Calculates credit cost for a given number of votes under Quadratic Voting.
- * Governing relationship: cost = (number of votes)^2
- * Example: 3 votes cost 3^2 = 9 credits.
- */
-export function calculateQuadraticVoteCost(votes: number): number {
-  if (typeof votes !== 'number' || isNaN(votes) || votes <= 0) {
-    return 0;
-  }
-  const rounded = Math.floor(votes);
-  return rounded * rounded;
-}
+export { calculateQuadraticVoteCost, canAffordQuadraticVote };
 
-/**
- * Checks whether a user with a given credit balance can afford a quadratic vote.
- */
-export function canAffordQuadraticVote(votes: number, creditBalance: number): boolean {
-  if (typeof creditBalance !== 'number' || isNaN(creditBalance) || creditBalance < 0) {
-    return false;
-  }
-  const cost = calculateQuadraticVoteCost(votes);
-  return creditBalance >= cost;
-}
-
-export function useGovernance(userBalance: number = 100) {
+export function useGovernance(userBalance: number = 100, userCallsign: string = INITIAL_USER.callsign) {
   const [daoProposals, setDaoProposals] = useState<DaoProposal[]>(() => {
     const saved = localStorage.getItem('hoimu_dao_proposals');
-    return saved ? JSON.parse(saved) : INITIAL_DAO_PROPOSALS;
+    const base = saved ? JSON.parse(saved) : INITIAL_DAO_PROPOSALS;
+    return projectProposalsWithTallies(base, userCallsign);
   });
 
   useEffect(() => {
@@ -60,6 +46,18 @@ export function useGovernance(userBalance: number = 100) {
         return { success: false, cost, reason: 'INSUFFICIENT_BALANCE' };
       }
 
+      // 1. Create cryptographic signed vote event (Ed25519) and dispatch to CRDT Event Log
+      createSignedVoteEvent({
+        voterId: userCallsign,
+        voterCallsign: userCallsign,
+        proposalId,
+        choice: vote,
+        votesCount,
+      }).catch((err) => {
+        console.warn('[useGovernance] Error signing vote event:', err);
+      });
+
+      // 2. Update local state
       setDaoProposals((prev) =>
         prev.map((p) => {
           if (p.id === proposalId) {
@@ -77,7 +75,7 @@ export function useGovernance(userBalance: number = 100) {
 
       return { success: true, cost };
     },
-    [daoProposals, userBalance]
+    [daoProposals, userBalance, userCallsign]
   );
 
   const createProposal = useCallback(

@@ -46,6 +46,7 @@ import { initMeshSync } from '../services/mesh/meshSync';
 import { backgroundSyncAdjuster } from '../services/mesh/backgroundSyncAdjuster';
 import { initMessageStorage } from '../services/comms/messageService';
 import { initSosService } from '../services/utils/sosService';
+import { signCanonicalPayload } from '../services/crypto/meshCrypto';
 
 export interface UseAppDomainStateProps {
   addToast: (title: string, description?: string, type?: ToastMessage['type']) => void;
@@ -355,7 +356,7 @@ export function useAppDomainState({ addToast, isWishlistOpen }: UseAppDomainStat
 
   // Trust Endorsement for Verified Trades
   const handleEndorseSkillTrade = useCallback(
-    (
+    async (
       skillId: string,
       recipientCallsign: string,
       comment: string,
@@ -363,20 +364,30 @@ export function useAppDomainState({ addToast, isWishlistOpen }: UseAppDomainStat
       transactionId?: string,
       tags: string[] = ['Verified Trade', 'Practical Mastery']
     ) => {
-      const hashSeed = `ED25519_TRADE_${Date.now()}_${skillId}_${user.callsign}`;
-      const hashStr = `SHA256: ${hashSeed.slice(-12).toLowerCase()}`;
+      const canonicalEndorsementData = {
+        skillId,
+        recipientCallsign,
+        endorserCallsign: user.callsign,
+        comment,
+        rating,
+        timestamp: Date.now(),
+        transactionId: transactionId || `tx-sk-${Date.now().toString().slice(-6)}`,
+      };
+
+      const realSignature = await signCanonicalPayload(canonicalEndorsementData);
+      const signatureHash = realSignature.substring(0, 32);
 
       const targetSkill = skills.find((s) => s.id === skillId);
       const skillTitle = targetSkill ? targetSkill.title : 'Community Skill Exchange';
 
       const newEndorsement: TrustEndorsement = {
         id: `end-sk-${Date.now()}`,
-        transactionId: transactionId || `tx-sk-${Date.now().toString().slice(-6)}`,
+        transactionId: canonicalEndorsementData.transactionId,
         endorserCallsign: user.callsign,
         recipientCallsign,
-        signatureHash: hashStr,
+        signatureHash,
         comment,
-        timestamp: Date.now(),
+        timestamp: canonicalEndorsementData.timestamp,
         reputationBonus: 15,
         skillId,
         skillTitle,
@@ -401,8 +412,8 @@ export function useAppDomainState({ addToast, isWishlistOpen }: UseAppDomainStat
                 endorserCallsign: user.callsign,
                 rating,
                 comment,
-                timestamp: Date.now(),
-                signatureHash: hashStr,
+                timestamp: canonicalEndorsementData.timestamp,
+                signatureHash,
                 isTradeVerified: true,
                 tags,
               },
@@ -415,7 +426,7 @@ export function useAppDomainState({ addToast, isWishlistOpen }: UseAppDomainStat
       setUser((prev) => ({ ...prev, symbiosisScore: prev.symbiosisScore + 15 }));
       addToast(
         '⭐ Verified Trade Endorsement Signed',
-        `Granted +15 Symbiosis Pts to ${recipientCallsign} with cryptographic attestation (${hashStr}).`,
+        `Granted +15 Symbiosis Pts to ${recipientCallsign} with genuine Ed25519 signature (${signatureHash.slice(0, 16)}...).`,
         'success'
       );
     },
@@ -423,21 +434,30 @@ export function useAppDomainState({ addToast, isWishlistOpen }: UseAppDomainStat
   );
 
   // Trust Endorsement Handler
-  const handleEndorseTransaction = useCallback((transactionId: string, comment: string) => {
+  const handleEndorseTransaction = useCallback(async (transactionId: string, comment: string) => {
     const tx = transactions.find((t) => t.id === transactionId);
     if (!tx) return;
 
-    const hashSeed = `ED25519_${Date.now()}_${tx.id}_${user.callsign}`;
-    const hashStr = `SHA256: ${hashSeed.slice(-12).toLowerCase()}`;
+    const recipientCallsign = tx.providerCallsign === user.callsign ? tx.requesterCallsign : tx.providerCallsign;
+    const canonicalTxData = {
+      transactionId,
+      endorserCallsign: user.callsign,
+      recipientCallsign,
+      comment,
+      timestamp: Date.now(),
+    };
+
+    const realSignature = await signCanonicalPayload(canonicalTxData);
+    const signatureHash = realSignature.substring(0, 32);
 
     const newEndorsement: TrustEndorsement = {
       id: `end-${Date.now()}`,
       transactionId,
       endorserCallsign: user.callsign,
-      recipientCallsign: tx.providerCallsign === user.callsign ? tx.requesterCallsign : tx.providerCallsign,
-      signatureHash: hashStr,
+      recipientCallsign,
+      signatureHash,
       comment,
-      timestamp: Date.now(),
+      timestamp: canonicalTxData.timestamp,
       reputationBonus: 15,
     };
 
@@ -447,7 +467,7 @@ export function useAppDomainState({ addToast, isWishlistOpen }: UseAppDomainStat
     );
 
     setUser((prev) => ({ ...prev, symbiosisScore: prev.symbiosisScore + 15 }));
-    addToast('🛡️ Cryptographic Endorsement Signed', `Granted +15 Symbiosis Pts and generated proof hash ${hashStr}.`, 'success');
+    addToast('🛡️ Cryptographic Endorsement Signed', `Granted +15 Symbiosis Pts and generated proof hash ${signatureHash.slice(0, 16)}...`, 'success');
   }, [transactions, user.callsign, addToast]);
 
   // Crisis Mode Handlers
@@ -805,32 +825,51 @@ export function useAppDomainState({ addToast, isWishlistOpen }: UseAppDomainStat
   }, [user, addToast]);
 
   // Send P2P or Broadcast Message
-  const handleSendMessage = useCallback((text: string, attachmentOrRecipientId?: any, recipientCallsign?: string) => {
-    const targetCallsign = recipientCallsign || 'Broadcast-Mesh';
-    const targetId = typeof attachmentOrRecipientId === 'string' ? attachmentOrRecipientId : 'broadcast';
+  const handleSendMessage = useCallback(
+    (text: string, attachmentOrRecipientId?: any, recipientCallsign?: string) => {
+      const targetCallsign = recipientCallsign || 'Broadcast-Mesh';
+      const targetId = typeof attachmentOrRecipientId === 'string' ? attachmentOrRecipientId : 'broadcast';
+      const timestamp = Date.now();
+      const id = `msg-${timestamp}`;
+      const content = btoa(JSON.stringify({ text }));
 
-    const newMessage: MeshMessage = {
-      id: `msg-${Date.now()}`,
-      from: user.callsign,
-      to: targetCallsign,
-      content: btoa(JSON.stringify({ text })),
-      ttl: 3,
-      signature: `SIG_ED25519_${Date.now()}`,
-      senderId: user.id,
-      senderCallsign: user.callsign,
-      recipientId: targetId,
-      recipientCallsign: targetCallsign,
-      text: text,
-      decryptedText: text,
-      timestamp: Date.now(),
-      status: 'pending',
-      hopCount: targetId === 'broadcast' ? 1 : 1,
-      rssi: -58,
-      isRead: true,
-    };
+      const newMessage: MeshMessage = {
+        id,
+        from: user.callsign,
+        to: targetCallsign,
+        content,
+        ttl: 3,
+        signature: '',
+        senderId: user.id,
+        senderCallsign: user.callsign,
+        recipientId: targetId,
+        recipientCallsign: targetCallsign,
+        text: text,
+        decryptedText: text,
+        timestamp,
+        status: 'pending',
+        hopCount: targetId === 'broadcast' ? 1 : 1,
+        rssi: -58,
+        isRead: true,
+      };
 
-    setMessages((prev) => [...prev, newMessage]);
-    a11yAnnouncer.announceIncomingMessage(user.callsign, text);
+      // Asynchronously sign canonically
+      signCanonicalPayload({
+        id,
+        from: user.callsign,
+        to: targetCallsign,
+        content,
+        timestamp,
+      })
+        .then((sig) => {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === id ? { ...m, signature: sig } : m))
+          );
+        })
+        .catch(() => {});
+
+      setMessages((prev) => [...prev, newMessage]);
+      a11yAnnouncer.announceIncomingMessage(user.callsign, text);
 
     setTimeout(() => {
       setMessages((prev) =>

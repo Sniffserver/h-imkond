@@ -32,11 +32,12 @@ describe('useSos & SOS Emergency Protocol Service', () => {
       expect(packet.id).toContain(packet.from);
     });
 
-    it('falls back to default regional coordinates when location is unavailable', async () => {
+    it('flags locationUnavailable when GPS is not available or provided', async () => {
       const packet = await broadcastSOS('GENERAL EMERGENCY', undefined, undefined);
 
-      expect(packet.lat).toBe(47.6062);
-      expect(packet.lng).toBe(-122.3321);
+      expect(packet.locationUnavailable).toBe(true);
+      expect(packet.lat).toBeUndefined();
+      expect(packet.lng).toBeUndefined();
     });
   });
 

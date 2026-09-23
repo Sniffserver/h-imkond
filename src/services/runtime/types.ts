@@ -34,7 +34,8 @@ export interface NetworkCapability {
 
 export interface StorageCapability {
   secureStorageAvailable: boolean;
-  storageType: 'capacitor_secure' | 'encrypted_localStorage' | 'memory';
+  storageType: 'capacitor_secure' | 'encrypted_localStorage' | 'memory' | 'android_keystore' | 'webcrypto_indexeddb';
+  isHardwareBacked?: boolean;
   quotaBytes?: number;
   usageBytes?: number;
 }

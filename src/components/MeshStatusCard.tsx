@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { BatteryManagerStatus, MeshNode } from '../types';
 import { calculateMeshHealthScore } from '../utils/meshHealthCalculator';
-import { Radio, Sun, Zap, BatteryCharging, RefreshCw, ShieldAlert, Cpu, Activity, Gauge, Signal, Clock, Network, Info, MessageSquare, Check } from 'lucide-react';
+import { Radio, Sun, Zap, BatteryCharging, RefreshCw, ShieldAlert, Cpu, Activity, Gauge, Signal, Clock, Network, Info, MessageSquare, Check, Wifi, Layers } from 'lucide-react';
 import { getUnreadCount, subscribeToMessages } from '../services/comms/messageService';
 import { useMeshStore } from '../store/meshStore';
 import { simulatePeerSyncPulse } from '../services/mesh/meshSync';
 import { BackgroundSyncAdjusterCard } from './BackgroundSyncAdjusterCard';
+import { meshTransportManager, TransportManagerStats } from '../services/mesh/transport';
 
 interface MeshStatusCardProps {
   peerCount: number;
@@ -30,8 +31,21 @@ export const MeshStatusCard: React.FC<MeshStatusCardProps> = ({
 }) => {
   const healthMetrics = calculateMeshHealthScore(peers);
   const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [transportStats, setTransportStats] = useState<TransportManagerStats | null>(null);
   const lastSyncPulse = useMeshStore((state) => state.lastSyncPulse);
   const isSyncPulsing = Boolean(lastSyncPulse && Date.now() - lastSyncPulse.timestamp < 2600);
+
+  useEffect(() => {
+    let isMounted = true;
+    const unsubStats = meshTransportManager.subscribeStats((stats) => {
+      if (isMounted) setTransportStats(stats);
+    });
+
+    return () => {
+      isMounted = false;
+      unsubStats();
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -314,6 +328,81 @@ export const MeshStatusCard: React.FC<MeshStatusCardProps> = ({
           <span className="font-mono font-semibold text-[#588157] mt-1">
             {batteryStatus.radarRefreshRateHz} Hz Sweep
           </span>
+        </div>
+      </div>
+
+      {/* Physical & Multi-Bearer Mesh Transports Strip */}
+      <div className="p-3 bg-[#FAF6EE]/80 rounded-2xl border border-[#87A878]/25 space-y-2">
+        <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center gap-1.5 font-bold text-[#203A2A]">
+            <Layers className="w-3.5 h-3.5 text-[#2A9D8F]" />
+            <span>Füüsilised Transpordikihid (Mesh Bearers)</span>
+          </div>
+          <span className="text-[10px] font-mono text-[#588157] font-semibold bg-[#87A878]/15 px-2 py-0.5 rounded-md">
+            {transportStats ? `${transportStats.bearers.filter((b) => b.isActive).length}/${transportStats.bearers.length} Aktiivset` : '5 Kihti'}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {/* BLE */}
+          <div className="p-2 bg-white/90 rounded-xl border border-[#87A878]/20 text-[11px]">
+            <div className="flex items-center justify-between font-semibold text-[#203A2A]">
+              <span className="flex items-center gap-1">
+                <Radio className="w-3 h-3 text-[#2A9D8F]" />
+                BLE Mesh
+              </span>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="BLE Raadio aktiivne" />
+            </div>
+            <div className="text-[10px] text-[#637062] font-mono mt-1 flex justify-between">
+              <span>Android / ESP32</span>
+              <span className="text-[#2A9D8F] font-bold">2.4 GHz</span>
+            </div>
+          </div>
+
+          {/* Wi-Fi Aware / Direct */}
+          <div className="p-2 bg-white/90 rounded-xl border border-[#87A878]/20 text-[11px]">
+            <div className="flex items-center justify-between font-semibold text-[#203A2A]">
+              <span className="flex items-center gap-1">
+                <Wifi className="w-3 h-3 text-[#588157]" />
+                Wi-Fi Direct
+              </span>
+              <span className={`w-2 h-2 rounded-full ${batteryStatus.isSolarAwareActive ? 'bg-amber-400' : 'bg-emerald-500'}`} title="Wi-Fi P2P" />
+            </div>
+            <div className="text-[10px] text-[#637062] font-mono mt-1 flex justify-between">
+              <span>{batteryStatus.isSolarAwareActive ? 'Puhkeolekus' : 'P2P Kiire'}</span>
+              <span className="text-[#588157] font-bold">5 GHz</span>
+            </div>
+          </div>
+
+          {/* LoRa Bridge */}
+          <div className="p-2 bg-white/90 rounded-xl border border-[#87A878]/20 text-[11px]">
+            <div className="flex items-center justify-between font-semibold text-[#203A2A]">
+              <span className="flex items-center gap-1">
+                <Signal className="w-3 h-3 text-[#E76F51]" />
+                LoRa 868MHz
+              </span>
+              <span className="w-2 h-2 rounded-full bg-emerald-500" title="Pi Zero 2 W SX1262 LoRa" />
+            </div>
+            <div className="text-[10px] text-[#637062] font-mono mt-1 flex justify-between">
+              <span>Pi Zero Bridge</span>
+              <span className="text-[#E76F51] font-bold">~15 km</span>
+            </div>
+          </div>
+
+          {/* Multi-Tab Broadcast */}
+          <div className="p-2 bg-white/90 rounded-xl border border-[#87A878]/20 text-[11px]">
+            <div className="flex items-center justify-between font-semibold text-[#203A2A]">
+              <span className="flex items-center gap-1">
+                <Network className="w-3 h-3 text-[#B58A2B]" />
+                Dev Broadcast
+              </span>
+              <span className="w-2 h-2 rounded-full bg-emerald-500" title="BroadcastChannel / LocalStorage" />
+            </div>
+            <div className="text-[10px] text-[#637062] font-mono mt-1 flex justify-between">
+              <span>Multi-Tab Sync</span>
+              <span className="text-[#B58A2B] font-bold">Inter-Tab</span>
+            </div>
+          </div>
         </div>
       </div>
 

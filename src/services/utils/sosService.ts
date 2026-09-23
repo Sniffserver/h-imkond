@@ -1,5 +1,7 @@
 import { SOSPacket } from '../../types';
 import { INITIAL_USER } from '../../data/initialData';
+import { meshTransportManager } from '../mesh/transport/MeshTransportManager';
+import { executeBridgeCommand } from '../comms/piBridge';
 
 const SOS_STORAGE_KEY = 'hoimu_sos_history';
 const SOS_SYNC_CHANNEL = 'hoimu_sos_emergency_channel';
@@ -8,6 +10,7 @@ let sosHistory: SOSPacket[] = [];
 let activeAlerts: SOSPacket[] = [];
 const listeners: Set<(alerts: SOSPacket[]) => void> = new Set();
 let sosChannel: BroadcastChannel | null = null;
+let transportUnsub: (() => void) | null = null;
 let isInitialized = false;
 
 function notifyListeners() {
@@ -47,9 +50,9 @@ function loadFromLocalStorage() {
 }
 
 /**
- * Handle incoming emergency SOS packet from mesh / broadcast channel
+ * Handle incoming emergency SOS packet from physical mesh transports (LoRa / BLE / WiFi) or BroadcastChannel
  */
-function handleIncomingSosPacket(packet: SOSPacket) {
+export function handleIncomingSosPacket(packet: SOSPacket) {
   if (!packet || packet.type !== 'SOS' || !packet.from) return;
 
   const packetId = packet.id || `sos_${packet.from}_${packet.timestamp}`;
@@ -74,19 +77,23 @@ function handleIncomingSosPacket(packet: SOSPacket) {
   sosHistory.unshift(normalizedPacket);
   saveToLocalStorage();
 
-  // Store-and-forward relay if TTL > 1
+  // Store-and-forward relay if TTL > 1 across multi-bearer RF mesh
   if (normalizedPacket.ttl > 1) {
     const relayedPacket: SOSPacket = {
       ...normalizedPacket,
       ttl: normalizedPacket.ttl - 1,
     };
-    broadcastPacketToChannel(relayedPacket);
+    broadcastPacketToRadioAndChannel(relayedPacket);
   }
 
   notifyListeners();
 }
 
-function broadcastPacketToChannel(packet: SOSPacket) {
+/**
+ * Broadcasts packet across physical RF transports (LoRa, BLE, WiFi Aware) and local sync channels
+ */
+async function broadcastPacketToRadioAndChannel(packet: SOSPacket) {
+  // 1. BroadcastChannel (local cross-tab sync)
   if (sosChannel) {
     try {
       sosChannel.postMessage(packet);
@@ -95,6 +102,7 @@ function broadcastPacketToChannel(packet: SOSPacket) {
     }
   }
 
+  // 2. Storage fallback for local web session isolation
   if (typeof window !== 'undefined') {
     try {
       localStorage.setItem('hoimu_sos_broadcast_packet', JSON.stringify({ ...packet, _nonce: Math.random() }));
@@ -102,15 +110,84 @@ function broadcastPacketToChannel(packet: SOSPacket) {
       // Storage error fallback
     }
   }
+
+  // 3. Multi-bearer physical Mesh Transport (BLE Coded PHY, WiFi Aware, LoRa Bridge)
+  try {
+    await meshTransportManager.send({
+      id: packet.id || `mesh_sos_${Date.now()}`,
+      type: 'SOS',
+      senderId: packet.from,
+      senderCallsign: packet.from,
+      targetId: 'broadcast',
+      targetCallsign: '*',
+      payload: packet,
+      timestamp: packet.timestamp,
+      ttl: packet.ttl,
+      hopCount: 0,
+    });
+  } catch (e) {
+    console.warn('[SosService] MeshTransportManager broadcast warning:', e);
+  }
+
+  // 4. Direct LoRa Radio Gateway flood via Pi Zero 2 W Bridge if reachable
+  try {
+    await executeBridgeCommand('broadcast', {
+      type: 'sos',
+      payload: packet,
+    });
+  } catch {
+    // Pi Bridge offline / disconnected fallback
+  }
 }
 
 /**
- * Initialize SOS emergency service listeners and BroadcastChannel
+ * Attempt to retrieve device GPS coordinates
+ */
+async function getDeviceCoordinates(customLat?: number, customLng?: number): Promise<{ lat?: number; lng?: number; locationUnavailable: boolean }> {
+  if (customLat !== undefined && customLng !== undefined) {
+    return { lat: customLat, lng: customLng, locationUnavailable: false };
+  }
+
+  if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          timeout: 2000,
+          maximumAge: 60000,
+          enableHighAccuracy: true,
+        });
+      });
+      return {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+        locationUnavailable: false,
+      };
+    } catch {
+      // GPS not available or denied
+    }
+  }
+
+  return {
+    locationUnavailable: true,
+  };
+}
+
+/**
+ * Initialize SOS emergency service listeners and physical transport subscribers
  */
 export function initSosService(): void {
   if (isInitialized) return;
 
   loadFromLocalStorage();
+
+  // Multi-bearer mesh listener for emergency packets
+  if (!transportUnsub) {
+    transportUnsub = meshTransportManager.subscribe((meshPacket) => {
+      if (meshPacket.type === 'SOS' || (meshPacket.payload && meshPacket.payload.type === 'SOS')) {
+        handleIncomingSosPacket(meshPacket.payload as SOSPacket);
+      }
+    });
+  }
 
   if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
     try {
@@ -140,25 +217,25 @@ export function initSosService(): void {
 }
 
 /**
- * Broadcast an emergency SOS packet across the mesh.
- * - TTL: 10
- * - Priority: MAX
- * - Bypasses normal sync throttling
+ * Broadcast an emergency SOS packet across the mesh and physical radio layers.
+ * - TTL: 10 (Emergency flood routing)
+ * - Priority: CRITICAL / MAX
+ * - Coordinates: Genuine GPS from device or marked locationUnavailable (no fake defaults)
  */
 export async function broadcastSOS(reason?: string, customLat?: number, customLng?: number): Promise<SOSPacket> {
   initSosService();
 
   const user = INITIAL_USER;
-  const lat = customLat ?? 47.6062; // Default Cascadia / Seattle regional lat
-  const lng = customLng ?? -122.3321; // Default Cascadia / Seattle regional lng
+  const coords = await getDeviceCoordinates(customLat, customLng);
   const timestamp = Date.now();
   const packetId = `sos_${user.callsign}_${timestamp}`;
 
   const packet: SOSPacket = {
     type: 'SOS',
     from: user.callsign,
-    lat,
-    lng,
+    lat: coords.lat,
+    lng: coords.lng,
+    locationUnavailable: coords.locationUnavailable,
     timestamp,
     ttl: 10, // High relay TTL for emergency flood routing
     reason: reason || 'EMERGENCY BEACON ACTIVATED — IMMEDIATE ASSISTANCE REQUIRED',
@@ -170,15 +247,15 @@ export async function broadcastSOS(reason?: string, customLat?: number, customLn
   sosHistory.unshift(packet);
   saveToLocalStorage();
 
-  // Immediate mesh flood broadcast (bypasses queue throttling)
-  broadcastPacketToChannel(packet);
+  // Transmit over real RF physical bearers and gateway channels
+  await broadcastPacketToRadioAndChannel(packet);
 
   notifyListeners();
   return packet;
 }
 
 /**
- * Acknowledge an active SOS alert, marking it as dismissed
+ * Acknowledge an active SOS alert, marking it as dismissed and propagating the ACK over RF
  */
 export function acknowledgeSos(idOrFrom: string): void {
   initSosService();
@@ -190,8 +267,8 @@ export function acknowledgeSos(idOrFrom: string): void {
       if (!packet.acknowledged) {
         updated = true;
         const acked = { ...packet, acknowledged: true };
-        // Broadcast acknowledgement to other mesh nodes
-        broadcastPacketToChannel(acked);
+        // Broadcast acknowledgement to other mesh nodes over RF & channel
+        broadcastPacketToRadioAndChannel(acked);
         return acked;
       }
     }
@@ -212,6 +289,10 @@ export function clearSosServiceForTesting(): void {
   activeAlerts = [];
   isInitialized = false;
   listeners.clear();
+  if (transportUnsub) {
+    transportUnsub();
+    transportUnsub = null;
+  }
   if (typeof window !== 'undefined') {
     try {
       localStorage.removeItem(SOS_STORAGE_KEY);
@@ -242,7 +323,6 @@ export function getAllSosHistory(): SOSPacket[] {
 export function subscribeToSos(callback: (alerts: SOSPacket[]) => void): () => void {
   initSosService();
   listeners.add(callback);
-  // Immediate invocation with current active alerts
   callback(getActiveSosAlerts());
   return () => {
     listeners.delete(callback);

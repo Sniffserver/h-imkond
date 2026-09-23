@@ -313,14 +313,35 @@ export interface JournalEntry {
   scoreDelta: number;
 }
 
+export interface MeshMessageEnvelope {
+  version: 1;
+  id: string;
+  sender: string;
+  recipient: string;
+  ephemeralPublicKey: string; // 32-byte X25519 ephemeral public key (hex)
+  nonce: string; // 12-byte AES-GCM IV (hex)
+  salt: string; // 16-byte HKDF salt (hex)
+  ciphertext: string; // Base64 AES-256-GCM ciphertext + tag
+  signature: string; // Ed25519 signature (hex)
+  senderIdentityKey: string; // 32-byte Ed25519 sender identity key (hex)
+  ttl: number;
+  createdAt: number;
+}
+
 export interface MeshMessage {
   id: string;
   from: string; // callsign
   to: string;   // callsign
-  content: string; // encrypted base64
+  content: string; // encrypted base64 envelope or payload
   timestamp: number;
   ttl: number;  // hops remaining
   signature: string;
+
+  // Modern dual-key E2EE envelope metadata
+  envelope?: MeshMessageEnvelope;
+  ephemeralPublicKey?: string;
+  nonce?: string;
+  senderIdentityKey?: string;
 
   // Optional convenience fields for backwards compatibility and local UI display
   senderId?: string;
@@ -340,8 +361,9 @@ export interface MeshMessage {
 export interface SOSPacket {
   type: 'SOS';
   from: string;
-  lat: number;
-  lng: number;
+  lat?: number;
+  lng?: number;
+  locationUnavailable?: boolean;
   timestamp: number;
   ttl: number;
   reason?: string;
@@ -380,10 +402,12 @@ export interface ToastMessage {
 }
 
 export interface CryptoIdentity {
-  publicKey: string;
+  publicKey: string; // Ed25519 identity signing key
   privateKeyJwk?: string;
   algorithm: string;
   createdAt: number;
+  encryptionPublicKey?: string; // X25519 E2EE key agreement public key
+  encryptionAlgorithm?: string;
 }
 
 export interface WishlistItem {

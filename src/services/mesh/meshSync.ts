@@ -2,29 +2,43 @@ import { MeshMessage } from '../../types';
 import { INITIAL_USER } from '../../data/initialData';
 import { saveIncomingMessage } from '../comms/messageService';
 import { useMeshStore } from '../../store/meshStore';
+import { meshTransportManager } from './transport';
+import { seenPacketCache, SeenPacketCache } from './routing/SeenPacketCache';
+import { createMeshPacket, isPacketExpired } from './routing/packetProtocol';
+import { MeshPacket } from './transport/types';
+import { meshDb, PersistentOutboxRecord } from './db/meshDatabase';
+import { crdtEventLogEngine, CRDTEvent } from './crdt/signedEventLog';
 
 export interface MeshSyncPayload {
   senderId: string;
   senderCallsign: string;
   timestamp: number;
   messages: MeshMessage[]; // max 5 packets per sync (store-and-forward friendly)
+  crdtEvents?: CRDTEvent[]; // Genuine signed CRDT event log delta
+  vectorClock?: Record<string, number>; // Version vector snapshot
   crdtData?: {
     version: number;
     resourceCount?: number;
   };
 }
 
-const SYNC_CHANNEL_NAME = 'hoimu_mesh_sync_channel';
+export type DeliveryStatus = 'queued' | 'transmitted' | 'relayed' | 'delivered';
+
+export interface QueuedDeliveryItem {
+  message: MeshMessage;
+  queuedAt: number;
+  status: DeliveryStatus;
+  transmittedAt?: number;
+}
+
 const MAX_PACKETS_PER_SYNC = 5;
 
-// Store seen message IDs to prevent relay loops
-const seenMessageIds = new Set<string>();
-
-// Outbox of messages awaiting sync/relay
-let outboxQueue: MeshMessage[] = [];
+// In-memory working cache for pending outbox items (synced with IndexedDB)
+let outboxQueue: QueuedDeliveryItem[] = [];
+// History of processed deliveries for delivery tracking
+let deliveryHistory: Map<string, QueuedDeliveryItem> = new Map();
 
 let isInitialized = false;
-let syncChannel: BroadcastChannel | null = null;
 let periodicSyncIntervalMs = 8000;
 let periodicSyncTimerId: any = null;
 
@@ -69,10 +83,15 @@ function notifySyncListeners() {
 }
 
 /**
- * Handle incoming mesh sync payload from other browser tabs or simulated radio nodes
+ * Handle incoming mesh sync payload from other radio nodes or browser tabs (Routing & CRDT State).
+ * 
+ * Routing semantics:
+ * - Checks SeenPacketCache (bounded LRU with expiration) to drop duplicates and loops.
+ * - Ingests signed CRDT events into CRDT Event Log engine.
+ * - Delivery state (outbox) is completely decoupled from seen packet routing cache.
  */
-async function handleIncomingSyncPayload(payload: MeshSyncPayload) {
-  if (!payload || !payload.messages) return;
+export async function handleIncomingSyncPayload(payload: MeshSyncPayload, fromTransport?: string) {
+  if (!payload) return;
 
   const myCallsign = INITIAL_USER.callsign.toLowerCase();
 
@@ -81,49 +100,75 @@ async function handleIncomingSyncPayload(payload: MeshSyncPayload) {
 
   lastSyncTimestamp = Date.now();
 
+  // 1. Ingest Signed CRDT Events (if present in payload)
+  if (payload.crdtEvents && payload.crdtEvents.length > 0) {
+    try {
+      crdtEventLogEngine.ingestEvents(payload.crdtEvents, true);
+    } catch (crdtErr) {
+      console.warn('[MeshSync] Error ingesting CRDT events:', crdtErr);
+    }
+  }
+
   // Trigger ripple animation across UI mesh nodes indicating successful data propagation
   try {
     useMeshStore.getState().triggerSyncPulse({
       peerId: payload.senderId,
       callsign: payload.senderCallsign,
       timestamp: payload.timestamp || Date.now(),
-      packetCount: payload.messages?.length || 1,
+      packetCount: (payload.messages?.length || 0) + (payload.crdtEvents?.length || 0) || 1,
       isBackgroundSync: true,
     });
   } catch (err) {
     console.warn('[MeshSync] Error triggering sync pulse on mesh nodes:', err);
   }
 
+  if (!payload.messages) return;
+
   for (const message of payload.messages) {
     if (!message || !message.id) continue;
 
-    // Check if we've already processed this packet
-    if (seenMessageIds.has(message.id)) {
-      continue;
+    // 2. Check Routing State: Has this node already processed/relayed this packet?
+    if (seenPacketCache.has(message.id)) {
+      continue; // Duplicate / loop prevention: discard silently
     }
-    seenMessageIds.add(message.id);
+
+    // 3. Ingest packet into Routing State (mark as processed in bounded cache with TTL)
+    const packetTtlMs = Math.max(60000, (message.ttl || 3) * 60000);
+    seenPacketCache.add(message.id, packetTtlMs, undefined, {
+      originId: message.from,
+    });
+
+    // Also persist seen packet record
+    meshDb.saveSeenPacket({
+      packetId: message.id,
+      firstSeen: Date.now(),
+      expires: Date.now() + packetTtlMs,
+      originId: message.from,
+    }).catch(() => {});
 
     const targetCallsign = (message.to || message.recipientCallsign || '').toLowerCase();
+    const isBroadcast = targetCallsign === '*' || targetCallsign === 'broadcast';
+    const isForMe = targetCallsign === myCallsign;
 
-    if (targetCallsign === myCallsign) {
+    if (isForMe || isBroadcast) {
       // Packet has arrived at destination! Decrypt and save locally
       await saveIncomingMessage(message);
-    } else {
-      // Store-and-forward relay: Decrement TTL if hops remain
-      if (message.ttl > 1) {
-        const relayedMessage: MeshMessage = {
-          ...message,
-          ttl: message.ttl - 1,
-          hopCount: (message.hopCount || 1) + 1,
-          status: 'pending',
-        };
+    }
 
-        // Queue for relay in next sync cycle
-        queueMessageForSync(relayedMessage);
+    // 4. Store-and-forward relay if packet is not strictly unicast to me and TTL > 1
+    if (!isForMe && message.ttl > 1) {
+      const relayedMessage: MeshMessage = {
+        ...message,
+        ttl: message.ttl - 1,
+        hopCount: (message.hopCount || 1) + 1,
+        status: 'pending',
+      };
 
-        // Also save to local storage for store-and-forward persistence
-        await saveIncomingMessage(relayedMessage);
-      }
+      // Queue for transmission in next sync burst (Delivery State)
+      enqueueMessage(relayedMessage, 'relayed');
+
+      // Persist for offline store-and-forward reliability
+      await saveIncomingMessage(relayedMessage);
     }
   }
 
@@ -131,105 +176,176 @@ async function handleIncomingSyncPayload(payload: MeshSyncPayload) {
 }
 
 /**
- * Initialize BroadcastChannel and background mesh sync loop
+ * Initialize MeshTransportManager, persistent DB loading, and background mesh sync loop
  */
 export function initMeshSync(): void {
   if (isInitialized) return;
 
-  if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
-    try {
-      syncChannel = new BroadcastChannel(SYNC_CHANNEL_NAME);
-      syncChannel.onmessage = (event) => {
-        handleIncomingSyncPayload(event.data);
-      };
-    } catch (e) {
-      console.warn('[MeshSync] BroadcastChannel init warning:', e);
-    }
-  }
+  // Initialize persistent CRDT engine
+  crdtEventLogEngine.init().catch((err) => {
+    console.warn('[MeshSync] CRDT init warning:', err);
+  });
 
-  // Cross-tab fallback via storage events for broader browser compatibility
-  if (typeof window !== 'undefined') {
-    window.addEventListener('storage', (event) => {
-      if (event.key === 'hoimu_mesh_sync_packet' && event.newValue) {
-        try {
-          const payload = JSON.parse(event.newValue);
-          handleIncomingSyncPayload(payload);
-        } catch {
-          // Ignore parse errors
+  // Restore pending outbox queue from persistent IndexedDB store
+  meshDb.getPendingOutboxItems().then((savedItems) => {
+    if (savedItems && savedItems.length > 0) {
+      savedItems.forEach((rec) => {
+        if (!outboxQueue.some((q) => q.message.id === rec.id)) {
+          outboxQueue.push({
+            message: rec.message,
+            queuedAt: rec.queuedAt,
+            status: rec.status,
+            transmittedAt: rec.transmittedAt,
+          });
         }
-      }
-    });
-  }
+      });
+      notifySyncListeners();
+    }
+  }).catch((err) => {
+    console.warn('[MeshSync] Outbox load warning:', err);
+  });
 
-  // Start opportunistic periodic sync interval (managed dynamically by backgroundSyncAdjuster)
+  // Restore seen packets from persistent DB into cache
+  meshDb.loadSeenPackets().then((entries) => {
+    if (entries && entries.length > 0) {
+      entries.forEach((e) => {
+        if (Date.now() < e.expires) {
+          seenPacketCache.add(e.packetId, undefined, e.expires, { originId: e.originId });
+        }
+      });
+    }
+  }).catch(() => {});
+
+  // Start the underlying multi-bearer transport abstraction (BLE, LoRa, Wi-Fi Direct, BroadcastChannel)
+  meshTransportManager.start().catch((err) => {
+    console.warn('[MeshSync] Transport manager start warning:', err);
+  });
+
+  // Subscribe to packets arriving across ANY physical or simulated transport bearer
+  meshTransportManager.subscribe(async (packet: MeshPacket, fromTransport) => {
+    if (isPacketExpired(packet)) {
+      return; // Discard expired packets
+    }
+
+    if (packet.type === 'CRDT_SYNC' || packet.type === 'MESSAGE') {
+      const payload: MeshSyncPayload = packet.payload;
+      await handleIncomingSyncPayload(payload, fromTransport);
+    }
+  });
+
+  // Start opportunistic periodic sync interval
   restartPeriodicSyncTimer();
 
   isInitialized = true;
 }
 
 /**
- * Queue a message for the next CRDT sync burst (max 5 packets per sync)
+ * Enqueue a message into the local outbox and persists it to IndexedDB without immediate transmission.
+ * 
+ * Manages LOCAL DELIVERY STATE (outbox).
+ * Does NOT mark the packet as seen in the SeenPacketCache (routing state).
  */
-export function queueMessageForSync(message: MeshMessage): void {
-  // Prevent duplicate queuing of same message
-  if (!outboxQueue.some((m) => m.id === message.id)) {
-    outboxQueue.push(message);
-    seenMessageIds.add(message.id);
+export function enqueueMessage(message: MeshMessage, status: DeliveryStatus = 'queued'): QueuedDeliveryItem {
+  const existingIdx = outboxQueue.findIndex((item) => item.message.id === message.id);
+  const deliveryItem: QueuedDeliveryItem = {
+    message,
+    queuedAt: Date.now(),
+    status,
+  };
+
+  if (existingIdx >= 0) {
+    outboxQueue[existingIdx] = deliveryItem;
+  } else {
+    outboxQueue.push(deliveryItem);
   }
 
-  notifySyncListeners();
+  deliveryHistory.set(message.id, deliveryItem);
 
-  // Immediately broadcast if channel is ready
-  triggerMeshSync();
+  // Persist to IndexedDB `hoimu_mesh_db.outbox`
+  meshDb.saveOutboxItem({
+    id: message.id,
+    message,
+    queuedAt: deliveryItem.queuedAt,
+    status,
+  }).catch((err) => {
+    console.warn('[MeshSync] Failed to persist outbox record:', err);
+  });
+
+  notifySyncListeners();
+  return deliveryItem;
+}
+
+/**
+ * Queue a message for the next CRDT sync burst (max 5 packets per sync) and trigger immediate transmission.
+ */
+export function queueMessageForSync(message: MeshMessage): MeshSyncPayload | null {
+  enqueueMessage(message, 'queued');
+  return triggerMeshSync();
 }
 
 /**
  * Trigger an immediate store-and-forward mesh synchronization round.
- * Takes at most 5 packets from the outbox.
+ * Takes at most 5 packets from the outbox and attaches delta CRDT events.
  */
 export function triggerMeshSync(): MeshSyncPayload | null {
   if (!isInitialized) {
     initMeshSync();
   }
 
-  if (outboxQueue.length === 0) {
+  const deltaEvents = crdtEventLogEngine.getDeltaEvents(0, 10);
+  if (outboxQueue.length === 0 && deltaEvents.length === 0) {
     return null;
   }
 
   // Max 5 packets per sync (store-and-forward friendly requirement)
-  const batch = outboxQueue.splice(0, MAX_PACKETS_PER_SYNC);
+  const batchItems = outboxQueue.splice(0, MAX_PACKETS_PER_SYNC);
+  const now = Date.now();
+
+  // Update delivery status in memory and IndexedDB
+  batchItems.forEach((item) => {
+    item.status = 'transmitted';
+    item.transmittedAt = now;
+    deliveryHistory.set(item.message.id, item);
+
+    meshDb.saveOutboxItem({
+      id: item.message.id,
+      message: item.message,
+      queuedAt: item.queuedAt,
+      status: 'transmitted',
+      transmittedAt: now,
+    }).catch(() => {});
+  });
+
+  const batchMessages = batchItems.map((item) => item.message);
 
   const payload: MeshSyncPayload = {
     senderId: INITIAL_USER.id,
     senderCallsign: INITIAL_USER.callsign,
-    timestamp: Date.now(),
-    messages: batch,
+    timestamp: now,
+    messages: batchMessages,
+    crdtEvents: deltaEvents.length > 0 ? deltaEvents : undefined,
+    vectorClock: crdtEventLogEngine.getVectorClock(),
     crdtData: {
-      version: 1,
-      resourceCount: 0,
+      version: crdtEventLogEngine.getLamportClock() || 1,
+      resourceCount: crdtEventLogEngine.getActiveEntities('resource').length,
     },
   };
 
-  lastSyncTimestamp = Date.now();
+  lastSyncTimestamp = now;
 
-  // 1. BroadcastChannel transmission
-  if (syncChannel) {
-    try {
-      syncChannel.postMessage(payload);
-    } catch (err) {
-      console.warn('[MeshSync] postMessage error:', err);
-    }
-  }
+  // Wrap inside canonical MeshPacket with routing protocol headers
+  const meshPacket = createMeshPacket<MeshSyncPayload>({
+    originId: INITIAL_USER.id,
+    senderCallsign: INITIAL_USER.callsign,
+    destinationId: '*',
+    type: 'CRDT_SYNC',
+    ttl: 3,
+    payload,
+  });
 
-  // 2. LocalStorage backup broadcast
-  try {
-    localStorage.setItem(
-      'hoimu_mesh_sync_packet',
-      JSON.stringify({ ...payload, _nonce: Math.random() })
-    );
-  } catch {
-    // Ignore storage quota limits
-  }
+  meshTransportManager.send(meshPacket).catch((err) => {
+    console.warn('[MeshSync] Transport send error:', err);
+  });
 
   notifySyncListeners();
   return payload;
@@ -240,6 +356,43 @@ export function triggerMeshSync(): MeshSyncPayload | null {
  */
 export function getSyncQueueLength(): number {
   return outboxQueue.length;
+}
+
+/**
+ * Get current outbox items with delivery state
+ */
+export function getOutboxQueue(): QueuedDeliveryItem[] {
+  return [...outboxQueue];
+}
+
+/**
+ * Get full delivery history map
+ */
+export function getDeliveryHistory(): Map<string, QueuedDeliveryItem> {
+  return new Map(deliveryHistory);
+}
+
+/**
+ * Access the routing SeenPacketCache
+ */
+export function getSeenPacketCache(): SeenPacketCache {
+  return seenPacketCache;
+}
+
+/**
+ * Clear mesh sync state for test isolation
+ */
+export function clearMeshSyncForTesting(): void {
+  outboxQueue = [];
+  deliveryHistory.clear();
+  seenPacketCache.clear();
+  meshDb.clearMemoryStorage();
+  crdtEventLogEngine.clearForTesting();
+  isInitialized = false;
+  if (periodicSyncTimerId) {
+    clearInterval(periodicSyncTimerId);
+    periodicSyncTimerId = null;
+  }
 }
 
 /**

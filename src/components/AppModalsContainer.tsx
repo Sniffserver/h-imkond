@@ -394,47 +394,53 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
       />
 
       {/* 4. Reputation Breakdown Dialog */}
-      <ReputationBreakdownDialog
-        peer={selectedPeerForReputation}
-        onClose={() => setSelectedPeerForReputation(null)}
-        isNightMode={isNightMode}
-      />
+      {selectedPeerForReputation && (
+        <ReputationBreakdownDialog
+          peer={selectedPeerForReputation}
+          onClose={() => setSelectedPeerForReputation(null)}
+          isNightMode={isNightMode}
+        />
+      )}
 
       {/* 2. Peer Detail Bottom Sheet */}
-      <PeerDetailBottomSheet
-        peer={selectedPeerForDetail}
-        onClose={() => setSelectedPeerForDetail(null)}
-        isNightMode={isNightMode}
-        onOpenReputation={(peer) => {
-          setSelectedPeerForDetail(null);
-          setSelectedPeerForReputation(peer);
-        }}
-        onOpenChat={(peer) => {
-          setSelectedPeerForDetail(null);
-          handleOpenChatWithPeer(peer);
-        }}
-      />
+      {selectedPeerForDetail && (
+        <PeerDetailBottomSheet
+          peer={selectedPeerForDetail}
+          onClose={() => setSelectedPeerForDetail(null)}
+          isNightMode={isNightMode}
+          onOpenReputation={(peer) => {
+            setSelectedPeerForDetail(null);
+            setSelectedPeerForReputation(peer);
+          }}
+          onOpenChat={(peer) => {
+            setSelectedPeerForDetail(null);
+            handleOpenChatWithPeer(peer);
+          }}
+        />
+      )}
 
       {/* 3. Resource Detail Modal */}
-      <ResourceDetailModal
-        resource={selectedResourceForDetail}
-        transaction={activeResourceTransaction}
-        peer={activeResourcePeer}
-        onClose={() => setSelectedResourceForDetail(null)}
-        onRequestExchange={handleRequestExchange}
-        onCompleteExchange={(resource) => {
-          setSelectedResourceForDetail(null);
-          handleOpenReflection(resource);
-        }}
-        onOpenChat={(peer) => {
-          setSelectedResourceForDetail(null);
-          handleOpenChatWithPeer(peer);
-        }}
-        onOpenReputation={(peer) => {
-          setSelectedResourceForDetail(null);
-          setSelectedPeerForReputation(peer);
-        }}
-      />
+      {selectedResourceForDetail && (
+        <ResourceDetailModal
+          resource={selectedResourceForDetail}
+          transaction={activeResourceTransaction}
+          peer={activeResourcePeer}
+          onClose={() => setSelectedResourceForDetail(null)}
+          onRequestExchange={handleRequestExchange}
+          onCompleteExchange={(resource) => {
+            setSelectedResourceForDetail(null);
+            handleOpenReflection(resource);
+          }}
+          onOpenChat={(peer) => {
+            setSelectedResourceForDetail(null);
+            handleOpenChatWithPeer(peer);
+          }}
+          onOpenReputation={(peer) => {
+            setSelectedResourceForDetail(null);
+            setSelectedPeerForReputation(peer);
+          }}
+        />
+      )}
 
       {/* 4. Reflection Dialog */}
       <ReflectionDialog

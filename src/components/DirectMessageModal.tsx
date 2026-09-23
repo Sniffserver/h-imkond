@@ -221,10 +221,10 @@ export const DirectMessageModal: React.FC<DirectMessageModalProps> = ({
         >
           <div className="flex items-center gap-1.5">
             <Lock className="w-3.5 h-3.5 text-[#2A9D8F]" />
-            <span>End-to-End Encrypted (Ed25519 / AES-GCM-256)</span>
+            <span>End-to-End Encrypted (X25519 ECDH + HKDF + AES-GCM + Ed25519 Sign)</span>
           </div>
           <span className="text-[10px] font-semibold opacity-85">
-            Store-and-Forward TTL: 3
+            Store-and-Forward TTL: 5
           </span>
         </div>
 
@@ -246,7 +246,7 @@ export const DirectMessageModal: React.FC<DirectMessageModalProps> = ({
               <div>
                 <p className="font-display font-bold text-sm">Secure Channel Established</p>
                 <p className="text-xs text-opacity-80 max-w-xs mt-1 leading-relaxed">
-                  Messages are encrypted with {peer.callsign}'s Ed25519 public key, signed by your node, and relayed over peer-to-peer mesh sync.
+                  Messages are encrypted using ephemeral X25519 Diffie-Hellman with {peer.callsign}'s public key, signed by your Ed25519 identity key, and relayed over peer-to-peer mesh sync.
                 </p>
               </div>
             </div>
