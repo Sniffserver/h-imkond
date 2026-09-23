@@ -133,7 +133,7 @@ function getRandomValues(array: Uint8Array): Uint8Array {
 /**
  * Generate an Ed25519 identity keypair for signing and verification
  */
-export async function generateIdentityKeyPair(): Promise<{
+export async function generateIdentityKeyPair(extractable: boolean = false): Promise<{
   publicKeyHex: string;
   keyPair: CryptoKeyPair;
 }> {
@@ -141,7 +141,7 @@ export async function generateIdentityKeyPair(): Promise<{
   try {
     const keyPair = (await subtle.generateKey(
       { name: 'Ed25519' },
-      true,
+      extractable,
       ['sign', 'verify']
     )) as CryptoKeyPair;
     const pubRaw = await subtle.exportKey('raw', keyPair.publicKey);
@@ -152,7 +152,7 @@ export async function generateIdentityKeyPair(): Promise<{
     // ECDSA P-256 fallback if platform does not support Ed25519
     const keyPair = (await subtle.generateKey(
       { name: 'ECDSA', namedCurve: 'P-256' },
-      true,
+      extractable,
       ['sign', 'verify']
     )) as CryptoKeyPair;
     const pubRaw = await subtle.exportKey('spki', keyPair.publicKey);
@@ -164,7 +164,7 @@ export async function generateIdentityKeyPair(): Promise<{
 /**
  * Generate an X25519 keypair for key agreement and shared secret derivation
  */
-export async function generateEncryptionKeyPair(): Promise<{
+export async function generateEncryptionKeyPair(extractable: boolean = false): Promise<{
   publicKeyHex: string;
   keyPair: CryptoKeyPair;
 }> {
@@ -172,7 +172,7 @@ export async function generateEncryptionKeyPair(): Promise<{
   try {
     const keyPair = (await subtle.generateKey(
       { name: 'X25519' },
-      true,
+      extractable,
       ['deriveKey', 'deriveBits']
     )) as CryptoKeyPair;
     const pubRaw = await subtle.exportKey('raw', keyPair.publicKey);
@@ -183,7 +183,7 @@ export async function generateEncryptionKeyPair(): Promise<{
     // ECDH P-256 fallback if platform does not support X25519
     const keyPair = (await subtle.generateKey(
       { name: 'ECDH', namedCurve: 'P-256' },
-      true,
+      extractable,
       ['deriveKey', 'deriveBits']
     )) as CryptoKeyPair;
     const pubRaw = await subtle.exportKey('spki', keyPair.publicKey);

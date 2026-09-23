@@ -1,4 +1,3 @@
-import { estimateTileCountForBounds, downloadRasterTilesForBounds } from '../../services/map/rasterTileCacheService';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, useAnimation } from 'motion/react';
 import {
@@ -24,7 +23,7 @@ import { initPathfinderDB, getLoadedPathfinderData } from '../../utils/pathfinde
 import { CITY_MAPS } from '../../data/cityMaps';
 import { pedometerService } from '../../services/utils/pedometerService';
 import { deadReckoningService, DeadReckoningState } from '../../services/utils/deadReckoning';
-import { mapRevealService, localGridToGeoPoint, geoPointToLocalGrid } from '../../services/map/mapRevealService';
+import { mapRevealService, localGridToGeoPoint, geoPointToLocalGrid, parseCenterCoords } from '../../services/map/mapRevealService';
 import { useMeshStore, selectPeersArray } from '../../store/meshStore';
 import { StepProgressWidget } from '../../components/StepProgressWidget';
 import { SolarpunkAvatarCanvas } from '../../components/SolarpunkAvatarCanvas';
@@ -124,6 +123,10 @@ interface MapViewTabProps {
   onUpdateUser: (updated: Partial<UserProfile>) => void;
   onAddToast?: (title: string, desc?: string, type?: 'success' | 'warning' | 'info') => void;
   isNightMode?: boolean;
+  themeMode?: 'auto' | 'day' | 'night';
+  fieldDisplayMode?: 'normal' | 'night' | 'red';
+  onSetThemeMode?: (mode: 'auto' | 'day' | 'night') => void;
+  onSetFieldDisplayMode?: (mode: 'normal' | 'night' | 'red') => void;
   filterOnlyNew?: boolean;
   onViewResourceDetails: (resource: ResourceItem) => void;
   onSelectPeer: (peer: MeshNode) => void;
@@ -147,6 +150,10 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
   onUpdateUser,
   onAddToast,
   isNightMode = false,
+  themeMode = 'auto',
+  fieldDisplayMode = 'normal',
+  onSetThemeMode,
+  onSetFieldDisplayMode,
   filterOnlyNew = false,
   onViewResourceDetails,
   onSelectPeer,
@@ -397,8 +404,11 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
   // Sync GPS updates with deadReckoningService
   useEffect(() => {
     if (storeGps) {
-      const latDiffKm = (storeGps.lat - (activeCity.centerCoords?.[0] || 58.3780)) * 110.574;
-      const lngDiffKm = (storeGps.lng - (activeCity.centerCoords?.[1] || 26.7290)) * (111.32 * Math.cos(((activeCity.centerCoords?.[0] || 58.3780) * Math.PI) / 180));
+      const activeCenter = parseCenterCoords(activeCity.centerCoordsText);
+      const cityLat = activeCity.centerCoords?.[0] || activeCenter.lat;
+      const cityLng = activeCity.centerCoords?.[1] || activeCenter.lng;
+      const latDiffKm = (storeGps.lat - cityLat) * 110.574;
+      const lngDiffKm = (storeGps.lng - cityLng) * (111.32 * Math.cos((cityLat * Math.PI) / 180));
       const wx = Math.round(lngDiffKm * 100);
       const wy = Math.round(-latDiffKm * 100);
 
@@ -408,18 +418,9 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
 
   const gpsPosition = useMemo(() => {
     if (!storeGps) return null;
-    let cityLat = 58.3780;
-    let cityLng = 26.7290;
-    if (activeCity.centerCoords) {
-      cityLat = activeCity.centerCoords[0];
-      cityLng = activeCity.centerCoords[1];
-    } else if (activeCity.centerCoordsText) {
-      const match = activeCity.centerCoordsText.match(/([\d.]+)°\s*([NS]),\s*([\d.]+)°\s*([EW])/);
-      if (match) {
-        cityLat = parseFloat(match[1]) * (match[2] === 'S' ? -1 : 1);
-        cityLng = parseFloat(match[3]) * (match[4] === 'W' ? -1 : 1);
-      }
-    }
+    const activeCenter = parseCenterCoords(activeCity.centerCoordsText);
+    const cityLat = activeCity.centerCoords?.[0] || activeCenter.lat;
+    const cityLng = activeCity.centerCoords?.[1] || activeCenter.lng;
 
     const latDiffKm = (storeGps.lat - cityLat) * 110.574;
     const lngDiffKm = (storeGps.lng - cityLng) * (111.32 * Math.cos((cityLat * Math.PI) / 180));
@@ -458,78 +459,8 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
     offlineMapService.getDownloadedRegions()
   );
 
-  // Viewport Cache State
-  const [isViewportCacheModalOpen, setIsViewportCacheModalOpen] = useState(false);
-  const [viewportCacheStatus, setViewportCacheStatus] = useState<'idle' | 'estimating' | 'downloading' | 'done'>('idle');
-  const [viewportCacheBounds, setViewportCacheBounds] = useState<{minLat: number, maxLat: number, minLng: number, maxLng: number} | null>(null);
-  const [viewportCacheCount, setViewportCacheCount] = useState<number>(0);
-  const [viewportCacheProgress, setViewportCacheProgress] = useState<{downloaded: number, total: number}>({downloaded: 0, total: 0});
-
   const handleOpenViewportCache = async () => {
-    const activeCity = CITY_MAPS[selectedCityId];
-    if (!activeCity) return;
-    
-    setIsViewportCacheModalOpen(true);
-    setViewportCacheStatus('estimating');
-    
-    // Calculate viewport bounds in local grid coordinates
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    const minX = -transform.offsetX / transform.scale;
-    const maxX = (w - transform.offsetX) / transform.scale;
-    const minY = -transform.offsetY / transform.scale;
-    const maxY = (h - transform.offsetY) / transform.scale;
-
-    const tl = localGridToGeoPoint(minX, minY, activeCity.centerCoordsText);
-    const br = localGridToGeoPoint(maxX, maxY, activeCity.centerCoordsText);
-    const bl = localGridToGeoPoint(minX, maxY, activeCity.centerCoordsText);
-    const tr = localGridToGeoPoint(maxX, minY, activeCity.centerCoordsText);
-    
-    const lats = [tl.latitude, br.latitude, bl.latitude, tr.latitude];
-    const lngs = [tl.longitude, br.longitude, bl.longitude, tr.longitude];
-    
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const minLng = Math.min(...lngs);
-    const maxLng = Math.max(...lngs);
-    
-    setViewportCacheBounds({ minLat, maxLat, minLng, maxLng });
-    
-    try {
-            const count = estimateTileCountForBounds(minLat, maxLat, minLng, maxLng, 12, 15);
-      setViewportCacheCount(count);
-      setViewportCacheStatus('idle');
-    } catch (e) {
-      setViewportCacheStatus('idle');
-    }
-  };
-
-  const handleStartViewportCache = async () => {
-    if (!viewportCacheBounds) return;
-    setViewportCacheStatus('downloading');
-    setViewportCacheProgress({ downloaded: 0, total: viewportCacheCount });
-    
-    try {
-            await downloadRasterTilesForBounds(
-        viewportCacheBounds.minLat,
-        viewportCacheBounds.maxLat,
-        viewportCacheBounds.minLng,
-        viewportCacheBounds.maxLng,
-        12,
-        15,
-        (downloaded, total) => {
-          setViewportCacheProgress({ downloaded, total });
-        }
-      );
-      setViewportCacheStatus('done');
-      setTimeout(() => {
-        setIsViewportCacheModalOpen(false);
-        if (onAddToast) onAddToast('🌐 Vaateväli vahemällu salvestatud', 'Kõik rasterkaardi kihid on nüüd saadaval võrguühenduseta.', 'success');
-      }, 1500);
-    } catch (e) {
-      console.error(e);
-      setViewportCacheStatus('idle');
-    }
+    setIsOfflineDownloadOpen(true);
   };
 
 
@@ -855,18 +786,9 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
           setIsLocatingGps(false);
           const { latitude, longitude, accuracy } = pos.coords;
           
-          let cityLat = 58.3780;
-          let cityLng = 26.7290;
-          if (activeCity.centerCoords) {
-            cityLat = activeCity.centerCoords[0];
-            cityLng = activeCity.centerCoords[1];
-          } else if (activeCity.centerCoordsText) {
-            const match = activeCity.centerCoordsText.match(/([\d.]+)°\s*([NS]),\s*([\d.]+)°\s*([EW])/);
-            if (match) {
-              cityLat = parseFloat(match[1]) * (match[2] === 'S' ? -1 : 1);
-              cityLng = parseFloat(match[3]) * (match[4] === 'W' ? -1 : 1);
-            }
-          }
+          const activeCenter = parseCenterCoords(activeCity.centerCoordsText);
+          const cityLat = activeCity.centerCoords?.[0] || activeCenter.lat;
+          const cityLng = activeCity.centerCoords?.[1] || activeCenter.lng;
 
           const latDiffKm = (latitude - cityLat) * 110.574;
           const lngDiffKm = (longitude - cityLng) * (111.32 * Math.cos((cityLat * Math.PI) / 180));
@@ -1049,12 +971,9 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
   useEffect(() => {
     if (pathfinderState.isRecording && autoFollowWalk && pathfinderState.currentLocation) {
       const { latitude, longitude } = pathfinderState.currentLocation;
-      let cityLat = 58.3780;
-      let cityLng = 26.7290;
-      if (activeCity.centerCoords) {
-        cityLat = activeCity.centerCoords[0];
-        cityLng = activeCity.centerCoords[1];
-      }
+      const activeCenter = parseCenterCoords(activeCity.centerCoordsText);
+      const cityLat = activeCity.centerCoords?.[0] || activeCenter.lat;
+      const cityLng = activeCity.centerCoords?.[1] || activeCenter.lng;
       const latDiffKm = (latitude - cityLat) * 110.574;
       const lngDiffKm = (longitude - cityLng) * (111.32 * Math.cos((cityLat * Math.PI) / 180));
       const worldX = Math.round(lngDiffKm * 100);
@@ -1682,18 +1601,9 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
           setIsLocatingGps(false);
           const { latitude, longitude, accuracy } = pos.coords;
 
-          let cityLat = 58.3780;
-          let cityLng = 26.7290;
-          if (activeCity.centerCoords) {
-            cityLat = activeCity.centerCoords[0];
-            cityLng = activeCity.centerCoords[1];
-          } else if (activeCity.centerCoordsText) {
-            const match = activeCity.centerCoordsText.match(/([\d.]+)°\s*([NS]),\s*([\d.]+)°\s*([EW])/);
-            if (match) {
-              cityLat = parseFloat(match[1]) * (match[2] === 'S' ? -1 : 1);
-              cityLng = parseFloat(match[3]) * (match[4] === 'W' ? -1 : 1);
-            }
-          }
+          const activeCenter = parseCenterCoords(activeCity.centerCoordsText);
+          const cityLat = activeCity.centerCoords?.[0] || activeCenter.lat;
+          const cityLng = activeCity.centerCoords?.[1] || activeCenter.lng;
 
           const latDiffKm = (latitude - cityLat) * 110.574;
           const lngDiffKm = (longitude - cityLng) * (111.32 * Math.cos((cityLat * Math.PI) / 180));
@@ -2951,6 +2861,10 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
             userSymbiosisScore={userSymbiosisScore}
             userCallsign={userCallsign}
             isNightMode={isNightMode}
+            themeMode={themeMode}
+            fieldDisplayMode={fieldDisplayMode}
+            onSetThemeMode={onSetThemeMode}
+            onSetFieldDisplayMode={onSetFieldDisplayMode}
             showMeshLinks={effectiveShowMeshLinks}
             showNodeFreshness={showNodeFreshness}
             showDensityHeatmap={effectiveShowDensityHeatmap}
@@ -2998,6 +2912,7 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
             showPathfinderLayer={showPathfinderLayer}
             onSelectPathfinderSpot={(spot) => setSelectedPathfinderSpot(spot)}
             onToggleFallback={() => setUseWebGl(false)}
+            onCenterOnUser={handleCenterOnMyNode}
             isWalkToRevealEnabled={isWalkToRevealEnabled}
             revealedCircles={revealedCircles}
             simulatedUserPos={simulatedUserPos}
@@ -4351,94 +4266,6 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
       />
 
 
-      {/* Viewport Raster Cache Modal */}
-      {isViewportCacheModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => viewportCacheStatus !== 'downloading' && setIsViewportCacheModalOpen(false)} />
-          <div className={`relative w-full max-w-sm p-5 rounded-3xl shadow-2xl border animate-in fade-in zoom-in-95 duration-200 ${
-            isNightMode ? 'bg-[#141E12] border-[#2A3B26]' : 'bg-[#FAF6EE] border-[#87A878]/30'
-          }`}>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className={`p-2 rounded-xl ${isNightMode ? 'bg-[#2A9D8F]/20 text-[#2A9D8F]' : 'bg-[#2A9D8F]/10 text-[#2A9D8F]'}`}>
-                  <HardDrive className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className={`font-bold text-sm ${isNightMode ? 'text-[#F0F5EE]' : 'text-[#203A2A]'}`}>
-                    Salvesta Rasterkaardi Vaateväli
-                  </h3>
-                  <p className="text-[10px] text-[#637062] dark:text-[#A8BDA5]">
-                    Puhverda aktiivne piirkond Wi-Fi kaudu
-                  </p>
-                </div>
-              </div>
-              {viewportCacheStatus !== 'downloading' && (
-                <button
-                  type="button"
-                  onClick={() => setIsViewportCacheModalOpen(false)}
-                  className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5"
-                >
-                  <X className="w-4 h-4 text-[#637062]" />
-                </button>
-              )}
-            </div>
-            
-            <div className="space-y-4">
-              {viewportCacheStatus === 'estimating' ? (
-                <div className="py-6 text-center text-[#637062] dark:text-[#A8BDA5]">
-                  <div className="inline-block w-5 h-5 border-2 border-[#2A9D8F] border-t-transparent rounded-full animate-spin mb-2" />
-                  <p className="text-xs">Arvutan kaardipaanide mahtu...</p>
-                </div>
-              ) : viewportCacheStatus === 'downloading' ? (
-                <div className="py-4 space-y-3">
-                  <div className="flex justify-between text-xs font-bold text-[#203A2A] dark:text-[#F0F5EE]">
-                    <span>Laadin alla ({viewportCacheProgress.downloaded} / {viewportCacheProgress.total})</span>
-                    <span>{Math.round((viewportCacheProgress.downloaded / Math.max(1, viewportCacheProgress.total)) * 100)}%</span>
-                  </div>
-                  <div className="w-full h-2 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
-                    <div 
-                      className="h-full bg-[#2A9D8F] transition-all duration-300" 
-                      style={{ width: `${(viewportCacheProgress.downloaded / Math.max(1, viewportCacheProgress.total)) * 100}%` }} 
-                    />
-                  </div>
-                  <p className="text-[10px] text-center text-[#637062] dark:text-[#A8BDA5]">
-                    Palun oota, allalaadimine käib (ära sulge rakendust)
-                  </p>
-                </div>
-              ) : viewportCacheStatus === 'done' ? (
-                <div className="py-6 text-center">
-                  <div className="inline-flex p-3 rounded-full bg-[#2A9D8F]/20 text-[#2A9D8F] mb-2">
-                    <CheckCircle2 className="w-6 h-6" />
-                  </div>
-                  <p className="text-sm font-bold text-[#203A2A] dark:text-[#F0F5EE]">Allalaaditud!</p>
-                </div>
-              ) : (
-                <>
-                  <div className={`p-3 rounded-2xl border flex items-center gap-3 ${isNightMode ? 'bg-[#182315] border-[#2A3B26]' : 'bg-white border-[#87A878]/30'}`}>
-                    <div className="flex-1">
-                      <p className="text-xs font-bold text-[#203A2A] dark:text-[#F0F5EE]">Paanide hulk</p>
-                      <p className="text-[10px] text-[#637062] dark:text-[#A8BDA5]">Kõik suumitasemed (Z12-Z15)</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-[#2A9D8F]">{viewportCacheCount.toLocaleString()}</p>
-                      <p className="text-[10px] text-[#637062]">Hinnanguline maht: ~{Math.ceil(viewportCacheCount * 0.02)} MB</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleStartViewportCache}
-                    disabled={viewportCacheCount === 0}
-                    className="w-full py-3 rounded-2xl bg-[#2A9D8F] text-white font-bold text-sm hover:bg-[#238276] disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Alusta Allalaadimist</span>
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Pathfinder Mode Control Center & Novelty Radar Modal */}
       {isPathfinderModalOpen && (
         <React.Suspense fallback={null}>
@@ -4450,10 +4277,11 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
             onUpdateFilter={setPathfinderFilter}
             onCenterMapOnLocation={(lat, lon) => {
               // Convert lat/lon to world coords and center map
-              const centerLat = 58.3780;
-              const centerLon = 26.7290;
-              const worldX = (lon - centerLon) * 5828.0;
-              const worldY = -(lat - centerLat) * 11113.9;
+              const activeCenter = parseCenterCoords(activeCity.centerCoordsText);
+              const centerLat = activeCity.centerCoords?.[0] || activeCenter.lat;
+              const centerLon = activeCity.centerCoords?.[1] || activeCenter.lng;
+              const worldX = (lon - centerLon) * (111.32 * Math.cos((centerLat * Math.PI) / 180) * 100);
+              const worldY = -(lat - centerLat) * 11057.4;
               setTransform((prev) => ({
                 ...prev,
                 offsetX: -worldX * prev.scale,

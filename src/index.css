@@ -1,9 +1,108 @@
 @import "tailwindcss";
 
+:root {
+  /* HÕIMU Day: Warm paper, organic forest greens, warm sunlight accents */
+  --hm-bg: #FAF6EE;
+  --hm-surface: #FFFFFF;
+  --hm-surface-2: #F0F4ED;
+  --hm-border: #D7E1D1;
+  --hm-border-subtle: rgba(135, 168, 120, 0.25);
+  --hm-text: #243128;
+  --hm-text-muted: #637062;
+
+  --hm-primary: #588157;
+  --hm-primary-hover: #486d47;
+  --hm-accent: #E9C46A;
+  --hm-info: #2A9D8F;
+  --hm-danger: #E76F51;
+
+  --hm-focus-ring: #87A878;
+}
+
+/* HÕIMU Green Night: Low luminance, low glare, low blue OLED field map */
+html[data-theme="night"],
+html.dark {
+  --hm-bg: #10160F;
+  --hm-surface: #172018;
+  --hm-surface-2: #1B281C;
+  --hm-border: #334231;
+  --hm-border-subtle: rgba(54, 78, 48, 0.45);
+  --hm-text: #E5EBDD;
+  --hm-text-muted: #95A18F;
+
+  --hm-primary: #8FA875;
+  --hm-primary-hover: #A4BD8A;
+  --hm-accent: #D9B85C;
+  --hm-info: #4CA99C;
+  --hm-danger: #FF715C;
+
+  --hm-focus-ring: #D9B85C;
+}
+
+/* HÕIMU Red Night Vision: Pure red light tactical stealth mode */
+html[data-display="red"],
+html[data-theme="red"] {
+  --hm-bg: #080000;
+  --hm-surface: #120000;
+  --hm-surface-2: #1A0000;
+  --hm-border: #3E0B0F;
+  --hm-border-subtle: rgba(100, 20, 25, 0.5);
+  --hm-text: #FF5A5A;
+  --hm-text-muted: #9A4040;
+
+  --hm-primary: #FF3B30;
+  --hm-primary-hover: #FF554A;
+  --hm-accent: #FF6B4A;
+  --hm-info: #D9383A;
+  --hm-danger: #FF2A2A;
+
+  --hm-focus-ring: #FF3B30;
+}
+
+/* HÕIMU High Contrast Mode */
+html[data-theme="high-contrast"] {
+  --hm-bg: #000000;
+  --hm-surface: #0A0A0A;
+  --hm-surface-2: #141414;
+  --hm-border: #FFFFFF;
+  --hm-border-subtle: #FFFFFF;
+  --hm-text: #FFFFFF;
+  --hm-text-muted: #E0E0E0;
+
+  --hm-primary: #FFFF00;
+  --hm-primary-hover: #FFEE00;
+  --hm-accent: #FFFF00;
+  --hm-info: #00FFFF;
+  --hm-danger: #FF0055;
+
+  --hm-focus-ring: #FFFF00;
+}
+
+/* HÕIMU Direct Sun Mode */
+html[data-theme="direct-sun"] {
+  --hm-bg: #FFFDF7;
+  --hm-surface: #FFFFFF;
+  --hm-surface-2: #F5F0E6;
+  --hm-border: #222222;
+  --hm-border-subtle: #444444;
+  --hm-text: #000000;
+  --hm-text-muted: #1A1A1A;
+
+  --hm-primary: #203A2A;
+  --hm-primary-hover: #122419;
+  --hm-accent: #8A6400;
+  --hm-info: #0F5850;
+  --hm-danger: #A32007;
+
+  --hm-focus-ring: #000000;
+}
+
 @layer base {
   body {
     font-family: 'Inter', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+    background-color: var(--hm-bg);
+    color: var(--hm-text);
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
   }
 
   h1, h2, h3, h4, .font-display {
@@ -29,45 +128,54 @@
 
 /* Accessibility Focus Ring Styles */
 :focus-visible {
-  outline: 2px solid #87A878;
+  outline: 2px solid var(--hm-focus-ring);
   outline-offset: 2px;
   border-radius: 6px;
 }
 
-.dark :focus-visible,
-body.dark :focus-visible {
-  outline: 2px solid #E9C46A;
-  outline-offset: 2px;
-}
-
-/* Solarpunk Glassmorphism & Organic Utilities */
+/* Field Terminal Card Standards (Subtle Elevation, Organic Warm Paper) */
 .solar-card {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(135, 168, 120, 0.25);
-  box-shadow: 0 8px 32px 0 rgba(43, 58, 40, 0.06);
+  background: var(--hm-surface);
+  border: 1px solid var(--hm-border);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
 }
 
 .solar-card-dark {
-  background: rgba(24, 35, 21, 0.95);
-  backdrop-filter: blur(14px);
-  border: 1px solid rgba(233, 196, 106, 0.25);
-  box-shadow: 0 10px 30px 0 rgba(0, 0, 0, 0.3);
+  background: var(--hm-surface);
+  border: 1px solid var(--hm-border);
+  box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.4);
+}
+
+/* Floating Controls / HUD Glass (Reserved for GPS, SOS, Floating Toolbars) */
+.field-hud-glass {
+  background: rgba(250, 246, 238, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--hm-border);
+}
+
+html.dark .field-hud-glass,
+html[data-theme="night"] .field-hud-glass {
+  background: rgba(23, 32, 24, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--hm-border);
+}
+
+html[data-display="red"] .field-hud-glass,
+html[data-theme="red"] .field-hud-glass {
+  background: rgba(18, 0, 0, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--hm-border);
 }
 
 .solar-gradient {
-  background: linear-gradient(135deg, #87A878 0%, #E9C46A 60%, #F4A261 100%);
+  background: linear-gradient(135deg, var(--hm-primary) 0%, var(--hm-accent) 60%, var(--hm-danger) 100%);
 }
 
 .solar-gradient-subtle {
-  background: linear-gradient(145deg, #F0F4ED 0%, #FAF6EE 50%, #FBF1EB 100%);
-}
-
-/* Dark Mode Smooth Color Overrides */
-html.dark body {
-  background-color: #141F12;
-  color: #F0F5EE;
+  background: linear-gradient(145deg, var(--hm-surface-2) 0%, var(--hm-bg) 100%);
 }
 
 /* Custom scrollbar */
@@ -79,11 +187,11 @@ html.dark body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(135, 168, 120, 0.3);
+  background: var(--hm-border);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(135, 168, 120, 0.6);
+  background: var(--hm-primary);
 }
 
 /* Keyframe Animations */
@@ -128,22 +236,25 @@ html.dark body {
   animation: active-ripple 0.6s ease-out !important;
 }
 
-/* ADHD Focus Mode & Reduced Motion Overrides */
+/* ADHD Focus Mode & Reduced Motion (Clean separate rules) */
 body.focus-mode .animate-fab-breathing,
 body.focus-mode .animate-breathing,
 body.focus-mode .animate-pulse,
 body.focus-mode .animate-ping,
 body.focus-mode .animate-bounce,
-body.focus-mode .animate-spin,
+body.focus-mode .animate-spin {
+  animation: none !important;
+  transition: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .animate-fab-breathing,
-  .animate-breathing,
-  .animate-pulse,
-  .animate-ping,
-  .animate-bounce,
-  .animate-spin {
-    animation: none !important;
-    transition: none !important;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
@@ -206,12 +317,12 @@ body.high-contrast [class*="border"] {
   border-color: #000000 !important;
 }
 
-body.dark.high-contrast button,
-body.dark.high-contrast [role="button"],
-body.dark.high-contrast input,
-body.dark.high-contrast select,
-body.dark.high-contrast .border,
-body.dark.high-contrast [class*="border"] {
+html.dark body.high-contrast button,
+html.dark body.high-contrast [role="button"],
+html.dark body.high-contrast input,
+html.dark body.high-contrast select,
+html.dark body.high-contrast .border,
+html.dark body.high-contrast [class*="border"] {
   border-width: 2px !important;
   border-color: #ffffff !important;
 }
@@ -224,7 +335,7 @@ body.direct-sun {
 }
 
 body.direct-sun *,
-body.dark.direct-sun * {
+html.dark body.direct-sun * {
   background-color: #ffffff !important;
   background-image: none !important;
   color: #000000 !important;
@@ -242,24 +353,6 @@ body.direct-sun select {
   background-color: #ffffff !important;
   color: #000000 !important;
   font-weight: 700 !important;
-}
-
-body.direct-sun .bg-\[\#203A2A\],
-body.direct-sun .bg-\[\#2A9D8F\],
-body.direct-sun .bg-\[\#588157\],
-body.direct-sun .bg-\[\#87A878\] {
-  background-color: #000000 !important;
-  color: #ffffff !important;
-}
-
-/* Reduced Motion Accessibility Override */
-@media (prefers-reduced-motion: reduce) {
-  *, ::before, ::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
 }
 
 /* Minimum Accessible Touch Target helper */
@@ -302,5 +395,3 @@ body.direct-sun .bg-\[\#87A878\] {
 .animate-solar-charge-pulse-dark {
   animation: solarChargingPulseDark 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
-
-

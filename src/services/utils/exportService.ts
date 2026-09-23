@@ -6,6 +6,7 @@ import {
   signArchivalPayload,
   verifyArchivalSignature,
 } from '../../utils/cryptoHelper';
+import { ESTONIA_CITY_DEFAULTS, localMetersToGeo } from '../../geo';
 
 export interface GeoJsonFeature {
   type: 'Feature';
@@ -27,14 +28,11 @@ export interface GeoJsonCollection {
 }
 
 /**
- * Helper to convert relative or grid coordinates (x, y) to Tartu GPS coordinates
- * Standard reference point: Lat 58.3780, Lng 26.7290
+ * Helper to convert relative local coordinates (x, y) in meters to GPS coordinates
  */
-function gridToGps(x = 0, y = 0): [number, number] {
-  // x is East-West offset in meters/units, y is North-South offset
-  const lng = 26.7290 + (x * 0.00018);
-  const lat = 58.3780 + (y * 0.00012);
-  return [Number(lng.toFixed(6)), Number(lat.toFixed(6))];
+function gridToGps(x = 0, y = 0, centerLat = ESTONIA_CITY_DEFAULTS.tallinn.lat, centerLng = ESTONIA_CITY_DEFAULTS.tallinn.lng): [number, number] {
+  const geo = localMetersToGeo(x, y, centerLat, centerLng);
+  return [Number(geo.lng.toFixed(6)), Number(geo.lat.toFixed(6))];
 }
 
 /**

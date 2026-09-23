@@ -15,7 +15,7 @@
 
 export const MESH_MAGIC_BYTES = new Uint8Array([0x48, 0x4f]); // "HO"
 export const CURRENT_WIRE_VERSION = 1;
-export const MAX_LORA_PAYLOAD_BYTES = 220; // Fit inside 256-byte SX1262 FIFO buffer
+export const MAX_LORA_PAYLOAD_BYTES = 512; // Flexible MTU supporting encrypted envelopes and larger payloads
 
 export enum PacketType {
   DATA = 0x01,

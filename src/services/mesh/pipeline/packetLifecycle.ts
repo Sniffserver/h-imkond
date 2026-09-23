@@ -112,7 +112,8 @@ export async function stageSign<T = any>(
 export async function stageEncrypt<T = any>(
   packet: MeshPacket<T>,
   recipientPublicKeyHex?: string,
-  senderPrivateKeyHex?: string
+  senderPrivateKeyHex?: string,
+  signingKey?: CryptoKey
 ): Promise<MeshPacket<T>> {
   if (!recipientPublicKeyHex || packet.destinationId === '*' || packet.destinationId === 'broadcast') {
     // Broadcast / plaintext packet
@@ -122,7 +123,7 @@ export async function stageEncrypt<T = any>(
   const payloadString = typeof packet.payload === 'string' ? packet.payload : JSON.stringify(packet.payload);
   const encrypted = await encryptDirectPayload(payloadString, recipientPublicKeyHex, senderPrivateKeyHex);
 
-  return {
+  const encryptedPacket = {
     ...packet,
     payload: {
       __encrypted: true,
@@ -131,6 +132,12 @@ export async function stageEncrypt<T = any>(
       senderEphemeralPubKeyHex: encrypted.senderEphemeralPubKeyHex,
     } as any,
   };
+
+  if (packet.signature && signingKey) {
+    return await stageSign(encryptedPacket, signingKey);
+  }
+
+  return encryptedPacket;
 }
 
 // ==============================================================================
@@ -413,7 +420,8 @@ export class PacketLifecyclePipeline {
     const encrypted = await stageEncrypt(
       signed,
       recipientPublicKeyHex,
-      this.keyPair?.keyPair.privateKeyHex
+      this.keyPair?.keyPair.privateKeyHex,
+      this.keyPair?.keyPair.privateKey
     );
     trace.push({
       stage: 'ENCRYPT',

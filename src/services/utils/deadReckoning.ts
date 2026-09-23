@@ -20,13 +20,15 @@ export interface DeadReckoningState {
   reason: 'normal' | 'gps_lost' | 'low_accuracy';
 }
 
+import { ESTONIA_CITY_DEFAULTS } from '../../geo';
+
 export type DeadReckoningListener = (state: DeadReckoningState) => void;
 
 class DeadReckoningService {
   private state: DeadReckoningState = {
     isActive: false,
-    currentLat: 58.3780,
-    currentLng: 26.7290,
+    currentLat: ESTONIA_CITY_DEFAULTS.tallinn.lat,
+    currentLng: ESTONIA_CITY_DEFAULTS.tallinn.lng,
     currentX: 0,
     currentY: 0,
     headingDegrees: 0,

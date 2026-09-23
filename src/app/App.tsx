@@ -36,6 +36,10 @@ export function AppContent() {
     isGloveMode,
     isHighContrast,
     isDirectSun,
+    themeMode,
+    fieldDisplayMode,
+    setThemeMode,
+    setFieldDisplayMode,
     handleToggleNightMode,
     handleToggleFocusMode,
     handleToggleGloveMode,
@@ -415,6 +419,10 @@ export function AppContent() {
         peerCount={peers.length}
         isNightMode={isNightMode}
         onToggleNightMode={handleToggleNightMode}
+        themeMode={themeMode}
+        fieldDisplayMode={fieldDisplayMode}
+        onSetThemeMode={setThemeMode}
+        onSetFieldDisplayMode={setFieldDisplayMode}
         isFocusMode={isFocusMode}
         onToggleFocusMode={handleToggleFocusMode}
         isCrisisMode={isCrisisMode}
@@ -474,6 +482,10 @@ export function AppContent() {
           crisisAlerts={crisisAlerts}
           batteryStatus={batteryStatus}
           isNightMode={isNightMode}
+          themeMode={themeMode}
+          fieldDisplayMode={fieldDisplayMode}
+          onSetThemeMode={setThemeMode}
+          onSetFieldDisplayMode={setFieldDisplayMode}
           isFocusMode={isFocusMode}
           isGloveMode={isGloveMode}
           isHighContrast={isHighContrast}

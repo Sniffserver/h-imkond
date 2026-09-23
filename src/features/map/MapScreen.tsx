@@ -61,6 +61,10 @@ export interface MapScreenProps {
   onUpdateUser: (updated: Partial<UserProfile>) => void;
   onAddToast?: (title: string, desc?: string, type?: 'success' | 'warning' | 'info') => void;
   isNightMode?: boolean;
+  themeMode?: 'auto' | 'day' | 'night';
+  fieldDisplayMode?: 'normal' | 'night' | 'red';
+  onSetThemeMode?: (mode: 'auto' | 'day' | 'night') => void;
+  onSetFieldDisplayMode?: (mode: 'normal' | 'night' | 'red') => void;
   filterOnlyNew?: boolean;
   onViewResourceDetails: (resource: ResourceItem) => void;
   onSelectPeer: (peer: MeshNode) => void;
@@ -76,6 +80,10 @@ export const MapScreen: React.FC<MapScreenProps> = ({
   onUpdateUser,
   onAddToast,
   isNightMode = false,
+  themeMode = 'auto',
+  fieldDisplayMode = 'normal',
+  onSetThemeMode,
+  onSetFieldDisplayMode,
   filterOnlyNew = false,
   onViewResourceDetails,
   onSelectPeer,
@@ -473,6 +481,10 @@ export const MapScreen: React.FC<MapScreenProps> = ({
                   onUpdateUser={onUpdateUser}
                   onAddToast={onAddToast}
                   isNightMode={isNightMode}
+                  themeMode={themeMode}
+                  fieldDisplayMode={fieldDisplayMode}
+                  onSetThemeMode={onSetThemeMode}
+                  onSetFieldDisplayMode={onSetFieldDisplayMode}
                   filterOnlyNew={filterOnlyNew}
                   onViewResourceDetails={onViewResourceDetails}
                   onSelectPeer={onSelectPeer}

@@ -6,6 +6,8 @@ import {
   SOSPacket,
 } from '../types';
 import { CITY_MAPS } from '../data/cityMaps';
+import { DEFAULT_CITY_ID } from '../geo';
+import { parseCenterCoords } from '../services/map/mapRevealService';
 import { useMeshStore, selectPeersArray } from '../store/meshStore';
 import { getActiveSosAlerts } from '../services/utils/sosService';
 import { deadReckoningService, DeadReckoningState } from '../services/utils/deadReckoning';
@@ -63,7 +65,7 @@ interface PersistedAsciiSettings {
 }
 
 export const AsciiMap: React.FC<AsciiMapProps> = ({
-  cityId = 'tartu',
+  cityId = DEFAULT_CITY_ID,
   peers = [],
   resources = [],
   userCallsign = 'USER-NODE',
@@ -193,19 +195,22 @@ export const AsciiMap: React.FC<AsciiMapProps> = ({
     return {};
   });
 
-  const cityData: CityMapData = CITY_MAPS[cityId] || CITY_MAPS.tartu;
+  const cityData: CityMapData = CITY_MAPS[cityId] || CITY_MAPS[DEFAULT_CITY_ID] || CITY_MAPS.tallinn;
+  const defaultCenter = parseCenterCoords(cityData.centerCoordsText);
+  const cityCenterLat = cityData.centerCoords?.[0] || defaultCenter.lat;
+  const cityCenterLng = cityData.centerCoords?.[1] || defaultCenter.lng;
 
   // Compute effective user world position
   const userPos = useMemo(() => {
     if (simulatedUserPos) return { x: simulatedUserPos.x, y: simulatedUserPos.y };
     if (gpsPosition) return { x: gpsPosition.x, y: gpsPosition.y };
     if (storeGps) {
-      const latDiffKm = (storeGps.lat - (cityData.centerCoords?.[0] || 58.3780)) * 110.574;
-      const lngDiffKm = (storeGps.lng - (cityData.centerCoords?.[1] || 26.7290)) * (111.32 * Math.cos(((cityData.centerCoords?.[0] || 58.3780) * Math.PI) / 180));
+      const latDiffKm = (storeGps.lat - cityCenterLat) * 110.574;
+      const lngDiffKm = (storeGps.lng - cityCenterLng) * (111.32 * Math.cos((cityCenterLat * Math.PI) / 180));
       return { x: Math.round(lngDiffKm * 1000), y: Math.round(-latDiffKm * 1000) };
     }
     return { x: 0, y: 0 };
-  }, [simulatedUserPos, gpsPosition, storeGps, cityData]);
+  }, [simulatedUserPos, gpsPosition, storeGps, cityCenterLat, cityCenterLng]);
 
   // Map world meters coordinate to ASCII grid cell index
   const worldToGrid = useCallback(
@@ -391,8 +396,8 @@ export const AsciiMap: React.FC<AsciiMapProps> = ({
     const deltaLat = (Math.random() - 0.5) * 0.0002;
     const deltaLng = (Math.random() - 0.5) * 0.0002;
 
-    const baseLat = storeGps?.lat || cityData.centerCoords?.[0] || 58.3780;
-    const baseLng = storeGps?.lng || cityData.centerCoords?.[1] || 26.7290;
+    const baseLat = storeGps?.lat || cityCenterLat;
+    const baseLng = storeGps?.lng || cityCenterLng;
 
     const newLat = baseLat + deltaLat;
     const newLng = baseLng + deltaLng;
@@ -405,7 +410,7 @@ export const AsciiMap: React.FC<AsciiMapProps> = ({
     });
 
     deadReckoningService.updateGpsFix(newLat, newLng, 5);
-  }, [storeGps, cityData, setStoreGps]);
+  }, [storeGps, cityCenterLat, cityCenterLng, setStoreGps]);
 
   // Dev Test Step Movement Function (N, S, E, W)
   const handleStepDirection = useCallback(
@@ -416,11 +421,11 @@ export const AsciiMap: React.FC<AsciiMapProps> = ({
 
       if (dir === 'N') dLat = stepMeters / 110574;
       if (dir === 'S') dLat = -stepMeters / 110574;
-      if (dir === 'E') dLng = stepMeters / (111320 * Math.cos((58.378 * Math.PI) / 180));
-      if (dir === 'W') dLng = -stepMeters / (111320 * Math.cos((58.378 * Math.PI) / 180));
+      if (dir === 'E') dLng = stepMeters / (111320 * Math.cos((cityCenterLat * Math.PI) / 180));
+      if (dir === 'W') dLng = -stepMeters / (111320 * Math.cos((cityCenterLat * Math.PI) / 180));
 
-      const baseLat = storeGps?.lat || cityData.centerCoords?.[0] || 58.3780;
-      const baseLng = storeGps?.lng || cityData.centerCoords?.[1] || 26.7290;
+      const baseLat = storeGps?.lat || cityCenterLat;
+      const baseLng = storeGps?.lng || cityCenterLng;
 
       const newLat = baseLat + dLat;
       const newLng = baseLng + dLng;
@@ -434,7 +439,7 @@ export const AsciiMap: React.FC<AsciiMapProps> = ({
 
       deadReckoningService.updateGpsFix(newLat, newLng, 5);
     },
-    [storeGps, cityData, setStoreGps]
+    [storeGps, cityCenterLat, cityCenterLng, setStoreGps]
   );
 
   // Clear Fog-of-War Sparse Map
@@ -568,7 +573,7 @@ export const AsciiMap: React.FC<AsciiMapProps> = ({
 
     const sosGridMap = new Map<string, SOSPacket>();
     sosAlerts.forEach((sos) => {
-      const { gx, gy } = worldToGrid((sos.lng - 26.729) * 10000, (sos.lat - 58.378) * 10000);
+      const { gx, gy } = worldToGrid((sos.lng - cityCenterLng) * 10000, (sos.lat - cityCenterLat) * 10000);
       sosGridMap.set(`${gx},${gy}`, sos);
     });
 

@@ -18,6 +18,7 @@ import {
 } from '../types';
 import { getActiveSosAlerts } from '../services/utils/sosService';
 import { CITY_MAPS } from '../data/cityMaps';
+import { DEFAULT_CITY_ID } from '../geo';
 import { mapRevealService, localGridToGeoPoint, geoPointToLocalGrid } from '../services/map/mapRevealService';
 import { cacheCityMapData, getCustomPerimeters, saveCustomPerimeter, CustomPerimeterZone, calculateFocalPointZoom } from '../utils/mapTileCache';
 import { clusterResourcePins, ResourceCluster, CATEGORY_COLORS, clusterPeerNodes, PeerCluster, RawPeerPosition } from '../utils/resourceClustering';
@@ -207,7 +208,7 @@ export const BioregionalMapCanvas: React.FC<BioregionalMapCanvasProps> = React.m
   showRadii = true,
   selectedCategory = 'all',
   topologyFilter = 'all',
-  cityId = 'tartu',
+  cityId = DEFAULT_CITY_ID,
   transform: externalTransform,
   onTransformChange,
   onSelectNode,
@@ -468,7 +469,7 @@ export const BioregionalMapCanvas: React.FC<BioregionalMapCanvasProps> = React.m
   }, [startKineticPan, syncTransformToParent]);
 
   // Active City Map Data
-  const cityData: CityMapData = CITY_MAPS[cityId] || CITY_MAPS.tartu;
+  const cityData: CityMapData = CITY_MAPS[cityId] || CITY_MAPS[DEFAULT_CITY_ID] || CITY_MAPS.tallinn;
 
   // IndexedDB Cache Sync State
   const [isIndexedDBCached, setIsIndexedDBCached] = useState(false);
@@ -1758,12 +1759,7 @@ export const BioregionalMapCanvas: React.FC<BioregionalMapCanvasProps> = React.m
         ctx.save();
         
         const latLonToWorldLocal = (lat: number, lon: number): { x: number; y: number } => {
-          const centerLat = 58.3780;
-          const centerLon = 26.7290;
-          return {
-            x: (lon - centerLon) * 5828.0,
-            y: -(lat - centerLat) * 11113.9,
-          };
+          return geoPointToLocalGrid(lat, lon, cityData.centerCoordsText);
         };
 
         // Combine mesh peers with user local transceiver node and historical Pathfinder scans
@@ -3057,11 +3053,7 @@ export const BioregionalMapCanvas: React.FC<BioregionalMapCanvasProps> = React.m
       // N. DRAW PATHFINDER MODE LAYERS (GPS Tracks, WiFi, BLE, LoRa Nodes & Novelty Badges)
       if (showPathfinderLayer !== false) {
         const latLonToWorld = (lat: number, lon: number): { x: number; y: number } => {
-          const centerLat = 58.3780;
-          const centerLon = 26.7290;
-          const worldX = (lon - centerLon) * 5828.0;
-          const worldY = -(lat - centerLat) * 11113.9;
-          return { x: worldX, y: worldY };
+          return geoPointToLocalGrid(lat, lon, cityData.centerCoordsText);
         };
 
         const activeSessionId = activeWalkSession?.id;
@@ -3812,12 +3804,7 @@ export const BioregionalMapCanvas: React.FC<BioregionalMapCanvasProps> = React.m
     // Check Pathfinder spots (WiFi, BLE, LoRa)
     if (showPathfinderLayer !== false) {
       const latLonToWorld = (lat: number, lon: number): { x: number; y: number } => {
-        const centerLat = 58.3780;
-        const centerLon = 26.7290;
-        return {
-          x: (lon - centerLon) * 5828.0,
-          y: -(lat - centerLat) * 11113.9,
-        };
+        return geoPointToLocalGrid(lat, lon, cityData.centerCoordsText);
       };
       const activeSessionId = activeWalkSession?.id;
 
@@ -4099,12 +4086,7 @@ export const BioregionalMapCanvas: React.FC<BioregionalMapCanvasProps> = React.m
     // Check click on Pathfinder spots
     if (showPathfinderLayer !== false) {
       const latLonToWorld = (lat: number, lon: number): { x: number; y: number } => {
-        const centerLat = 58.3780;
-        const centerLon = 26.7290;
-        return {
-          x: (lon - centerLon) * 5828.0,
-          y: -(lat - centerLat) * 11113.9,
-        };
+        return geoPointToLocalGrid(lat, lon, cityData.centerCoordsText);
       };
       const activeSessionId = activeWalkSession?.id;
 

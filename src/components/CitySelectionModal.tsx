@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CITY_MAPS } from '../data/cityMaps';
 import { CityMapData } from '../types';
 import { convertOsmGeoJsonToHoimu, fetchLiveOsmData } from '../utils/osmParser';
+import { ESTONIA_CITY_DEFAULTS } from '../geo';
 import {
   X,
   MapPin,
@@ -35,8 +36,8 @@ export const CitySelectionModal: React.FC<CitySelectionModalProps> = ({
 }) => {
   const [showImportPanel, setShowImportPanel] = useState(false);
   const [importName, setImportName] = useState('Minu Biopiirkond');
-  const [importLat, setImportLat] = useState('58.3780'); // Tartu default
-  const [importLon, setImportLon] = useState('26.7290');
+  const [importLat, setImportLat] = useState(ESTONIA_CITY_DEFAULTS.tallinn.lat.toFixed(4));
+  const [importLon, setImportLon] = useState(ESTONIA_CITY_DEFAULTS.tallinn.lng.toFixed(4));
   const [rawGeoJsonText, setRawGeoJsonText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -243,7 +244,7 @@ export const CitySelectionModal: React.FC<CitySelectionModalProps> = ({
                     value={importLat}
                     onChange={(e) => setImportLat(e.target.value)}
                     className="p-2 text-xs rounded-xl border border-current/10 bg-transparent font-mono focus:outline-none focus:border-[#E76F51]"
-                    placeholder="58.3780"
+                    placeholder="59.4370"
                   />
                 </div>
                 <div className="flex flex-col gap-1">
@@ -253,7 +254,7 @@ export const CitySelectionModal: React.FC<CitySelectionModalProps> = ({
                     value={importLon}
                     onChange={(e) => setImportLon(e.target.value)}
                     className="p-2 text-xs rounded-xl border border-current/10 bg-transparent font-mono focus:outline-none focus:border-[#E76F51]"
-                    placeholder="26.7290"
+                    placeholder="24.7535"
                   />
                 </div>
               </div>

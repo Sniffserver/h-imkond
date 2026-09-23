@@ -9,6 +9,9 @@ export const CITY_MAPS: Record<string, CityMapData> = {
     country: 'Estonia',
     bioregionName: 'Emajõe Luht / Peipsi Basin',
     centerCoordsText: '58.3780° N, 26.7290° E',
+    version: '2026.09',
+    routingSnapshotVersion: '2026.09',
+    attribution: '© OpenStreetMap contributors',
     description: 'Historical university city centered around Emajõgi river, Supilinn wooden district, and Toomemägi hill.',
     districts: [
       { name: 'Kesklinn', x: 0, y: -10 },
@@ -159,6 +162,9 @@ export const CITY_MAPS: Record<string, CityMapData> = {
     country: 'Estonia',
     bioregionName: 'Soome Laht / Pirita Basin',
     centerCoordsText: '59.4370° N, 24.7535° E',
+    version: '2026.09',
+    routingSnapshotVersion: '2026.09',
+    attribution: '© OpenStreetMap contributors',
     description: 'Coastal Baltic capital featuring UNESCO medieval Old Town, Kalamaja wooden architecture, and Kadriorg coastal park.',
     districts: [
       { name: 'Vanalinn (Old Town)', x: 0, y: 10 },

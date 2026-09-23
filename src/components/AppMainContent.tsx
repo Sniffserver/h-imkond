@@ -45,6 +45,10 @@ export interface AppMainContentProps {
   crisisAlerts: CrisisAlert[];
   batteryStatus: BatteryManagerStatus;
   isNightMode: boolean;
+  themeMode?: 'auto' | 'day' | 'night';
+  fieldDisplayMode?: 'normal' | 'night' | 'red';
+  onSetThemeMode?: (mode: 'auto' | 'day' | 'night') => void;
+  onSetFieldDisplayMode?: (mode: 'normal' | 'night' | 'red') => void;
   isFocusMode: boolean;
   isGloveMode: boolean;
   isHighContrast: boolean;
@@ -97,6 +101,10 @@ export const AppMainContent: React.FC<AppMainContentProps> = ({
   crisisAlerts,
   batteryStatus,
   isNightMode,
+  themeMode,
+  fieldDisplayMode,
+  onSetThemeMode,
+  onSetFieldDisplayMode,
   isFocusMode,
   isGloveMode,
   isHighContrast,
@@ -218,6 +226,10 @@ export const AppMainContent: React.FC<AppMainContentProps> = ({
               onUpdateUser={onUpdateUser}
               onAddToast={addToast}
               isNightMode={isNightMode}
+              themeMode={themeMode}
+              fieldDisplayMode={fieldDisplayMode}
+              onSetThemeMode={onSetThemeMode}
+              onSetFieldDisplayMode={onSetFieldDisplayMode}
               filterOnlyNew={filterOnlyNewMap}
               onViewResourceDetails={onSelectResourceForDetail}
               onSelectPeer={onSelectPeerForDetail}

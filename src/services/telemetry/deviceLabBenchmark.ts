@@ -16,6 +16,7 @@ import { meshDb } from '../mesh/db/meshDatabase';
 export interface DeviceProfile {
   device: string;
   os: string;
+  category: 'Synthetic Device Profile' | 'Physical Device Lab';
   cores: number;
   memoryGB: number;
   cpuThrottleFactor: number; // 1.0 = baseline desktop/high-end, 1.8 = mid-range, 2.5 = low-end
@@ -25,26 +26,29 @@ export interface DeviceProfile {
 export interface DeviceBenchmarkReport {
   device: string;
   os: string;
+  benchmarkType: 'Synthetic Device Profile' | 'Physical Device Lab';
   coldStartMs: number;
   fps: number;
   batteryDrain: number; // % estimated drain / hr under heavy mesh load
-  meshLatencyMs: number; // Average latency for 100 packet crypto + CRDT cycles
+  meshLatencyMs: number; // Average latency for packet crypto + CRDT cycles
   timestamp: number;
   status: 'PASSED' | 'FAILED';
 }
 
 export const DEVICE_LAB_PROFILES: DeviceProfile[] = [
   {
-    device: 'Pixel 6 / High-End Android',
-    os: 'Android 14',
+    device: 'Pixel 6 / High-End Tier',
+    os: 'Android 14 (Emulated Profile)',
+    category: 'Synthetic Device Profile',
     cores: 8,
     memoryGB: 12,
     cpuThrottleFactor: 1.0,
     batteryModelRate: 1.8,
   },
   {
-    device: 'Mid-Range Android (€200)',
-    os: 'Android 12',
+    device: 'Mid-Range Tier (€200)',
+    os: 'Android 12 (Emulated Profile)',
+    category: 'Synthetic Device Profile',
     cores: 8,
     memoryGB: 4,
     cpuThrottleFactor: 1.6,
@@ -52,15 +56,17 @@ export const DEVICE_LAB_PROFILES: DeviceProfile[] = [
   },
   {
     device: 'iPhone SE (2020)',
-    os: 'iOS 17',
+    os: 'iOS 17 (Emulated Profile)',
+    category: 'Synthetic Device Profile',
     cores: 6,
     memoryGB: 3,
     cpuThrottleFactor: 1.1,
     batteryModelRate: 2.1,
   },
   {
-    device: 'Low-End Android (€100)',
-    os: 'Android 11',
+    device: 'Low-End Tier (€100)',
+    os: 'Android 11 (Emulated Profile)',
+    category: 'Synthetic Device Profile',
     cores: 4,
     memoryGB: 2,
     cpuThrottleFactor: 2.2,
@@ -68,7 +74,8 @@ export const DEVICE_LAB_PROFILES: DeviceProfile[] = [
   },
   {
     device: 'Raspberry Pi Zero 2 W (Mesh Gateway)',
-    os: 'Linux (ARM64)',
+    os: 'Linux ARM64 (Emulated Profile)',
+    category: 'Synthetic Device Profile',
     cores: 4,
     memoryGB: 0.512,
     cpuThrottleFactor: 2.8,
@@ -166,6 +173,7 @@ export async function runDeviceBenchmark(profile: DeviceProfile): Promise<Device
   return {
     device: profile.device,
     os: profile.os,
+    benchmarkType: profile.category,
     coldStartMs,
     fps,
     batteryDrain,

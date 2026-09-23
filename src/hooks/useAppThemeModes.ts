@@ -1,20 +1,84 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ToastMessage } from '../types';
+import { calculateSolarTimes, SolarTimes } from '../services/utils/solarTime';
+
+export type ThemeMode = 'auto' | 'day' | 'night';
+export type FieldDisplayMode = 'normal' | 'night' | 'red';
 
 export interface UseAppThemeModesProps {
   addToast: (title: string, description?: string, type?: ToastMessage['type']) => void;
+  userLat?: number;
+  userLng?: number;
 }
 
-export function useAppThemeModes({ addToast }: UseAppThemeModesProps) {
-  // Night Mode Field Theme State (with System Preference Auto-Detection)
-  const [isNightMode, setIsNightMode] = useState<boolean>(() => {
-    const saved = localStorage.getItem('hoimu_night_mode');
-    if (saved !== null) return JSON.parse(saved);
+export function useAppThemeModes({ addToast, userLat = 59.437, userLng = 24.7535 }: UseAppThemeModesProps) {
+  // Theme Mode: 'auto' (solar calculation + GPS), 'day', or 'night'
+  const [themeMode, setThemeModeState] = useState<ThemeMode>(() => {
+    const saved = localStorage.getItem('hoimu_theme_mode');
+    if (saved === 'day' || saved === 'night' || saved === 'auto') return saved;
+    // Fallback: check legacy boolean
+    const legacy = localStorage.getItem('hoimu_night_mode');
+    if (legacy !== null) {
+      return JSON.parse(legacy) ? 'night' : 'day';
+    }
+    return 'auto';
+  });
+
+  // Tactical Field Display Mode: 'normal', 'night', 'red' (low-light stealth)
+  const [fieldDisplayMode, setFieldDisplayModeState] = useState<FieldDisplayMode>(() => {
+    const saved = localStorage.getItem('hoimu_field_display_mode');
+    if (saved === 'normal' || saved === 'night' || saved === 'red') return saved;
+    return 'normal';
+  });
+
+  // Calculate current solar position and times
+  const [solarTimes, setSolarTimes] = useState<SolarTimes>(() =>
+    calculateSolarTimes(userLat, userLng, new Date())
+  );
+
+  // Periodically refresh solar position every 60 seconds
+  useEffect(() => {
+    const updateSolar = () => {
+      setSolarTimes(calculateSolarTimes(userLat, userLng, new Date()));
+    };
+    updateSolar();
+    const timer = setInterval(updateSolar, 60_000);
+    return () => clearInterval(timer);
+  }, [userLat, userLng]);
+
+  // System Dark Mode Preference listener
+  const [systemPrefersDark, setSystemPrefersDark] = useState<boolean>(() => {
     if (typeof window !== 'undefined' && window.matchMedia) {
       return window.matchMedia('(prefers-color-scheme: dark)').matches;
     }
     return false;
   });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    try {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const handleSystemThemeChange = (e: MediaQueryListEvent) => {
+        setSystemPrefersDark(e.matches);
+      };
+      if (mediaQuery.addEventListener) {
+        mediaQuery.addEventListener('change', handleSystemThemeChange);
+        return () => mediaQuery.removeEventListener('change', handleSystemThemeChange);
+      }
+    } catch {
+      // Ignored in non-DOM tests
+    }
+  }, []);
+
+  // Compute effective night mode boolean
+  const isNightMode = useMemo(() => {
+    if (fieldDisplayMode === 'red') return true;
+    if (themeMode === 'night') return true;
+    if (themeMode === 'day') return false;
+    // 'auto' mode: check solar elevation, then system preference
+    if (!solarTimes.isDaytime) return true;
+    return false;
+  }, [fieldDisplayMode, themeMode, solarTimes.isDaytime]);
 
   // ADHD Focus Mode State
   const [isFocusMode, setIsFocusMode] = useState<boolean>(() => {
@@ -40,32 +104,36 @@ export function useAppThemeModes({ addToast }: UseAppThemeModesProps) {
     return saved ? JSON.parse(saved) : false;
   });
 
-  // Listen to system color scheme changes if user hasn't explicitly overridden theme
+  // Persist Theme Mode & Sync Document Root
   useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
-    try {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      const handleSystemThemeChange = (e: MediaQueryListEvent) => {
-        if (localStorage.getItem('hoimu_night_mode') === null) {
-          setIsNightMode(e.matches);
-        }
-      };
-      if (mediaQuery.addEventListener) {
-        mediaQuery.addEventListener('change', handleSystemThemeChange);
-        return () => mediaQuery.removeEventListener('change', handleSystemThemeChange);
-      }
-    } catch {
-      // Safely ignore environments without matchMedia support
-    }
-  }, []);
-
-  // Sync Night Mode & Dark Class on document root
-  useEffect(() => {
+    localStorage.setItem('hoimu_theme_mode', themeMode);
     localStorage.setItem('hoimu_night_mode', JSON.stringify(isNightMode));
+    localStorage.setItem('hoimu_field_display_mode', fieldDisplayMode);
+
     if (typeof document !== 'undefined') {
-      document.documentElement.classList.toggle('dark', isNightMode);
+      const root = document.documentElement;
+      root.classList.toggle('dark', isNightMode);
+      root.classList.toggle('field-red-mode', fieldDisplayMode === 'red');
+
+      // Sync semantic data attributes for tokenized CSS
+      if (fieldDisplayMode === 'red') {
+        root.setAttribute('data-theme', 'red');
+        root.setAttribute('data-display', 'red');
+      } else if (isHighContrast) {
+        root.setAttribute('data-theme', 'high-contrast');
+        root.removeAttribute('data-display');
+      } else if (isDirectSun) {
+        root.setAttribute('data-theme', 'direct-sun');
+        root.removeAttribute('data-display');
+      } else if (isNightMode) {
+        root.setAttribute('data-theme', 'night');
+        root.removeAttribute('data-display');
+      } else {
+        root.setAttribute('data-theme', 'day');
+        root.removeAttribute('data-display');
+      }
     }
-  }, [isNightMode]);
+  }, [themeMode, isNightMode, fieldDisplayMode, isHighContrast, isDirectSun]);
 
   // Sync Focus Mode on body tag
   useEffect(() => {
@@ -118,13 +186,34 @@ export function useAppThemeModes({ addToast }: UseAppThemeModesProps) {
         sensor.start();
         return () => sensor.stop();
       } catch {
-        // Sensor API present but permissions/hardware unavail
+        // Sensor API present but hardware unavail
       }
     }
   }, [isDirectSun, addToast]);
 
+  const setThemeMode = useCallback((mode: ThemeMode) => {
+    setThemeModeState(mode);
+    const names: Record<ThemeMode, string> = {
+      auto: 'AUTO (Päikese & GPS järgi)',
+      day: 'PÄEV (Kõrge loetavus)',
+      night: 'ÖÖ (Madala valgusega välimapp)',
+    };
+    addToast(`Teema: ${names[mode]}`, undefined, 'info');
+  }, [addToast]);
+
+  const setFieldDisplayMode = useCallback((mode: FieldDisplayMode) => {
+    setFieldDisplayModeState(mode);
+    if (mode === 'red') {
+      addToast('🔴 Taktikaline Puna-Öö Režiim', 'Valguse distsipliin aktiivne (madala heledusega punane spekter).', 'info');
+    }
+  }, [addToast]);
+
   const handleToggleNightMode = useCallback(() => {
-    setIsNightMode((prev) => !prev);
+    setThemeModeState((prev) => {
+      if (prev === 'auto') return 'night';
+      if (prev === 'night') return 'day';
+      return 'auto';
+    });
   }, []);
 
   const handleToggleFocusMode = useCallback(() => {
@@ -147,8 +236,8 @@ export function useAppThemeModes({ addToast }: UseAppThemeModesProps) {
       addToast(
         next ? 'Glove Mode (Large Targets) ON' : 'Glove Mode OFF',
         next
-          ? 'Min 56×56dp buttons, 72×72dp map points, +20% global text scaling active.'
-          : 'Standard touch targets restored.',
+          ? 'Min 56×56dp nupud, 72×72dp kaardipunktid, +20% tekstiskaala aktiivne.'
+          : 'Standardsed puutealad taastatud.',
         'info'
       );
       return next;
@@ -161,8 +250,8 @@ export function useAppThemeModes({ addToast }: UseAppThemeModesProps) {
       addToast(
         next ? 'High Contrast Mode ON' : 'High Contrast Mode OFF',
         next
-          ? 'Thick 2px solid borders active, translucency & glassmorphism removed.'
-          : 'Standard visual styling restored.',
+          ? 'Paksud 2px piirjooned ja läbipaistvuse eemaldamine aktiivne.'
+          : 'Tavaline visuaalne stiil taastatud.',
         'info'
       );
       return next;
@@ -175,8 +264,8 @@ export function useAppThemeModes({ addToast }: UseAppThemeModesProps) {
       addToast(
         next ? 'Direct Sun Mode ON' : 'Direct Sun Mode OFF',
         next
-          ? 'Forced pure white background & bold high-density black typography for outdoor glare.'
-          : 'Standard theme background restored.',
+          ? 'Kõrge peegeldusega valge taust ja must tekst otsese päikesevalguse jaoks.'
+          : 'Tavaline teema taastatud.',
         'info'
       );
       return next;
@@ -184,8 +273,16 @@ export function useAppThemeModes({ addToast }: UseAppThemeModesProps) {
   }, [addToast]);
 
   return {
+    themeMode,
+    setThemeMode,
+    fieldDisplayMode,
+    setFieldDisplayMode,
+    solarTimes,
     isNightMode,
-    setIsNightMode,
+    setIsNightMode: (val: boolean | ((prev: boolean) => boolean)) => {
+      const nextVal = typeof val === 'function' ? val(isNightMode) : val;
+      setThemeModeState(nextVal ? 'night' : 'day');
+    },
     isFocusMode,
     setIsFocusMode,
     isGloveMode,

@@ -4,6 +4,7 @@ import { INITIAL_PEERS } from '../data/initialData';
 import { getSecureLocalStorage, setSecureLocalStorage } from '../utils/localStorageValidator';
 import { MeshStoreState, RevealedCircle, SyncPulseEvent } from './types';
 import { buildUnifiedPeersArray } from './selectors';
+import { ESTONIA_CITY_DEFAULTS } from '../geo';
 
 export * from './types';
 export * from './selectors';
@@ -37,8 +38,8 @@ const loadInitialRevealedCircles = (): RevealedCircle[] => {
       return parsed;
     }
   } catch {}
-  // Default centered on Tartu Bioregion
-  return [{ lat: 58.3780, lng: 26.7290, radius: 65 }];
+  // Default centered on Tallinn Bioregion
+  return [{ lat: ESTONIA_CITY_DEFAULTS.tallinn.lat, lng: ESTONIA_CITY_DEFAULTS.tallinn.lng, radius: 65 }];
 };
 
 export const useMeshStore = create<MeshStoreState>((set, get) => ({

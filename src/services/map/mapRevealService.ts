@@ -1,4 +1,5 @@
 import { GeoPoint } from '../../types';
+import { ESTONIA_CITY_DEFAULTS, parseCoordinateString } from '../../geo';
 
 export interface RevealedArea {
   centerLat: number;
@@ -13,32 +14,16 @@ export interface MapRevealState {
   stepsPerReveal: number;
 }
 
-// Helper to parse centerCoordsText (e.g. "58.3780° N, 26.7290° E")
+// Helper to parse centerCoordsText (e.g. "59.4370° N, 24.7535° E")
 export function parseCenterCoords(coordsText: string): { lat: number; lng: number } {
-  try {
-    const cleaned = coordsText.replace(/°/g, '').replace(/[NESWnesw]/g, '');
-    const parts = cleaned.split(',');
-    if (parts.length >= 2) {
-      let lat = parseFloat(parts[0].trim());
-      let lng = parseFloat(parts[1].trim());
-      
-      // Look for signs based on original string directions
-      if (coordsText.toUpperCase().includes('S')) {
-        lat = -Math.abs(lat);
-      }
-      if (coordsText.toUpperCase().includes('W')) {
-        lng = -Math.abs(lng);
-      }
-      
-      return { 
-        lat: isNaN(lat) ? 58.3780 : lat, 
-        lng: isNaN(lng) ? 26.7290 : lng 
-      };
-    }
-  } catch (e) {
-    console.warn('Failed to parse coords text:', coordsText, e);
+  const parsed = parseCoordinateString(coordsText);
+  if (parsed) {
+    return { lat: parsed[0], lng: parsed[1] };
   }
-  return { lat: 58.3780, lng: 26.7290 }; // default Tartu
+  return {
+    lat: ESTONIA_CITY_DEFAULTS.tallinn.lat,
+    lng: ESTONIA_CITY_DEFAULTS.tallinn.lng,
+  };
 }
 
 // Convert canvas grid coordinate to Latitude/Longitude

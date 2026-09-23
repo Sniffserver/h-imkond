@@ -17,9 +17,9 @@ export interface Ed25519KeyPair {
   publicKeyHex: string;
 }
 
-export async function generateEd25519KeyPair(): Promise<Ed25519KeyPair> {
+export async function generateEd25519KeyPair(extractable: boolean = false): Promise<Ed25519KeyPair> {
   const subtle = getSubtle();
-  const pair = (await subtle.generateKey({ name: 'Ed25519' }, true, [
+  const pair = (await subtle.generateKey({ name: 'Ed25519' }, extractable, [
     'sign',
     'verify',
   ])) as CryptoKeyPair;

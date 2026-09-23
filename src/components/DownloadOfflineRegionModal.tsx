@@ -1,27 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { OfflineMapRegion, MeshNode, ResourceItem, CityMapData } from '../types';
 import { offlineMapService } from '../services/map/offlineMapService';
-import { downloadRasterTilesForRegion } from '../services/map/rasterTileCacheService';
-import { localGridToGeoPoint } from '../services/map/mapRevealService';
+import { mapPackService, AVAILABLE_MAP_PACKS, MapPackMetadata } from '../services/map/mapPackService';
 import {
   X,
   Download,
   HardDrive,
   MapPin,
-  Compass,
   CheckCircle2,
   Trash2,
-  Share2,
   ShieldCheck,
   Layers,
-  Radio,
   Sparkles,
-  Navigation,
-  Globe,
   RefreshCw,
   FolderDown,
   Info,
-  Wifi,
+  UploadCloud,
+  FileCheck,
+  Zap,
 } from 'lucide-react';
 
 interface DownloadOfflineRegionModalProps {
@@ -38,17 +34,6 @@ interface DownloadOfflineRegionModalProps {
   onAddToast?: (title: string, desc?: string, type?: 'success' | 'warning' | 'info') => void;
 }
 
-export interface SuggestedOfflineRegion {
-  name: string;
-  reason: 'frequent' | 'event' | 'resources' | 'patrol';
-  reasonLabel: string;
-  center: { x: number; y: number; lat?: number; lng?: number };
-  radiusKm: number;
-  estimatedTiles: number;
-  estimatedSizeMB: number;
-  lastVisited?: string;
-}
-
 export const DownloadOfflineRegionModal: React.FC<DownloadOfflineRegionModalProps> = ({
   isOpen,
   onClose,
@@ -62,146 +47,111 @@ export const DownloadOfflineRegionModal: React.FC<DownloadOfflineRegionModalProp
   onSelectAndCenterRegion,
   onAddToast,
 }) => {
-  const [activeTab, setActiveTab] = useState<'smart' | 'create' | 'manage'>('smart');
+  const [activeTab, setActiveTab] = useState<'packs' | 'custom' | 'manage'>('packs');
+  const [mapPacks, setMapPacks] = useState<MapPackMetadata[]>([]);
+  const [installingCityId, setInstallingCityId] = useState<string | null>(null);
+  const [installProgress, setInstallProgress] = useState<number>(0);
+  const [downloadedRegions, setDownloadedRegions] = useState<OfflineMapRegion[]>([]);
+  
+  // Custom Sector Pack state
   const [radiusKm, setRadiusKm] = useState<number>(2.5);
-  const [includeRasterTiles, setIncludeRasterTiles] = useState<boolean>(false);
   const [regionName, setRegionName] = useState<string>(
     `${activeCity.cityName} - ${activeCity.districts?.[0]?.name || 'Keskus'} (${radiusKm}km)`
   );
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState(0);
-  const [currentStepText, setCurrentStepText] = useState('');
-  const [downloadedRegions, setDownloadedRegions] = useState<OfflineMapRegion[]>([]);
-  const [suggestedRegions, setSuggestedRegions] = useState<SuggestedOfflineRegion[]>([]);
+  const [isPackagingSector, setIsPackagingSector] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const refreshPacks = async () => {
+    const packs = await mapPackService.getMapPackList();
+    setMapPacks(packs);
+    setDownloadedRegions(offlineMapService.getDownloadedRegions());
+  };
 
   useEffect(() => {
     if (isOpen) {
-      setDownloadedRegions(offlineMapService.getDownloadedRegions());
+      refreshPacks();
       setRegionName(`${activeCity.cityName} - ${activeCity.districts?.[0]?.name || 'Keskus'} (${radiusKm}km)`);
-      setDownloadProgress(0);
-      setIsDownloading(false);
-
-      // Smart Usage Analysis:
-      // 1. Frequently visited area (active city hub & current district)
-      const frequentSuggestion: SuggestedOfflineRegion = {
-        name: `${activeCity.cityName} Keskus & Lähiala`,
-        reason: 'frequent',
-        reasonLabel: 'Frequently Visited Hub',
-        center: cameraCenter,
-        radiusKm: 3.5,
-        estimatedTiles: Math.round(Math.PI * 3.5 * 3.5 * 14),
-        estimatedSizeMB: parseFloat(((Math.PI * 3.5 * 3.5 * 14 * 9.5) / 1024).toFixed(1)),
-        lastVisited: 'Today, 2 hours ago',
-      };
-
-      // 2. Upcoming Community Gathering / Event area
-      const eventSuggestion: SuggestedOfflineRegion = {
-        name: `${activeCity.cityName} Bioregional Mesh Assembly`,
-        reason: 'event',
-        reasonLabel: 'Upcoming Event (In 3 Days)',
-        center: {
-          x: cameraCenter.x + 80,
-          y: cameraCenter.y - 60,
-          lat: cameraCenter.lat ? cameraCenter.lat + 0.015 : undefined,
-          lng: cameraCenter.lng ? cameraCenter.lng + 0.02 : undefined,
-        },
-        radiusKm: 5.0,
-        estimatedTiles: Math.round(Math.PI * 5.0 * 5.0 * 14),
-        estimatedSizeMB: parseFloat(((Math.PI * 5.0 * 5.0 * 14 * 9.5) / 1024).toFixed(1)),
-        lastVisited: 'Sep 12, 14:00',
-      };
-
-      // 3. Saved emergency resources cluster
-      const resourceCount = allResources.length;
-      const resourceSuggestion: SuggestedOfflineRegion = {
-        name: `${activeCity.cityName} Vital Mutual Aid Cluster`,
-        reason: 'resources',
-        reasonLabel: `${resourceCount || 6} Saved Resources (Water, Power, First-Aid)`,
-        center: {
-          x: cameraCenter.x - 50,
-          y: cameraCenter.y + 40,
-          lat: cameraCenter.lat ? cameraCenter.lat - 0.008 : undefined,
-          lng: cameraCenter.lng ? cameraCenter.lng - 0.012 : undefined,
-        },
-        radiusKm: 2.0,
-        estimatedTiles: Math.round(Math.PI * 2.0 * 2.0 * 14),
-        estimatedSizeMB: parseFloat(((Math.PI * 2.0 * 2.0 * 14 * 9.5) / 1024).toFixed(1)),
-        lastVisited: 'Yesterday',
-      };
-
-      // 4. Reconnaissance & Pathfinder Patrol Corridor (Behavior-based)
-      const patrolSuggestion: SuggestedOfflineRegion = {
-        name: `${activeCity.cityName} Recon & Survey Corridor`,
-        reason: 'patrol',
-        reasonLabel: 'Recent Field Recon & Mesh Survey',
-        center: {
-          x: cameraCenter.x + 35,
-          y: cameraCenter.y + 45,
-          lat: cameraCenter.lat ? cameraCenter.lat + 0.005 : undefined,
-          lng: cameraCenter.lng ? cameraCenter.lng + 0.008 : undefined,
-        },
-        radiusKm: 3.0,
-        estimatedTiles: Math.round(Math.PI * 3.0 * 3.0 * 14),
-        estimatedSizeMB: parseFloat(((Math.PI * 3.0 * 3.0 * 14 * 9.5) / 1024).toFixed(1)),
-        lastVisited: 'Earlier today',
-      };
-
-      setSuggestedRegions([frequentSuggestion, eventSuggestion, resourceSuggestion, patrolSuggestion]);
     }
-  }, [isOpen, activeCity, cameraCenter, radiusKm, allResources]);
+  }, [isOpen, activeCity, radiusKm]);
 
   if (!isOpen) return null;
 
-  const handleRadiusChange = (r: number) => {
-    setRadiusKm(r);
-    setRegionName(`${activeCity.cityName} - ${activeCity.districts?.[0]?.name || 'Keskus'} (${r}km)`);
+  const handleInstallMapPack = async (packCityId: string) => {
+    const pack = AVAILABLE_MAP_PACKS[packCityId];
+    if (!pack) return;
+
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try { navigator.vibrate(15); } catch {}
+    }
+
+    setInstallingCityId(packCityId);
+    setInstallProgress(5);
+
+    try {
+      await mapPackService.installMapPack(packCityId, (_received, _total, pct) => {
+        setInstallProgress(Math.max(5, pct));
+      });
+
+      await refreshPacks();
+
+      if (onAddToast) {
+        onAddToast(
+          `📦 ${pack.cityName} Kaardipakett paigaldatud!`,
+          `${pack.fileName} (${pack.sizeFormatted}) on salvestatud. 100% võrguühenduseta vektorbaaskaart on aktiivne.`,
+          'success'
+        );
+      }
+    } catch (err) {
+      console.error('Failed to install map pack:', err);
+      if (onAddToast) {
+        onAddToast('Viga paigaldamisel', 'Kaardipaketi salvestamine ebaõnnestus.', 'warning');
+      }
+    } finally {
+      setInstallingCityId(null);
+      setInstallProgress(0);
+    }
   };
 
-  const handleStartDownload = async () => {
-    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-      try { navigator.vibrate(12); } catch {}
+  const handleDeleteMapPack = async (packCityId: string, packName: string) => {
+    await mapPackService.deleteMapPack(packCityId);
+    await refreshPacks();
+    if (onAddToast) {
+      onAddToast('Pakett eemaldatud', `${packName} (.pmtiles) kustutati kohalikust seadmest.`, 'info');
     }
-    setIsDownloading(true);
-    setDownloadProgress(10);
-    setCurrentStepText('Lõikan kõrgusjooni ja pinnasevektoreid...');
+  };
 
-    await new Promise((resolve) => setTimeout(resolve, 450));
-    setDownloadProgress(40);
-    setCurrentStepText('Pakin kohalike raadiosõlmede ja ressursside metaandmeid...');
+  const handleImportLocalFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-    await new Promise((resolve) => setTimeout(resolve, 450));
-    setDownloadProgress(60);
-    
-    if (includeRasterTiles) {
-      setCurrentStepText('Laadin alla OpenStreetMap rasterkihte (Wi-Fi)...');
-      try {
-        const geoCenterRaw = (cameraCenter.lat !== undefined && cameraCenter.lng !== undefined)
-          ? { latitude: cameraCenter.lat, longitude: cameraCenter.lng }
-          : localGridToGeoPoint(cameraCenter.x, cameraCenter.y, activeCity.centerCoordsText);
-        const geoLat = geoCenterRaw.latitude;
-        const geoLng = geoCenterRaw.longitude;
-          
-        await downloadRasterTilesForRegion(
-          geoLat, 
-          geoLng, 
-          radiusKm, 
-          12, 
-          15, 
-          (downloaded, total) => {
-            const p = 60 + Math.floor((downloaded / total) * 30);
-            setDownloadProgress(p);
-          }
+    try {
+      setInstallingCityId(cityId);
+      setInstallProgress(30);
+      await mapPackService.importMapPackFile(cityId, file);
+      setInstallProgress(100);
+      await refreshPacks();
+
+      if (onAddToast) {
+        onAddToast(
+          '📁 PMTiles Fail Imporditud',
+          `Fail "${file.name}" (${(file.size / (1024 * 1024)).toFixed(1)} MB) seotud piirkonnaga ${activeCity.cityName}.`,
+          'success'
         );
-      } catch (e) {
-        console.warn('Failed to download raster tiles:', e);
       }
+    } catch (err) {
+      console.error('Import failed:', err);
+    } finally {
+      setInstallingCityId(null);
+      setInstallProgress(0);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
 
-    setDownloadProgress(90);
-    setCurrentStepText('Allkirjastan Ed25519 krüptovõtmega...');
+  const handleCreateSectorPack = async () => {
+    setIsPackagingSector(true);
+    await new Promise((resolve) => setTimeout(resolve, 400));
 
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    
     const newRegion = offlineMapService.generateRegionPack({
       name: regionName,
       cityId,
@@ -213,39 +163,27 @@ export const DownloadOfflineRegionModal: React.FC<DownloadOfflineRegionModalProp
       userCallsign,
     });
 
-    const updated = offlineMapService.saveRegion(newRegion);
-    setDownloadedRegions(updated);
-    setDownloadProgress(100);
-    setCurrentStepText('Salvestatud kohalikku mälupuhvrisse!');
+    offlineMapService.saveRegion(newRegion);
+    await refreshPacks();
+    setIsPackagingSector(false);
 
-    setTimeout(() => {
-      setIsDownloading(false);
-      setActiveTab('manage');
-      if (onAddToast) {
-        onAddToast(
-          `📦 Piirkond "${newRegion.name}" salvestatud!`,
-          `${newRegion.sizeFormatted} maastiku ja ${newRegion.nodeCount} sõlme andmed (sh rasterkaardid) on nüüd 100% võrguühenduseta saadaval.`,
-          'success'
-        );
-      }
-    }, 500);
-  };
-
-  const handleDeleteRegion = (id: string, name: string) => {
-    const updated = offlineMapService.deleteRegion(id);
-    setDownloadedRegions(updated);
     if (onAddToast) {
-      onAddToast('Pakett eemaldatud', `Piirkond "${name}" kustutati kohalikust vahemälust.`, 'info');
+      onAddToast(
+        `📍 Sektoripakett "${newRegion.name}" loodud`,
+        `${newRegion.nodeCount} raadiosõlme ja ${newRegion.resourceCount} kriisiressursi metaandmed on salvestatud.`,
+        'success'
+      );
     }
+    setActiveTab('manage');
   };
 
-  const totalOfflineSizeBytes = downloadedRegions.reduce((acc, r) => acc + r.sizeBytes, 0);
-  const totalOfflineFormatted = totalOfflineSizeBytes > 1024 * 1024
-    ? `${(totalOfflineSizeBytes / (1024 * 1024)).toFixed(2)} MB`
-    : `${(totalOfflineSizeBytes / 1024).toFixed(1)} KB`;
+  const totalInstalledBytes = mapPacks
+    .filter((p) => p.isInstalled)
+    .reduce((acc, p) => acc + p.sizeBytes, 0);
+  const totalFormatted = `${(totalInstalledBytes / (1024 * 1024)).toFixed(1)} MB`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/65 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
       <div
         className={`relative w-full max-w-2xl rounded-3xl border shadow-2xl overflow-hidden p-5 sm:p-6 transition-colors duration-200 max-h-[90vh] flex flex-col ${
           isNightMode
@@ -257,400 +195,344 @@ export const DownloadOfflineRegionModal: React.FC<DownloadOfflineRegionModalProp
         <button
           type="button"
           onClick={onClose}
-          className={`absolute top-4 right-4 p-2 rounded-full transition-colors cursor-pointer ${
-            isNightMode ? 'hover:bg-[#2A3B26] text-[#A8BDA5]' : 'hover:bg-[#E6EDE1] text-[#637062]'
-          }`}
-          aria-label="Sulge aken"
+          className="absolute top-4 right-4 p-2 rounded-full transition-colors cursor-pointer hover:bg-black/10 dark:hover:bg-white/10"
         >
-          <X className="w-5 h-5" />
+          <X className="w-5 h-5 opacity-70 hover:opacity-100" />
         </button>
 
         {/* Modal Header */}
-        <div className="flex items-center gap-3 mb-4 shrink-0 pr-8">
-          <div className="w-12 h-12 rounded-2xl bg-[#2A9D8F]/20 border border-[#2A9D8F]/40 flex items-center justify-center text-[#2A9D8F] shadow-xs">
-            <FolderDown className="w-6 h-6" />
+        <div className="flex items-center gap-3 mb-5 pr-8">
+          <div className="p-2.5 rounded-2xl bg-[#588157]/20 text-[#588157] dark:text-[#70E090]">
+            <HardDrive className="w-6 h-6" />
           </div>
           <div>
-            <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#2A9D8F]/20 text-[#2A9D8F] text-[10px] font-mono font-bold mb-0.5">
-              <ShieldCheck className="w-3 h-3" />
-              Zero-Cloud Local Terrain & Mesh Metadata Cache
-            </div>
-            <h2 className="font-display font-bold text-xl flex items-center gap-2">
-              <span>Laadi Piirkond Võrguühenduseta Kasutusse</span>
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <span>Võrguühenduseta Kaardipaketid</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-mono bg-[#2A9D8F]/20 text-[#2A9D8F] dark:text-[#70E090] font-semibold">
+                PMTiles Vector
+              </span>
             </h2>
-            <p className="text-xs text-[#637062] dark:text-[#A8BDA5]">
-              Salvesta kaamera ja asukoha raadiuses olevad teed, kõrgusjooned, veekogud ning sõlmede andmed täielikuks võrguvabaks navigeerimiseks.
+            <p className="text-xs opacity-75">
+              1-faililised serverivabad vektorbaaskaardid. 100% OSM reeglitele vastav (0 paaniserveri koormust).
             </p>
           </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="flex items-center gap-2 mb-4 shrink-0 border-b border-current/10 pb-2">
+        {/* Tabs */}
+        <div className="flex rounded-2xl bg-black/5 dark:bg-black/30 p-1 mb-5 border border-black/5 dark:border-white/5">
           <button
             type="button"
-            onClick={() => setActiveTab('smart')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'smart'
-                ? 'bg-[#2A9D8F] text-white shadow-xs'
-                : 'text-[#637062] dark:text-[#A8BDA5] hover:bg-current/5'
+            onClick={() => setActiveTab('packs')}
+            className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              activeTab === 'packs'
+                ? isNightMode
+                  ? 'bg-[#364E30] text-white shadow-sm'
+                  : 'bg-white text-[#203A2A] shadow-sm'
+                : 'opacity-70 hover:opacity-100'
             }`}
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Nutikad soovitused ({suggestedRegions.length})</span>
+            <FolderDown className="w-4 h-4" />
+            <span>Kaardipaketid (.pmtiles)</span>
           </button>
+
           <button
             type="button"
-            onClick={() => setActiveTab('create')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'create'
-                ? 'bg-[#2A9D8F] text-white shadow-xs'
-                : 'text-[#637062] dark:text-[#A8BDA5] hover:bg-current/5'
+            onClick={() => setActiveTab('custom')}
+            className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              activeTab === 'custom'
+                ? isNightMode
+                  ? 'bg-[#364E30] text-white shadow-sm'
+                  : 'bg-white text-[#203A2A] shadow-sm'
+                : 'opacity-70 hover:opacity-100'
             }`}
           >
-            <Download className="w-3.5 h-3.5" />
-            <span>Kohandatud ala ({radiusKm} km)</span>
+            <MapPin className="w-4 h-4" />
+            <span>Taktikaline Sektor</span>
           </button>
+
           <button
             type="button"
             onClick={() => setActiveTab('manage')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
               activeTab === 'manage'
-                ? 'bg-[#2A9D8F] text-white shadow-xs'
-                : 'text-[#637062] dark:text-[#A8BDA5] hover:bg-current/5'
+                ? isNightMode
+                  ? 'bg-[#364E30] text-white shadow-sm'
+                  : 'bg-white text-[#203A2A] shadow-sm'
+                : 'opacity-70 hover:opacity-100'
             }`}
           >
-            <HardDrive className="w-3.5 h-3.5" />
-            <span>Salvestatud paketid ({downloadedRegions.length})</span>
+            <Layers className="w-4 h-4" />
+            <span>Paigaldatud ({mapPacks.filter((p) => p.isInstalled).length})</span>
           </button>
         </div>
 
-        {/* Body Scroll */}
-        <div className="overflow-y-auto pr-1 flex-1 space-y-4 text-xs">
-          {activeTab === 'smart' ? (
+        {/* Content Body */}
+        <div className="flex-1 overflow-y-auto pr-1 space-y-4">
+          {/* TAB 1: PMTILES MAP PACKS */}
+          {activeTab === 'packs' && (
             <div className="space-y-4">
-              <div className="p-3.5 rounded-2xl bg-[#2A9D8F]/10 border border-[#2A9D8F]/30 space-y-1">
-                <h3 className="font-display font-bold text-sm text-[#203A2A] dark:text-[#F0F5EE] flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[#2A9D8F]" />
-                  <span>Võrguühenduseta piirkondade nutikas allalaadimine</span>
-                </h3>
-                <p className="text-xs text-[#637062] dark:text-[#A8BDA5]">
-                  Tuginedes sinu viimastele külastustele, eelseisvatele kogukonnasündmustele ja elutähtsatele ressurssidele:
+              {/* Compliance Notice Banner */}
+              <div className="p-3.5 rounded-2xl bg-[#2A9D8F]/10 border border-[#2A9D8F]/30 text-xs flex items-start gap-3">
+                <ShieldCheck className="w-5 h-5 text-[#2A9D8F] shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-bold text-[#2A9D8F] dark:text-[#70E090]">
+                    100% OpenStreetMap Foundation Poliitikale Vastav
+                  </p>
+                  <p className="text-[11px] opacity-85 leading-relaxed">
+                    HÕIMU ei kraabi tuhandeid rasterfaile aadressilt <code>tile.openstreetmap.org</code>. Kaardid laaditakse ühe tervikliku <code>.pmtiles</code> arhiivina, mis tagab sujuva vektorsuumi (Z10-Z15+), eestikeelsed tänavanimed (<code>name:et</code>) ja 6 taktikalist teemat.
+                  </p>
+                </div>
+              </div>
+
+              {/* Map Packs Grid */}
+              <div className="space-y-3">
+                {mapPacks.map((pack) => {
+                  const isCurrentCity = pack.cityId === cityId;
+                  const isInstallingThis = installingCityId === pack.cityId;
+
+                  return (
+                    <div
+                      key={pack.id}
+                      className={`p-4 rounded-2xl border transition-all ${
+                        pack.isInstalled
+                          ? 'bg-[#588157]/10 border-[#588157]/40'
+                          : isCurrentCity
+                          ? 'bg-amber-500/10 border-amber-500/30'
+                          : 'bg-black/5 dark:bg-white/5 border-transparent'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-sm">{pack.cityName} Map Pack</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-md font-mono bg-black/10 dark:bg-white/10">
+                              {pack.fileName}
+                            </span>
+                            {isCurrentCity && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-md font-bold bg-[#E76F51] text-white">
+                                Aktiivne Piirkond
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs opacity-80">{pack.description}</p>
+                          <div className="flex flex-wrap gap-2 text-[10px] font-mono opacity-70 pt-1">
+                            <span>Maht: <strong>{pack.sizeFormatted}</strong></span>
+                            <span>•</span>
+                            <span>Suum: <strong>{pack.zoomLevels}</strong></span>
+                            <span>•</span>
+                            <span>Keeled: <strong>name:et, name</strong></span>
+                          </div>
+                        </div>
+
+                        {/* Action Button */}
+                        <div className="shrink-0 flex flex-col items-end gap-2">
+                          {pack.isInstalled ? (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-[#588157] dark:text-[#70E090] flex items-center gap-1">
+                                <CheckCircle2 className="w-4 h-4" /> Paigaldatud
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteMapPack(pack.cityId, pack.cityName)}
+                                className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-500 transition-colors cursor-pointer"
+                                title="Kustuta kaardipakett seadmest"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={isInstallingThis}
+                              onClick={() => handleInstallMapPack(pack.cityId)}
+                              className="px-3 py-1.5 rounded-xl bg-[#588157] hover:bg-[#466945] text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer disabled:opacity-50"
+                            >
+                              {isInstallingThis ? (
+                                <>
+                                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                  <span>{installProgress}%</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Download className="w-3.5 h-3.5" />
+                                  <span>Paigalda ({pack.sizeFormatted})</span>
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Progress Bar when installing */}
+                      {isInstallingThis && (
+                        <div className="mt-3 space-y-1">
+                          <div className="flex justify-between text-[10px] font-mono">
+                            <span>Salvestan IndexedDB mälupuhvrisse...</span>
+                            <span>{installProgress}%</span>
+                          </div>
+                          <div className="w-full h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
+                            <div
+                              className="h-full bg-[#588157] transition-all duration-200"
+                              style={{ width: `${installProgress}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Local File Import */}
+              <div className="p-4 rounded-2xl border border-dashed border-black/20 dark:border-white/20 text-center space-y-2">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept=".pmtiles"
+                  onChange={handleImportLocalFile}
+                  className="hidden"
+                />
+                <UploadCloud className="w-6 h-6 mx-auto text-[#588157] dark:text-[#70E090]" />
+                <p className="text-xs font-bold">Välitööde import (USB / SD-kaart ilma internetita)</p>
+                <p className="text-[11px] opacity-75">
+                  Lohista või vali kohalik <code>.pmtiles</code> arhiiv seadmest.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-4 py-1.5 rounded-xl bg-black/10 dark:bg-white/10 hover:bg-black/15 text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Vali .pmtiles fail
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: CUSTOM TACTICAL SECTOR */}
+          {activeTab === 'custom' && (
+            <div className="space-y-4">
+              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs">
+                <p className="font-bold text-amber-700 dark:text-amber-300">
+                  Lokaalne Sektoripakett (Mesh & Resources)
+                </p>
+                <p className="text-[11px] opacity-80">
+                  Pakkib määratud raadiuses asuvad raadiosõlmed, koodnimed, kriisiressursid ja perimeetrid signeeritud offline-paketiks.
                 </p>
               </div>
 
               <div className="space-y-3">
-                {suggestedRegions.map((region) => (
-                  <div
-                    key={region.name}
-                    className={`p-4 rounded-2xl border transition-all shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                      isNightMode
-                        ? 'bg-[#121A10] border-[#2A3B26]'
-                        : 'bg-white border-[#87A878]/30 hover:border-[#2A9D8F]/50'
-                    }`}
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
-                            region.reason === 'frequent'
-                              ? 'bg-[#2A9D8F]/15 text-[#2A9D8F]'
-                              : region.reason === 'event'
-                              ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
-                              : region.reason === 'patrol'
-                              ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
-                              : 'bg-[#588157]/15 text-[#588157] dark:text-[#87A878]'
-                          }`}
-                        >
-                          {region.reasonLabel}
-                        </span>
-                        {region.lastVisited && (
-                          <span className="text-[10px] font-mono text-[#637062] dark:text-[#A8BDA5]">
-                            • {region.lastVisited}
-                          </span>
-                        )}
-                      </div>
-                      <h4 className="font-bold text-sm text-[#203A2A] dark:text-[#F0F5EE]">
-                        {region.name}
-                      </h4>
-                      <div className="flex items-center gap-3 text-[11px] text-[#637062] dark:text-[#A8BDA5] font-mono">
-                        <span>Raadius: {region.radiusKm} km</span>
-                        <span>•</span>
-                        <span>~{region.estimatedTiles} vektorit</span>
-                        <span>•</span>
-                        <span className="font-bold text-[#2A9D8F]">~{region.estimatedSizeMB} MB</span>
-                      </div>
-                    </div>
+                <div>
+                  <label className="block text-xs font-bold mb-1">Paketi Nimetus</label>
+                  <input
+                    type="text"
+                    value={regionName}
+                    onChange={(e) => setRegionName(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl text-xs bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 focus:outline-none focus:border-[#588157]"
+                  />
+                </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRegionName(region.name);
-                        setRadiusKm(region.radiusKm);
-                        handleStartDownload();
-                      }}
-                      disabled={isDownloading}
-                      className="px-4 py-2 min-h-[44px] bg-[#2A9D8F] hover:bg-[#238276] text-white font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-transform active:scale-95 disabled:opacity-50 shrink-0 shadow-xs"
-                    >
-                      <Download className="w-4 h-4" />
-                      <span>Laadi alla ({region.estimatedSizeMB} MB)</span>
-                    </button>
+                <div>
+                  <div className="flex justify-between text-xs font-bold mb-1">
+                    <span>Sektori Raadius</span>
+                    <span className="font-mono text-[#588157]">{radiusKm} km</span>
                   </div>
-                ))}
-              </div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[1.0, 2.5, 5.0, 10.0].map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => {
+                          setRadiusKm(r);
+                          setRegionName(`${activeCity.cityName} - ${activeCity.districts?.[0]?.name || 'Keskus'} (${r}km)`);
+                        }}
+                        className={`py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          radiusKm === r
+                            ? 'bg-[#588157] text-white'
+                            : 'bg-black/5 dark:bg-white/5 hover:bg-black/10'
+                        }`}
+                      >
+                        {r} km
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-              <div className="pt-2 text-center">
                 <button
                   type="button"
-                  onClick={() => setActiveTab('create')}
-                  className="px-4 py-2 min-h-[44px] text-xs font-bold text-[#588157] dark:text-[#A8BDA5] hover:underline cursor-pointer"
+                  disabled={isPackagingSector}
+                  onClick={handleCreateSectorPack}
+                  className="w-full py-2.5 rounded-2xl bg-[#588157] hover:bg-[#466945] text-white text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer disabled:opacity-50"
                 >
-                  Või vali käsitsi kohandatud ala ja raadius &rarr;
+                  {isPackagingSector ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Allkirjastan sektoripaketti...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-4 h-4" />
+                      <span>Salvesta Sektoripakett</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
-          ) : activeTab === 'create' ? (
+          )}
+
+          {/* TAB 3: MANAGE INSTALLED */}
+          {activeTab === 'manage' && (
             <div className="space-y-4">
-              {/* Camera / Location Anchor Info */}
-              <div
-                className={`p-3.5 rounded-2xl border flex flex-wrap items-center justify-between gap-3 ${
-                  isNightMode ? 'bg-[#121A10] border-[#2A3B26]' : 'bg-white border-[#87A878]/35 shadow-xs'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-[#2A9D8F]/15 text-[#2A9D8F]">
-                    <MapPin className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-mono text-[#637062] dark:text-[#87A878] block">
-                      Kaamera vaatekeskpunkt & Asukoht
-                    </span>
-                    <span className="font-bold text-xs text-[#203A2A] dark:text-[#F0F5EE]">
-                      {activeCity.cityName} ({activeCity.bioregionName})
-                    </span>
-                  </div>
-                </div>
-
-                <div className="text-[11px] font-mono font-semibold px-2.5 py-1 rounded-xl bg-[#FAF6EE] dark:bg-[#182315] border border-[#87A878]/30">
-                  X: {cameraCenter.x.toFixed(0)} • Y: {cameraCenter.y.toFixed(0)}
-                </div>
+              <div className="flex justify-between items-center p-3 rounded-2xl bg-black/5 dark:bg-white/5 text-xs">
+                <span>Võrguühenduseta mälumaht kokku:</span>
+                <span className="font-bold font-mono text-[#588157] dark:text-[#70E090]">
+                  {totalFormatted}
+                </span>
               </div>
 
-              {/* Region Name Input */}
-              <div className="space-y-1.5">
-                <label className="font-bold text-xs flex items-center justify-between text-[#203A2A] dark:text-[#F0F5EE]">
-                  <span>Piirkonna nimi / Paketi tähis</span>
-                  <span className="text-[10px] text-[#637062] font-mono">Näiteks "Kesklinn ja Emajõe luht"</span>
-                </label>
-                <input
-                  type="text"
-                  value={regionName}
-                  onChange={(e) => setRegionName(e.target.value)}
-                  placeholder="Piirkonna tähis..."
-                  className={`w-full px-3.5 py-2 rounded-xl border text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-[#2A9D8F] ${
-                    isNightMode
-                      ? 'bg-[#121A10] border-[#364E30] text-[#F0F5EE]'
-                      : 'bg-white border-[#87A878]/50 text-[#203A2A]'
-                  }`}
-                />
-              </div>
-
-              {/* Radius Selector Presets */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs text-[#203A2A] dark:text-[#F0F5EE]">
-                    Salvestatava maastiku raadius: <span className="text-[#2A9D8F] font-mono font-bold">{radiusKm} km</span>
-                  </span>
-                  <span className="text-[10px] font-mono text-[#588157]">
-                    Pindala: ~{(Math.PI * radiusKm * radiusKm).toFixed(1)} km²
-                  </span>
+              {mapPacks.filter((p) => p.isInstalled).length === 0 && downloadedRegions.length === 0 ? (
+                <div className="py-8 text-center text-xs opacity-60">
+                  <p>Ühtegi kaardipaketti pole veel paigaldatud.</p>
                 </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {[
-                    { r: 1.0, label: '1.0 km', desc: 'Jalgsi lähiala' },
-                    { r: 2.5, label: '2.5 km', desc: 'Kogukonna tuumik' },
-                    { r: 5.0, label: '5.0 km', desc: 'Terve bioregioon' },
-                    { r: 10.0, label: '10.0 km', desc: 'Valgala & koridor' },
-                  ].map((preset) => (
-                    <button
-                      key={preset.r}
-                      type="button"
-                      onClick={() => handleRadiusChange(preset.r)}
-                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                        radiusKm === preset.r
-                          ? 'bg-[#2A9D8F]/20 border-[#2A9D8F] text-[#2A9D8F] font-bold shadow-2xs'
-                          : isNightMode
-                          ? 'bg-[#121A10] border-[#2A3B26] text-[#A8BDA5] hover:bg-[#1E2B1A]'
-                          : 'bg-white border-[#87A878]/30 text-[#637062] hover:bg-[#FAF6EE]'
-                      }`}
-                    >
-                      <div className="font-mono font-bold text-xs">{preset.label}</div>
-                      <div className="text-[10px] opacity-80 mt-0.5">{preset.desc}</div>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Range Slider for fine tuning */}
-                <div className="pt-2">
-                  <input
-                    type="range"
-                    min="0.5"
-                    max="15.0"
-                    step="0.5"
-                    value={radiusKm}
-                    onChange={(e) => handleRadiusChange(parseFloat(e.target.value))}
-                    className="w-full accent-[#2A9D8F] cursor-pointer"
-                  />
-                  <div className="flex justify-between text-[10px] font-mono text-[#637062]">
-                    <span>0.5 km</span>
-                    <span>5.0 km</span>
-                    <span>10.0 km</span>
-                    <span>15.0 km</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Raster Tiles Option */}
-              <label className={`flex items-start gap-3 p-3.5 rounded-2xl border cursor-pointer transition-colors ${
-                includeRasterTiles 
-                  ? 'bg-[#2A9D8F]/10 border-[#2A9D8F]' 
-                  : isNightMode ? 'bg-[#121A10] border-[#2A3B26]' : 'bg-white border-[#87A878]/35'
-              }`}>
-                <div className="flex items-center h-5 mt-0.5">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 rounded text-[#2A9D8F] focus:ring-[#2A9D8F] bg-[#FAF6EE] border-[#87A878]/50"
-                    checked={includeRasterTiles}
-                    onChange={(e) => setIncludeRasterTiles(e.target.checked)}
-                  />
-                </div>
-                <div className="flex flex-col flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs text-[#203A2A] dark:text-[#F0F5EE]">
-                      Laadi alla OpenStreetMap rasterkihid
-                    </span>
-                    <Wifi className={`w-3.5 h-3.5 ${includeRasterTiles ? 'text-[#2A9D8F]' : 'text-[#637062]'}`} />
-                  </div>
-                  <span className="text-[10px] text-[#637062] dark:text-[#A8BDA5] mt-1">
-                    Salvestab satelliit- ja tänavakaardid Wi-Fi kaudu. Suurendab oluliselt allalaadimise mahtu (~{Math.ceil(radiusKm * radiusKm * 1.5)} MB).
-                  </span>
-                </div>
-              </label>
-
-              {/* Live Preview of What Will Be Downloaded */}
-              <div
-                className={`p-4 rounded-2xl border space-y-3 ${
-                  isNightMode ? 'bg-[#121A10] border-[#2A3B26]' : 'bg-white border-[#87A878]/35 shadow-xs'
-                }`}
-              >
-                <div className="font-display font-bold text-xs text-[#588157] flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5 text-[#2A9D8F]" />
-                  <span>Kaasa pakitavad kohalikud kihid & metaandmed:</span>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-                  <div className="p-2 rounded-xl bg-[#FAF6EE] dark:bg-[#182315] border border-current/10">
-                    <span className="text-[#637062] block text-[10px]">Maastik & pinnas</span>
-                    <span className="font-bold text-[#203A2A] dark:text-[#F0F5EE]">Teed, jõed, künkad</span>
-                  </div>
-                  <div className="p-2 rounded-xl bg-[#FAF6EE] dark:bg-[#182315] border border-current/10">
-                    <span className="text-[#637062] block text-[10px]">Raadiosõlmed</span>
-                    <span className="font-bold text-[#203A2A] dark:text-[#F0F5EE]">
-                      {allNodes.length} Sõlme profiili
-                    </span>
-                  </div>
-                  <div className="p-2 rounded-xl bg-[#FAF6EE] dark:bg-[#182315] border border-current/10">
-                    <span className="text-[#637062] block text-[10px]">Ressursid & varud</span>
-                    <span className="font-bold text-[#203A2A] dark:text-[#F0F5EE]">
-                      {allResources.length} Tööriista/toitu
-                    </span>
-                  </div>
-                  <div className="p-2 rounded-xl bg-[#FAF6EE] dark:bg-[#182315] border border-current/10">
-                    <span className="text-[#637062] block text-[10px]">Eeldatav maht</span>
-                    <span className="font-bold text-[#2A9D8F] font-mono">
-                      ~{(radiusKm * 38).toFixed(0)} KB
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Download Progress Bar or Action Button */}
-              {isDownloading ? (
-                <div className="space-y-2 p-4 rounded-2xl bg-[#2A9D8F]/10 border border-[#2A9D8F]/30 animate-pulse">
-                  <div className="flex items-center justify-between text-xs font-bold text-[#2A9D8F]">
-                    <span className="flex items-center gap-1.5">
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      {currentStepText}
-                    </span>
-                    <span className="font-mono">{downloadProgress}%</span>
-                  </div>
-                  <div className="w-full bg-[#2A9D8F]/20 h-2 rounded-full overflow-hidden">
+              ) : (
+                <div className="space-y-2">
+                  {mapPacks.filter((p) => p.isInstalled).map((pack) => (
                     <div
-                      className="bg-[#2A9D8F] h-full rounded-full transition-all duration-300"
-                      style={{ width: `${downloadProgress}%` }}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleStartDownload}
-                  className="w-full py-3 px-4 bg-[#2A9D8F] hover:bg-[#238276] text-white rounded-2xl font-display font-bold text-sm shadow-md transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Laadi alla ja salvesta seadmesse ({radiusKm} km)</span>
-                </button>
-              )}
-            </div>
-          ) : (
-            /* Manage Downloaded Regions Panel */
-            <div className="space-y-3">
-              {downloadedRegions.length === 0 ? (
-                <div className="p-8 text-center space-y-3 rounded-2xl border border-dashed border-current/20">
-                  <HardDrive className="w-10 h-10 mx-auto text-[#87A878] opacity-60" />
-                  <p className="font-medium text-xs text-[#637062]">
-                    Ühtegi võrguühenduseta piirkonda pole veel salvestatud.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('create')}
-                    className="px-4 py-2 rounded-xl bg-[#2A9D8F] text-white font-bold text-xs cursor-pointer shadow-xs"
-                  >
-                    Laadi alla esimene piirkond
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-2.5">
-                  <div className="flex items-center justify-between text-[11px] text-[#637062] px-1 font-mono">
-                    <span>Salvestatud piirkonnad: {downloadedRegions.length}</span>
-                    <span>Kogumaht: {totalOfflineFormatted}</span>
-                  </div>
+                      key={pack.id}
+                      className="p-3 rounded-2xl bg-black/5 dark:bg-white/5 flex items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="flex items-center gap-2">
+                        <FileCheck className="w-4 h-4 text-[#588157]" />
+                        <div>
+                          <p className="font-bold">{pack.cityName} PMTiles Vector Pack</p>
+                          <p className="text-[10px] opacity-70 font-mono">{pack.fileName} • {pack.sizeFormatted}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteMapPack(pack.cityId, pack.cityName)}
+                        className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10 cursor-pointer"
+                        title="Kustuta"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
 
                   {downloadedRegions.map((region) => (
                     <div
                       key={region.id}
-                      className={`p-3.5 rounded-2xl border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
-                        isNightMode ? 'bg-[#121A10] border-[#2A3B26]' : 'bg-white border-[#87A878]/30 shadow-xs'
-                      }`}
+                      className="p-3 rounded-2xl bg-black/5 dark:bg-white/5 flex items-center justify-between gap-3 text-xs"
                     >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-display font-bold text-xs text-[#203A2A] dark:text-[#F0F5EE]">
-                            {region.name}
-                          </span>
-                          <span className="text-[10px] font-mono px-2 py-0.2 rounded-full bg-[#2A9D8F]/15 text-[#2A9D8F] font-bold border border-[#2A9D8F]/30">
-                            {region.radiusKm} km • {region.sizeFormatted}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-[#637062] dark:text-[#87A878] font-mono">
-                          {region.cityName} ({region.bioregionName}) • {region.nodeCount} Sõlme • {region.resourceCount} Ressurssi
-                        </p>
-                        <div className="text-[9px] font-mono text-[#87A878]">
-                          Salvestatud: {new Date(region.downloadedAt).toLocaleDateString()} {new Date(region.downloadedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {region.signatureHash}
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-[#2A9D8F]" />
+                        <div>
+                          <p className="font-bold">{region.name}</p>
+                          <p className="text-[10px] opacity-70 font-mono">
+                            {region.radiusKm} km • {region.nodeCount} sõlme • {region.resourceCount} ressurssi
+                          </p>
                         </div>
                       </div>
-
-                      <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                      <div className="flex items-center gap-1">
                         {onSelectAndCenterRegion && (
                           <button
                             type="button"
@@ -658,30 +540,20 @@ export const DownloadOfflineRegionModal: React.FC<DownloadOfflineRegionModalProp
                               onSelectAndCenterRegion(region);
                               onClose();
                             }}
-                            className="px-2.5 py-1.5 rounded-xl bg-[#2A9D8F]/15 hover:bg-[#2A9D8F]/25 text-[#2A9D8F] font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors"
-                            title="Tsentreeri kaart sellele piirkonnale"
+                            className="px-2 py-1 rounded-lg bg-[#588157]/20 text-[#588157] text-[10px] font-bold cursor-pointer"
                           >
-                            <Navigation className="w-3 h-3" />
-                            <span>Vaata</span>
+                            Ava Kaardil
                           </button>
                         )}
-
                         <button
                           type="button"
-                          onClick={() => offlineMapService.exportRegionAsFile(region)}
-                          className="p-1.5 rounded-xl bg-current/5 hover:bg-current/10 text-[#637062] dark:text-[#A8BDA5] cursor-pointer transition-colors"
-                          title="Ekspordi .hoimumap fail SD-kaardile või teisele seadmele"
+                          onClick={() => {
+                            const updated = offlineMapService.deleteRegion(region.id);
+                            setDownloadedRegions(updated);
+                          }}
+                          className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10 cursor-pointer"
                         >
-                          <Share2 className="w-3.5 h-3.5" />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteRegion(region.id, region.name)}
-                          className="p-1.5 rounded-xl bg-[#E76F51]/10 hover:bg-[#E76F51]/20 text-[#E76F51] cursor-pointer transition-colors"
-                          title="Kustuta salvestatud pakett"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
@@ -692,13 +564,16 @@ export const DownloadOfflineRegionModal: React.FC<DownloadOfflineRegionModalProp
           )}
         </div>
 
-        {/* Footer info note */}
-        <div className="pt-3 mt-3 border-t border-current/10 flex items-center justify-between text-[10px] font-mono text-[#637062] dark:text-[#87A878]">
-          <span className="flex items-center gap-1">
-            <ShieldCheck className="w-3 h-3 text-[#2A9D8F]" />
-            100% lokaalne — ei vaja internetti, pilveteenuseid ega API-sid.
-          </span>
-          <span>Hõimu P2P Mesh v1.2</span>
+        {/* Footer */}
+        <div className="mt-4 pt-3 border-t border-black/10 dark:border-white/10 flex justify-between items-center text-[11px] opacity-70 font-mono">
+          <span>HÕIMU Zero-Scraping Vector Standard</span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-1.5 rounded-xl bg-black/10 dark:bg-white/10 hover:bg-black/15 font-bold cursor-pointer"
+          >
+            Sulge
+          </button>
         </div>
       </div>
     </div>

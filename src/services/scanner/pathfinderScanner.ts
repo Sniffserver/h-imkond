@@ -13,6 +13,7 @@ import {
   getLoadedPathfinderData,
 } from '../../utils/pathfinderStorage';
 import { backgroundSyncAdjuster } from '../mesh/backgroundSyncAdjuster';
+import { ESTONIA_CITY_DEFAULTS } from '../../geo';
 
 /**
  * Uute leidude tuvastamise funktsioonid (Novelty detection)
@@ -81,8 +82,8 @@ class PathfinderScannerService {
     isPaused: false,
     activeSession: null,
     currentLocation: {
-      latitude: 58.3780,
-      longitude: 26.7290,
+      latitude: ESTONIA_CITY_DEFAULTS.tallinn.lat,
+      longitude: ESTONIA_CITY_DEFAULTS.tallinn.lng,
       timestamp: Date.now(),
     },
     totalDistanceMeters: 0,
@@ -211,8 +212,8 @@ class PathfinderScannerService {
   public startWalkSession(customTitle?: string): WalkSession {
     const sessionId = `walk_${Date.now()}`;
     const startLoc = this.state.currentLocation || {
-      latitude: 58.3780,
-      longitude: 26.7290,
+      latitude: ESTONIA_CITY_DEFAULTS.tallinn.lat,
+      longitude: ESTONIA_CITY_DEFAULTS.tallinn.lng,
       timestamp: Date.now(),
     };
 
@@ -438,8 +439,8 @@ class PathfinderScannerService {
       if (!this.state.isRecording || this.state.isPaused) return;
 
       const curr = this.state.currentLocation || {
-        latitude: 58.3780,
-        longitude: 26.7290,
+        latitude: ESTONIA_CITY_DEFAULTS.tallinn.lat,
+        longitude: ESTONIA_CITY_DEFAULTS.tallinn.lng,
         timestamp: Date.now(),
       };
 
@@ -862,8 +863,8 @@ class PathfinderScannerService {
 
       if (device) {
         const loc = this.state.currentLocation || {
-          latitude: 58.3780,
-          longitude: 26.7290,
+          latitude: ESTONIA_CITY_DEFAULTS.tallinn.lat,
+          longitude: ESTONIA_CITY_DEFAULTS.tallinn.lng,
           timestamp: Date.now(),
         };
 
@@ -927,8 +928,8 @@ class PathfinderScannerService {
     data: any
   ): Promise<boolean> {
     const loc = this.state.currentLocation || {
-      latitude: 58.3780,
-      longitude: 26.7290,
+      latitude: ESTONIA_CITY_DEFAULTS.tallinn.lat,
+      longitude: ESTONIA_CITY_DEFAULTS.tallinn.lng,
       timestamp: Date.now(),
     };
     const activeSessionId = this.state.activeSession?.id;

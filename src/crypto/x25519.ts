@@ -17,9 +17,9 @@ export interface X25519KeyPair {
   publicKeyHex: string;
 }
 
-export async function generateX25519KeyPair(): Promise<X25519KeyPair> {
+export async function generateX25519KeyPair(extractable: boolean = false): Promise<X25519KeyPair> {
   const subtle = getSubtle();
-  const pair = (await subtle.generateKey({ name: 'X25519' }, true, [
+  const pair = (await subtle.generateKey({ name: 'X25519' }, extractable, [
     'deriveBits',
     'deriveKey',
   ])) as CryptoKeyPair;

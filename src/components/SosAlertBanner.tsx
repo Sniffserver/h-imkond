@@ -122,14 +122,16 @@ export const SosAlertBanner: React.FC<SosAlertBannerProps> = ({
 
   // Focus on top active alert
   const currentAlert = activeAlerts[0];
-  const distanceKm = calculateDistanceKm(currentAlert.lat, currentAlert.lng);
+  const alertLat = typeof currentAlert.lat === 'number' ? currentAlert.lat : ((currentAlert as any).latitude ?? 59.437);
+  const alertLng = typeof currentAlert.lng === 'number' ? currentAlert.lng : ((currentAlert as any).longitude ?? 24.7535);
+  const distanceKm = calculateDistanceKm(alertLat, alertLng);
   const alertTimeStr = new Date(currentAlert.timestamp).toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
   });
 
-  const isSelf = currentAlert.from.toLowerCase() === userCallsign.toLowerCase();
+  const isSelf = (currentAlert.from || '').toLowerCase() === userCallsign.toLowerCase();
 
   return (
     <div
@@ -164,10 +166,10 @@ export const SosAlertBanner: React.FC<SosAlertBannerProps> = ({
             <div className="flex items-center gap-3 text-[11px] font-mono text-yellow-100 mt-1">
               <span className="flex items-center gap-1">
                 <MapPin className="w-3 h-3 text-yellow-300" />
-                {distanceKm} km away ({currentAlert.lat.toFixed(4)}, {currentAlert.lng.toFixed(4)})
+                {distanceKm} km away ({alertLat.toFixed(4)}, {alertLng.toFixed(4)})
               </span>
               <span>•</span>
-              <span className="text-white/80">Relay TTL: {currentAlert.ttl} Hops</span>
+              <span className="text-white/80">Relay TTL: {currentAlert.ttl ?? 7} Hops</span>
             </div>
           </div>
         </div>
@@ -177,7 +179,7 @@ export const SosAlertBanner: React.FC<SosAlertBannerProps> = ({
           {onSelectOnMap && (
             <button
               type="button"
-              onClick={() => onSelectOnMap(currentAlert.lat, currentAlert.lng)}
+              onClick={() => onSelectOnMap(alertLat, alertLng)}
               className="px-3 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1 border border-white/30"
               title="Locate emergency source on map grid"
             >

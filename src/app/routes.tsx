@@ -33,6 +33,10 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({
   crisisAlerts,
   batteryStatus,
   isNightMode,
+  themeMode,
+  fieldDisplayMode,
+  onSetThemeMode,
+  onSetFieldDisplayMode,
   isGloveMode,
   isHighContrast,
   isDirectSun,
@@ -172,6 +176,10 @@ export const AppRoutes: React.FC<AppRoutesProps> = ({
           onUpdateUser={onUpdateUser}
           onAddToast={addToast}
           isNightMode={isNightMode}
+          themeMode={themeMode}
+          fieldDisplayMode={fieldDisplayMode}
+          onSetThemeMode={onSetThemeMode}
+          onSetFieldDisplayMode={onSetFieldDisplayMode}
           filterOnlyNew={filterOnlyNewMap}
           onViewResourceDetails={onSelectResourceForDetail}
           onSelectPeer={onSelectPeerForDetail}

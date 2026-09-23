@@ -91,6 +91,9 @@ export interface CityMapData {
   centerCoordsText: string;
   centerCoords?: [number, number];
   description: string;
+  version?: string;
+  routingSnapshotVersion?: string;
+  attribution?: string;
   streets: VectorStreet[];
   zones: VectorZone[];
   landmarks: VectorLandmark[];
