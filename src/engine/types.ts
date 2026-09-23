@@ -111,7 +111,7 @@ export interface SignedCRDTEvent<T = any> {
   previousEventHash?: string; // Merkle hash chain
   entityType: DomainEntityType;
   entityId: string;
-  action: 'create' | 'update' | 'delete';
+  action: 'create' | 'update' | 'delete' | 'delta';
   authorNodeId: string; // Ed25519 public key hex
   authorCallsign: string;
   logicalClock: number; // Lamport timestamp

@@ -73,6 +73,16 @@ class A11yAnnouncerService {
     this.announce(`Success: ${action}`, 'polite');
   }
 
+  public announceNetworkState(state: string, details?: string): void {
+    const detailText = details ? `. ${details}` : '';
+    this.announce(`Network status changed to ${state}${detailText}`, 'polite');
+  }
+
+  public announceMapStatus(status: string, centerCoords?: [number, number]): void {
+    const coordsText = centerCoords ? ` at coordinates ${centerCoords[1].toFixed(4)}N, ${centerCoords[0].toFixed(4)}E` : '';
+    this.announce(`Tactical map: ${status}${coordsText}`, 'polite');
+  }
+
   public subscribe(listener: AnnounceListener): () => void {
     this.listeners.add(listener);
     listener({ polite: this.politeMessage, assertive: this.assertiveMessage });

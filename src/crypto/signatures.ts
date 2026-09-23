@@ -7,7 +7,7 @@
 
 import { HoimuPacket, HoimuPacketHeader } from '../protocol/types';
 import { canonicalizeToBytes } from '../protocol/canonical';
-import { signBytes, verifySignature } from './ed25519';
+import { signBytes, verifySignature } from '../core/crypto/ed25519';
 
 /**
  * Signs a HoimuPacket envelope canonically using the sender's Ed25519 private key.

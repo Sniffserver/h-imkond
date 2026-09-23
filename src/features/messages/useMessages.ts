@@ -3,7 +3,7 @@ import { MeshMessage, MeshNode } from '../../types';
 import { getSecureLocalStorage, setSecureLocalStorage } from '../../utils/localStorageValidator';
 import { INITIAL_MESSAGES } from '../../data/initialData';
 import { initMessageStorage } from '../../services/comms/messageService';
-import { signCanonicalPayload } from '../../services/crypto/meshCrypto';
+import { signCanonicalPayload } from '../../core/identity';
 
 export function useMessages(userCallsign: string, userId: string) {
   const [messages, setMessages] = useState<MeshMessage[]>(() => {

@@ -7,7 +7,7 @@
 
 import { SignedCRDTEvent, DomainEntityType } from './types';
 import { canonicalizeToBytes } from '../protocol/canonical';
-import { signBytes, verifySignature } from '../crypto/ed25519';
+import { signBytes, verifySignature } from '../core/crypto/ed25519';
 
 function getSubtle(): SubtleCrypto {
   if (typeof crypto !== 'undefined' && crypto.subtle) {

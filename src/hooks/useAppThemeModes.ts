@@ -104,7 +104,7 @@ export function useAppThemeModes({ addToast, userLat = 59.437, userLng = 24.7535
     return saved ? JSON.parse(saved) : false;
   });
 
-  // Persist Theme Mode & Sync Document Root
+  // Persist Theme Mode & Sync Document Root (<html data-theme="..." data-display="...">)
   useEffect(() => {
     localStorage.setItem('hoimu_theme_mode', themeMode);
     localStorage.setItem('hoimu_night_mode', JSON.stringify(isNightMode));
@@ -112,25 +112,22 @@ export function useAppThemeModes({ addToast, userLat = 59.437, userLng = 24.7535
 
     if (typeof document !== 'undefined') {
       const root = document.documentElement;
-      root.classList.toggle('dark', isNightMode);
-      root.classList.toggle('field-red-mode', fieldDisplayMode === 'red');
 
-      // Sync semantic data attributes for tokenized CSS
+      // Ensure data-display is always explicitly set to 'normal', 'night', or 'red'
+      const activeDisplay = fieldDisplayMode === 'red' ? 'red' : isNightMode ? 'night' : 'normal';
+      root.setAttribute('data-display', activeDisplay);
+
+      // Set data-theme as source of truth for design tokens
       if (fieldDisplayMode === 'red') {
         root.setAttribute('data-theme', 'red');
-        root.setAttribute('data-display', 'red');
       } else if (isHighContrast) {
         root.setAttribute('data-theme', 'high-contrast');
-        root.removeAttribute('data-display');
       } else if (isDirectSun) {
         root.setAttribute('data-theme', 'direct-sun');
-        root.removeAttribute('data-display');
       } else if (isNightMode) {
         root.setAttribute('data-theme', 'night');
-        root.removeAttribute('data-display');
       } else {
         root.setAttribute('data-theme', 'day');
-        root.removeAttribute('data-display');
       }
     }
   }, [themeMode, isNightMode, fieldDisplayMode, isHighContrast, isDirectSun]);

@@ -46,7 +46,7 @@ import { initMeshSync } from '../services/mesh/meshSync';
 import { backgroundSyncAdjuster } from '../services/mesh/backgroundSyncAdjuster';
 import { initMessageStorage } from '../services/comms/messageService';
 import { initSosService } from '../services/utils/sosService';
-import { signCanonicalPayload } from '../services/crypto/meshCrypto';
+import { signCanonicalPayload } from '../core/identity';
 
 export interface UseAppDomainStateProps {
   addToast: (title: string, description?: string, type?: ToastMessage['type']) => void;

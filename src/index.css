@@ -1,101 +1,5 @@
 @import "tailwindcss";
-
-:root {
-  /* HÕIMU Day: Warm paper, organic forest greens, warm sunlight accents */
-  --hm-bg: #FAF6EE;
-  --hm-surface: #FFFFFF;
-  --hm-surface-2: #F0F4ED;
-  --hm-border: #D7E1D1;
-  --hm-border-subtle: rgba(135, 168, 120, 0.25);
-  --hm-text: #243128;
-  --hm-text-muted: #637062;
-
-  --hm-primary: #588157;
-  --hm-primary-hover: #486d47;
-  --hm-accent: #E9C46A;
-  --hm-info: #2A9D8F;
-  --hm-danger: #E76F51;
-
-  --hm-focus-ring: #87A878;
-}
-
-/* HÕIMU Green Night: Low luminance, low glare, low blue OLED field map */
-html[data-theme="night"],
-html.dark {
-  --hm-bg: #10160F;
-  --hm-surface: #172018;
-  --hm-surface-2: #1B281C;
-  --hm-border: #334231;
-  --hm-border-subtle: rgba(54, 78, 48, 0.45);
-  --hm-text: #E5EBDD;
-  --hm-text-muted: #95A18F;
-
-  --hm-primary: #8FA875;
-  --hm-primary-hover: #A4BD8A;
-  --hm-accent: #D9B85C;
-  --hm-info: #4CA99C;
-  --hm-danger: #FF715C;
-
-  --hm-focus-ring: #D9B85C;
-}
-
-/* HÕIMU Red Night Vision: Pure red light tactical stealth mode */
-html[data-display="red"],
-html[data-theme="red"] {
-  --hm-bg: #080000;
-  --hm-surface: #120000;
-  --hm-surface-2: #1A0000;
-  --hm-border: #3E0B0F;
-  --hm-border-subtle: rgba(100, 20, 25, 0.5);
-  --hm-text: #FF5A5A;
-  --hm-text-muted: #9A4040;
-
-  --hm-primary: #FF3B30;
-  --hm-primary-hover: #FF554A;
-  --hm-accent: #FF6B4A;
-  --hm-info: #D9383A;
-  --hm-danger: #FF2A2A;
-
-  --hm-focus-ring: #FF3B30;
-}
-
-/* HÕIMU High Contrast Mode */
-html[data-theme="high-contrast"] {
-  --hm-bg: #000000;
-  --hm-surface: #0A0A0A;
-  --hm-surface-2: #141414;
-  --hm-border: #FFFFFF;
-  --hm-border-subtle: #FFFFFF;
-  --hm-text: #FFFFFF;
-  --hm-text-muted: #E0E0E0;
-
-  --hm-primary: #FFFF00;
-  --hm-primary-hover: #FFEE00;
-  --hm-accent: #FFFF00;
-  --hm-info: #00FFFF;
-  --hm-danger: #FF0055;
-
-  --hm-focus-ring: #FFFF00;
-}
-
-/* HÕIMU Direct Sun Mode */
-html[data-theme="direct-sun"] {
-  --hm-bg: #FFFDF7;
-  --hm-surface: #FFFFFF;
-  --hm-surface-2: #F5F0E6;
-  --hm-border: #222222;
-  --hm-border-subtle: #444444;
-  --hm-text: #000000;
-  --hm-text-muted: #1A1A1A;
-
-  --hm-primary: #203A2A;
-  --hm-primary-hover: #122419;
-  --hm-accent: #8A6400;
-  --hm-info: #0F5850;
-  --hm-danger: #A32007;
-
-  --hm-focus-ring: #000000;
-}
+@import "./styles/tokens.css";
 
 @layer base {
   body {
@@ -146,28 +50,18 @@ html[data-theme="direct-sun"] {
   box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.4);
 }
 
-/* Floating Controls / HUD Glass (Reserved for GPS, SOS, Floating Toolbars) */
+/* Floating Controls / Field Instrument HUD Controls */
 .field-hud-glass {
-  background: rgba(250, 246, 238, 0.92);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--hm-surface);
+  opacity: var(--hm-hud-opacity, 0.85);
   border: 1px solid var(--hm-border);
+  box-shadow: 0 1px 4px 0 rgba(0, 0, 0, 0.12);
 }
 
-html.dark .field-hud-glass,
-html[data-theme="night"] .field-hud-glass {
-  background: rgba(23, 32, 24, 0.92);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--hm-border);
-}
-
-html[data-display="red"] .field-hud-glass,
-html[data-theme="red"] .field-hud-glass {
-  background: rgba(18, 0, 0, 0.94);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--hm-border);
+.field-hud-glass:hover,
+.field-hud-glass:focus-within {
+  opacity: 1.0;
+  transition: opacity 0.15s ease-in-out;
 }
 
 .solar-gradient {
@@ -297,45 +191,34 @@ body.glove-mode .map-node-target {
   }
 }
 
-body.high-contrast,
-body.high-contrast * {
+[data-theme="high-contrast"],
+[data-theme="high-contrast"] * {
   backdrop-filter: none !important;
   background-image: none !important;
 }
 
-body.high-contrast {
+[data-theme="high-contrast"] {
   filter: contrast(135%);
 }
 
-body.high-contrast button,
-body.high-contrast [role="button"],
-body.high-contrast input,
-body.high-contrast select,
-body.high-contrast .border,
-body.high-contrast [class*="border"] {
-  border-width: 2px !important;
-  border-color: #000000 !important;
-}
-
-html.dark body.high-contrast button,
-html.dark body.high-contrast [role="button"],
-html.dark body.high-contrast input,
-html.dark body.high-contrast select,
-html.dark body.high-contrast .border,
-html.dark body.high-contrast [class*="border"] {
+[data-theme="high-contrast"] button,
+[data-theme="high-contrast"] [role="button"],
+[data-theme="high-contrast"] input,
+[data-theme="high-contrast"] select,
+[data-theme="high-contrast"] .border,
+[data-theme="high-contrast"] [class*="border"] {
   border-width: 2px !important;
   border-color: #ffffff !important;
 }
 
 /* 3. Direct Sun Mode (Maximum outdoor sunlight readability) */
-body.direct-sun {
+[data-theme="direct-sun"] {
   background-color: #ffffff !important;
   background-image: none !important;
   color: #000000 !important;
 }
 
-body.direct-sun *,
-html.dark body.direct-sun * {
+[data-theme="direct-sun"] * {
   background-color: #ffffff !important;
   background-image: none !important;
   color: #000000 !important;
@@ -345,10 +228,10 @@ html.dark body.direct-sun * {
   backdrop-filter: none !important;
 }
 
-body.direct-sun button,
-body.direct-sun [role="button"],
-body.direct-sun input,
-body.direct-sun select {
+[data-theme="direct-sun"] button,
+[data-theme="direct-sun"] [role="button"],
+[data-theme="direct-sun"] input,
+[data-theme="direct-sun"] select {
   border: 2px solid #000000 !important;
   background-color: #ffffff !important;
   color: #000000 !important;

@@ -2,10 +2,16 @@
  * Deterministic State Reducer for HÕIMU Resilient Engine
  * 
  * Guarantees convergent replica state across all mesh nodes (Android, ESP32, Pi, Web)
- * by applying total ordering over cryptographically verified events:
- * 1. Logical Clock (Lamport timestamp)
- * 2. Wall Clock (UTC ms timestamp)
- * 3. Event ID (Lexicographical tie-breaker)
+ * by applying entity-specific CRDT conflict policies:
+ * 
+ * 1. resource    -> LWW + signed author
+ * 2. inventory   -> Operation-based delta (+/- quantity)
+ * 3. message     -> Immutable event (append-only)
+ * 4. peer        -> LWW + signed author (key rotation & freshest timestamp)
+ * 5. skill       -> LWW + signed author
+ * 6. transaction -> Immutable event / balance delta
+ * 7. SOS         -> Immutable origin + strict state machine transitions (active -> acknowledged -> resolved)
+ * 8. map_marker  -> LWW + signed author / tombstone
  */
 
 import {
@@ -48,7 +54,7 @@ export function compareEventsDeterministically(a: SignedCRDTEvent, b: SignedCRDT
 }
 
 /**
- * Pure state reducer applying an array of signed events deterministically
+ * Pure state reducer applying an array of signed events deterministically with entity-specific CRDT rules
  */
 export function reduceEngineState(events: SignedCRDTEvent[]): ResilientEngineState {
   const state = createEmptyEngineState();
@@ -65,6 +71,7 @@ function applyEventToState(state: ResilientEngineState, event: SignedCRDTEvent):
   const { entityType, entityId, action, authorNodeId, authorCallsign, wallClock, data } = event;
 
   switch (entityType) {
+    // 1. RESOURCE & MUTUAL AID: LWW + Signed Author
     case 'mutual_aid': {
       if (action === 'delete') {
         state.mutualAid.delete(entityId);
@@ -90,11 +97,18 @@ function applyEventToState(state: ResilientEngineState, event: SignedCRDTEvent):
       break;
     }
 
+    // 2. RESOURCE: Last-Write-Wins (LWW) + Signed Author
     case 'resource': {
       if (action === 'delete') {
         state.resources.delete(entityId);
       } else {
         const existing = state.resources.get(entityId);
+        // Operation-based quantity delta support if action is delta
+        const newQuantity =
+          action === 'delta'
+            ? (existing?.quantity ?? 0) + (data.delta ?? 0)
+            : (data.quantity ?? existing?.quantity ?? 1);
+
         state.resources.set(entityId, {
           id: entityId,
           createdAt: existing?.createdAt ?? wallClock,
@@ -103,7 +117,7 @@ function applyEventToState(state: ResilientEngineState, event: SignedCRDTEvent):
           authorCallsign: existing?.authorCallsign ?? authorCallsign,
           name: data.name ?? existing?.name ?? 'Resource',
           category: data.category ?? existing?.category ?? 'hardware',
-          quantity: data.quantity ?? existing?.quantity ?? 1,
+          quantity: Math.max(0, newQuantity),
           unit: data.unit ?? existing?.unit ?? 'pcs',
           condition: data.condition ?? existing?.condition ?? 'good',
           locationName: data.locationName ?? existing?.locationName ?? 'Field Store',
@@ -114,6 +128,7 @@ function applyEventToState(state: ResilientEngineState, event: SignedCRDTEvent):
       break;
     }
 
+    // 3. SKILL: LWW + Signed Author
     case 'skill': {
       if (action === 'delete') {
         state.skills.delete(entityId);
@@ -134,26 +149,57 @@ function applyEventToState(state: ResilientEngineState, event: SignedCRDTEvent):
       break;
     }
 
+    // 4. SOS BEACON: Immutable Origin + Strict State Transitions (active -> acknowledged -> resolved)
     case 'sos_beacon': {
       if (action === 'delete') {
-        state.sosBeacons.delete(entityId);
+        // SOS deletion is restricted: only author can tombstone if resolved
+        const existing = state.sosBeacons.get(entityId);
+        if (existing && existing.status === 'resolved' && authorNodeId === existing.authorNodeId) {
+          state.sosBeacons.delete(entityId);
+        }
       } else {
         const existing = state.sosBeacons.get(entityId);
+        const validTransitions: Record<string, string[]> = {
+          active: ['acknowledged', 'resolved', 'active'],
+          acknowledged: ['resolved', 'acknowledged'],
+          resolved: ['resolved'], // Resolved state is terminal
+        };
+
+        const targetStatus = data.status ?? existing?.status ?? 'active';
+        const allowed = existing
+          ? validTransitions[existing.status]?.includes(targetStatus)
+          : true;
+
+        if (!allowed) {
+          console.warn(`[CRDT] Rejected illegal SOS state transition ${existing?.status} -> ${targetStatus}`);
+          break;
+        }
+
+        // Responders list is an additive set (Causal OR-Set)
+        const existingResponders = new Set(existing?.responders || []);
+        if (Array.isArray(data.responders)) {
+          data.responders.forEach((r: string) => existingResponders.add(r));
+        }
+        if (data.addResponder) {
+          existingResponders.add(data.addResponder);
+        }
+
         state.sosBeacons.set(entityId, {
           id: entityId,
+          // Origin fields are immutable once created
           createdAt: existing?.createdAt ?? wallClock,
           updatedAt: wallClock,
           authorNodeId: existing?.authorNodeId ?? authorNodeId,
           authorCallsign: existing?.authorCallsign ?? authorCallsign,
-          emergencyType: data.emergencyType ?? existing?.emergencyType ?? 'general',
+          emergencyType: existing?.emergencyType ?? data.emergencyType ?? 'general',
+          latitude: existing?.latitude ?? data.latitude ?? 59.437,
+          longitude: existing?.longitude ?? data.longitude ?? 24.7536,
           severity: data.severity ?? existing?.severity ?? 'emergency',
-          latitude: data.latitude ?? existing?.latitude ?? 59.437,
-          longitude: data.longitude ?? existing?.longitude ?? 24.7536,
-          altitudeMeters: data.altitudeMeters ?? existing?.altitudeMeters,
+          altitudeMeters: existing?.altitudeMeters ?? data.altitudeMeters,
           batteryPct: data.batteryPct ?? existing?.batteryPct,
-          description: data.description ?? existing?.description ?? 'SOS Active',
-          status: data.status ?? existing?.status ?? 'active',
-          responders: data.responders ?? existing?.responders ?? [],
+          description: existing?.description ?? data.description ?? 'SOS Active',
+          status: allowed ? targetStatus : (existing?.status || 'active'),
+          responders: Array.from(existingResponders),
         } as SOSBeacon);
       }
       break;
@@ -180,19 +226,23 @@ function applyEventToState(state: ResilientEngineState, event: SignedCRDTEvent):
       break;
     }
 
+    // IMMUTABLE VOTES: One vote per author per proposal
     case 'governance_vote': {
-      state.governanceVotes.set(entityId, {
-        id: entityId,
-        createdAt: wallClock,
-        updatedAt: wallClock,
-        authorNodeId,
-        authorCallsign,
-        proposalId: data.proposalId,
-        optionSelected: data.optionSelected,
-      } as GovernanceVote);
+      if (!state.governanceVotes.has(entityId)) {
+        state.governanceVotes.set(entityId, {
+          id: entityId,
+          createdAt: wallClock,
+          updatedAt: wallClock,
+          authorNodeId,
+          authorCallsign,
+          proposalId: data.proposalId,
+          optionSelected: data.optionSelected,
+        } as GovernanceVote);
+      }
       break;
     }
 
+    // IMMUTABLE JOURNAL / MESSAGES: Append-only
     case 'journal_entry': {
       if (action === 'delete') {
         state.journalEntries.delete(entityId);
@@ -215,6 +265,7 @@ function applyEventToState(state: ResilientEngineState, event: SignedCRDTEvent):
       break;
     }
 
+    // MAP MARKERS / POI: LWW + Signed Author / Tombstone
     case 'map_marker': {
       if (action === 'delete') {
         state.mapMarkers.delete(entityId);

@@ -14,6 +14,7 @@ import {
   PlatformTarget,
   StorageProviderType,
   EncryptedDataEnvelope,
+  LocalIdentityRecord,
 } from './types';
 import { WebIdentityService } from './webIdentityService';
 
@@ -49,12 +50,16 @@ export class AndroidIdentityService implements IIdentityService {
     this.initialized = true;
   }
 
+  public async getLocalIdentity(): Promise<LocalIdentityRecord> {
+    await this.initialize();
+    return await this.fallbackEngine.getLocalIdentity();
+  }
+
   /**
    * Retrieves the Android Keystore hardware-backed master key.
    */
   public async getDeviceKey(): Promise<CryptoKey> {
     await this.initialize();
-    // In native web-view bridge, CryptoKey is maintained non-extractable
     return await this.fallbackEngine.getDeviceKey();
   }
 
@@ -63,9 +68,19 @@ export class AndroidIdentityService implements IIdentityService {
     return await this.fallbackEngine.getIdentityKeyPair();
   }
 
+  public async getEncryptionKeyPair(): Promise<CryptoKeyPair> {
+    await this.initialize();
+    return await this.fallbackEngine.getEncryptionKeyPair();
+  }
+
   public async getIdentityPublicKey(): Promise<string> {
     await this.initialize();
     return await this.fallbackEngine.getIdentityPublicKey();
+  }
+
+  public async getEncryptionPublicKey(): Promise<string> {
+    await this.initialize();
+    return await this.fallbackEngine.getEncryptionPublicKey();
   }
 
   public async signWithIdentity(data: Uint8Array): Promise<string> {
@@ -167,7 +182,9 @@ export class AndroidIdentityService implements IIdentityService {
       try {
         await cap.Plugins.SecureStorage.remove({ key });
         return;
-      } catch {}
+      } catch (err) {
+        console.warn('[AndroidKeystore] Capacitor SecureStorage delete error:', err);
+      }
     }
 
     await this.fallbackEngine.removeSecureItem(key);
@@ -184,7 +201,9 @@ export class AndroidIdentityService implements IIdentityService {
       try {
         await cap.Plugins.SecureStorage.clear();
         return;
-      } catch {}
+      } catch (err) {
+        console.warn('[AndroidKeystore] Capacitor SecureStorage clear error:', err);
+      }
     }
 
     await this.fallbackEngine.clearSecureStorage();

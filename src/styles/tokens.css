@@ -1,0 +1,136 @@
+/**
+ * HÕIMU Tactical Design Tokens Architecture
+ * Pure theme definitions driven by [data-theme="..."] attributes.
+ */
+
+:root,
+[data-theme="day"] {
+  /* HÕIMU Day: Warm tactical paper, organic forest greens, warm sunlight accents */
+  --hm-bg: #FAF6EE;
+  --hm-surface: #FFFFFF;
+  --hm-surface-2: #F0F4ED;
+  --hm-border: #D7E1D1;
+  --hm-border-subtle: rgba(135, 168, 120, 0.25);
+  --hm-text: #243128;
+  --hm-text-muted: #637062;
+
+  --hm-primary: #588157;
+  --hm-primary-hover: #486d47;
+  --hm-accent: #E9C46A;
+  --hm-info: #2A9D8F;
+  --hm-warning: #E76F51;
+  --hm-danger: #D9383A;
+
+  --hm-focus-ring: #87A878;
+  --hm-hud-opacity: 0.82;
+  --hm-touch-min: 44px;
+}
+
+/* HÕIMU Night: Low luminance green-neutral palette for night operations */
+[data-theme="night"] {
+  --hm-bg: #10160F;
+  --hm-surface: #172018;
+  --hm-surface-2: #1B281C;
+  --hm-border: #334231;
+  --hm-border-subtle: rgba(54, 78, 48, 0.45);
+  --hm-text: #E5EBDD;
+  --hm-text-muted: #95A18F;
+
+  --hm-primary: #8FA875;
+  --hm-primary-hover: #A4BD8A;
+  --hm-accent: #D9B85C;
+  --hm-info: #4CA99C;
+  --hm-warning: #E76F51;
+  --hm-danger: #FF715C;
+
+  --hm-focus-ring: #D9B85C;
+  --hm-hud-opacity: 0.85;
+}
+
+/* HÕIMU Red: Special tactical stealth mode (very low blue, very low white, high red contrast) */
+[data-theme="red"],
+[data-display="red"] {
+  --hm-bg: #080000;
+  --hm-surface: #120000;
+  --hm-surface-2: #1A0000;
+  --hm-border: #3E0B0F;
+  --hm-border-subtle: rgba(100, 20, 25, 0.5);
+  --hm-text: #FF5A5A;
+  --hm-text-muted: #9A4040;
+
+  --hm-primary: #FF3B30;
+  --hm-primary-hover: #FF554A;
+  --hm-accent: #FF6B4A;
+  --hm-info: #D9383A;
+  --hm-warning: #FF8800;
+  --hm-danger: #FF2A2A;
+
+  --hm-focus-ring: #FF3B30;
+  --hm-hud-opacity: 0.90;
+}
+
+/* HÕIMU High Contrast: Pure contrast for visual accessibility */
+[data-theme="high-contrast"] {
+  --hm-bg: #000000;
+  --hm-surface: #0A0A0A;
+  --hm-surface-2: #141414;
+  --hm-border: #FFFFFF;
+  --hm-border-subtle: #FFFFFF;
+  --hm-text: #FFFFFF;
+  --hm-text-muted: #E0E0E0;
+
+  --hm-primary: #FFFF00;
+  --hm-primary-hover: #FFEE00;
+  --hm-accent: #FFFF00;
+  --hm-info: #00FFFF;
+  --hm-warning: #FFAA00;
+  --hm-danger: #FF0055;
+
+  --hm-focus-ring: #FFFF00;
+  --hm-hud-opacity: 1.0;
+}
+
+/* HÕIMU Direct Sun: Maximum outdoor direct glare readability (pure white bg, bold black text) */
+[data-theme="direct-sun"] {
+  --hm-bg: #FFFDF7;
+  --hm-surface: #FFFFFF;
+  --hm-surface-2: #F5F0E6;
+  --hm-border: #222222;
+  --hm-border-subtle: #444444;
+  --hm-text: #000000;
+  --hm-text-muted: #1A1A1A;
+
+  --hm-primary: #203A2A;
+  --hm-primary-hover: #122419;
+  --hm-accent: #8A6400;
+  --hm-info: #0F5850;
+  --hm-warning: #883300;
+  --hm-danger: #A32007;
+
+  --hm-focus-ring: #000000;
+  --hm-hud-opacity: 1.0;
+}
+
+/* 56px Glove Mode Touch Target Override */
+[data-glove-mode="true"],
+.glove-mode {
+  --hm-touch-min: 56px;
+}
+
+/* Minimum Touch Target Enforcer */
+.touch-target,
+.btn-tactical,
+button.btn-tactical {
+  min-height: var(--hm-touch-min, 44px);
+  min-width: var(--hm-touch-min, 44px);
+}
+
+/* Reduced Motion Override */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

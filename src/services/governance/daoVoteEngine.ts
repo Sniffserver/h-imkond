@@ -9,12 +9,9 @@
  */
 
 import { DaoProposal } from '../../types';
-import {
-  canonicalize,
-  signCanonicalPayload,
-  verifyCanonicalPayload,
-  deriveEd25519KeyPairFromSeed,
-} from '../crypto/meshCrypto';
+import { getIdentityProvider } from '../../core/identity';
+import { canonicalize, canonicalizeToBytes } from '../../protocol/canonical';
+import { signBytes } from '../../core/crypto/ed25519';
 import { crdtEventLogEngine, CRDTEvent } from '../mesh/crdt/signedEventLog';
 
 export type VoteChoice = 'yes' | 'no' | 'abstain';
@@ -83,13 +80,13 @@ export async function createSignedVoteEvent(params: {
   const nonce = Math.random().toString(36).substring(2, 10);
   const opId = `vote_${params.voterId}_${params.proposalId}_${nonce}`;
 
-  let voterPublicKey = params.voterPublicKey;
-  let signingKey = params.signingKey;
+  const identityProvider = getIdentityProvider();
+  await identityProvider.initialize();
 
-  if (!voterPublicKey || !signingKey) {
-    const derived = await deriveEd25519KeyPairFromSeed(`node-${params.voterId}`);
-    voterPublicKey = voterPublicKey || derived.publicKeyHex;
-    signingKey = signingKey || derived.keyPair.privateKey;
+  let voterPublicKey = params.voterPublicKey;
+  if (!voterPublicKey) {
+    const nodeIdentity = await identityProvider.getNodeIdentity();
+    voterPublicKey = nodeIdentity.signingPublicKeyHex;
   }
 
   // Canonical vote payload to sign
@@ -105,7 +102,13 @@ export async function createSignedVoteEvent(params: {
     nonce,
   };
 
-  const signature = await signCanonicalPayload(canonicalVotePayload, signingKey);
+  let signature: string;
+  if (params.signingKey) {
+    const bytes = canonicalizeToBytes(canonicalVotePayload);
+    signature = await signBytes(params.signingKey, bytes);
+  } else {
+    signature = await identityProvider.signPayload(canonicalVotePayload);
+  }
 
   const voteEvent: DaoVoteEvent = {
     opId,
@@ -144,7 +147,8 @@ export async function verifyVoteEvent(vote: DaoVoteEvent): Promise<boolean> {
     nonce: vote.nonce,
   };
 
-  return await verifyCanonicalPayload(payloadToVerify, vote.signature, vote.voterPublicKey);
+  const identityProvider = getIdentityProvider();
+  return await identityProvider.verifyPayload(payloadToVerify, vote.signature, vote.voterPublicKey);
 }
 
 /**

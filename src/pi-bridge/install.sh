@@ -52,11 +52,11 @@ else
 fi
 
 echo "[5/6] Deploying Daemon & System Configurations..."
-cp hoimu_daemon.py /opt/hoimu/hoimu_daemon.py
+cp -r ../../pi /opt/hoimu/pi
 cp config.json /etc/hoimu/config.json
 cp hoimu.service /etc/systemd/system/hoimu.service
 
-chmod +x /opt/hoimu/hoimu_daemon.py
+chmod +x /opt/hoimu/pi/app/daemon.py
 
 echo "[6/6] Enabling and starting hoimu.service..."
 systemctl daemon-reload

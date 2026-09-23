@@ -137,12 +137,26 @@ export const MapPackModal: React.FC<MapPackModalProps> = ({
             </div>
             <span
               className={`px-2.5 py-1 rounded-full text-xs font-mono font-bold flex items-center gap-1 ${
-                currentStatus.state === 'installed'
+                currentStatus.state === 'active'
+                  ? 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/50'
+                  : currentStatus.state === 'installed'
                   ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30'
-                  : 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30'
+                  : currentStatus.state === 'outdated'
+                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30'
+                  : currentStatus.state === 'corrupt'
+                  ? 'bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30'
+                  : 'bg-zinc-500/15 text-zinc-700 dark:text-zinc-400 border border-zinc-500/30'
               }`}
             >
-              {currentStatus.state === 'installed' ? '● OFFLINE PAIGALDATUD' : '○ SAADAVAL'}
+              {currentStatus.state === 'active'
+                ? '★ AKTIIVNE (SHA-256 OK)'
+                : currentStatus.state === 'installed'
+                ? '● PAIGALDATUD'
+                : currentStatus.state === 'outdated'
+                ? '▲ UUUENDUS SAADAVAL'
+                : currentStatus.state === 'corrupt'
+                ? '✖ SHA-256 VIGA (VIGANE)'
+                : '○ PUUDUB'}
             </span>
           </div>
 

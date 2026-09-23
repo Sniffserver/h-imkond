@@ -1,4 +1,6 @@
-import { HoimuIdentity, createIdentityFromSeed } from './identity';
+import { HoimuIdentity } from './identity';
+import { loadOrCreateLocalIdentity } from './identity';
+import { SecureSecretsStore } from '../storage/identity/secureSecretsStore';
 
 const IDENTITY_STORAGE_KEY = 'hoimu_identity_master_seed';
 
@@ -10,21 +12,7 @@ export class KeyStore {
       return this.cachedIdentity;
     }
 
-    let seed: string | null = null;
-    if (typeof localStorage !== 'undefined') {
-      seed = localStorage.getItem(IDENTITY_STORAGE_KEY);
-      if (!seed) {
-        // Generate cryptographic random seed
-        const randomBuf = new Uint8Array(32);
-        crypto.getRandomValues(randomBuf);
-        seed = Array.from(randomBuf).map((b) => b.toString(16).padStart(2, '0')).join('');
-        localStorage.setItem(IDENTITY_STORAGE_KEY, seed);
-      }
-    } else {
-      seed = 'hoimu_test_env_seed_deterministic';
-    }
-
-    this.cachedIdentity = await createIdentityFromSeed(seed, defaultCallsign);
+    this.cachedIdentity = await loadOrCreateLocalIdentity(defaultCallsign);
     return this.cachedIdentity;
   }
 
@@ -32,8 +20,9 @@ export class KeyStore {
     this.cachedIdentity = identity;
   }
 
-  public static clear(): void {
+  public static async clear(): Promise<void> {
     this.cachedIdentity = null;
+    await SecureSecretsStore.deleteSecret('master_identity_seed');
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem(IDENTITY_STORAGE_KEY);
     }

@@ -22,6 +22,8 @@ import { initializePMTilesProtocol, getTacticalVectorMapStyle, applyMapTheme, Ta
 import { MapPackModal } from '../features/map/packs/MapPackModal';
 import { MAP_PACK_MANIFESTS } from '../features/map/packs/MapPackManifest';
 
+import { computeMapStateInfo } from '../services/map/mapState';
+
 const BioregionalMapCanvas = lazy(() =>
   import('./BioregionalMapCanvas').then((m) => ({ default: m.BioregionalMapCanvas }))
 );
@@ -392,20 +394,30 @@ export const WebGlMapCanvas: React.FC<WebGlMapCanvasExtendedProps> = React.memo(
           </div>
         </div>
 
-        {/* BOTTOM OFFLINE MAP PACK BADGE */}
-        <button
-          type="button"
-          onClick={() => setIsMapPackModalOpen(true)}
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 px-3.5 py-1.5 rounded-full bg-[#FAF6EE]/92 dark:bg-[#121A10]/92 backdrop-blur-md shadow-md border border-[#87A878]/30 dark:border-[#364E30] text-[11px] font-mono font-medium text-[#203A2A] dark:text-[#E5EBDD] flex items-center gap-2 pointer-events-auto hover:border-[#588157] transition-all cursor-pointer"
-          title="Ava HÕIMU kaardipaki haldur"
-        >
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="font-bold text-emerald-700 dark:text-emerald-400">OFFLINE</span>
-          <span className="opacity-40">•</span>
-          <span>{activeCityName} Map Pack</span>
-          <span className="opacity-40">•</span>
-          <span className="opacity-75">OSM • {manifest.version}</span>
-        </button>
+        {/* BOTTOM EXPLICIT MAP STATE BADGE */}
+        {(() => {
+          const mapStateInfo = computeMapStateInfo({
+            isOnline: typeof navigator !== 'undefined' ? navigator.onLine : false,
+            hasMapPack: true,
+            isLoading: false,
+            hasError: false,
+          });
+          return (
+            <button
+              type="button"
+              onClick={() => setIsMapPackModalOpen(true)}
+              className={`absolute bottom-4 left-1/2 -translate-x-1/2 z-20 px-3.5 py-1.5 rounded-full bg-[#FAF6EE]/92 dark:bg-[#121A10]/92 backdrop-blur-md shadow-md border ${mapStateInfo.badgeClass} text-[11px] font-mono font-medium flex items-center gap-2 pointer-events-auto hover:border-[#588157] transition-all cursor-pointer`}
+              title="Ava HÕIMU kaardipaki haldur"
+              aria-label={`Kaardi olek: ${mapStateInfo.fullText}. Vajuta kaardipaki halduri avamiseks.`}
+            >
+              <span className="font-bold">{mapStateInfo.fullText}</span>
+              <span className="opacity-40">•</span>
+              <span>{activeCityName} Map Pack</span>
+              <span className="opacity-40">•</span>
+              <span className="opacity-75">OSM • {manifest.version}</span>
+            </button>
+          );
+        })()}
 
         {/* BOTTOM-RIGHT OPENSTREETMAP ATTRIBUTION */}
         <div className="absolute bottom-2 right-3 z-20 text-[10px] font-mono text-[#637062]/80 dark:text-[#95A18F]/80 bg-[#FAF6EE]/80 dark:bg-[#10160F]/80 px-2 py-0.5 rounded-md backdrop-blur-xs pointer-events-auto">

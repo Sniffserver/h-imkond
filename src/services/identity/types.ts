@@ -1,13 +1,48 @@
 /**
- * HÕIMU Identity & Hardware-Bound Secure Storage Architecture
+ * HÕIMU Identity & Trust Architecture Types
  * 
- * Provides hardware-backed key protection, non-extractable cryptographic key management,
- * and isolated storage across Web (WebCrypto + IndexedDB) and Android (Android Keystore + Native Secure Storage).
+ * Defines local identity, peer identity records, trust levels, and rotation metadata.
  */
 
 export type PlatformTarget = 'web' | 'android' | 'test';
 
 export type StorageProviderType = 'webcrypto_indexeddb' | 'android_keystore' | 'memory_fallback';
+
+export type TrustState = 'unknown' | 'verified' | 'blocked' | 'expired';
+
+export interface PeerIdentity {
+  nodeId: string;
+  callsign: string;
+
+  signingPublicKey: string; // Hex-encoded Ed25519 public key (64 hex characters)
+  encryptionPublicKey: string; // Hex-encoded X25519 public key (64 hex characters)
+
+  firstSeenAt: number;
+  lastSeenAt: number;
+
+  trustState: TrustState;
+
+  capabilities: string[];
+}
+
+export interface LocalIdentityRecord {
+  nodeId: string;
+  callsign: string;
+  signingPublicKeyHex: string;
+  encryptionPublicKeyHex: string;
+  createdAt: number;
+  rotationEpoch: number;
+  keyAlias: string;
+}
+
+export interface KeyRotationProof {
+  previousPublicKeyHex: string;
+  newPublicKeyHex: string;
+  timestamp: number;
+  rotationEpoch: number;
+  signatureByPreviousKey: string; // Signature validating authorization to rotate
+  signatureByNewKey: string;      // Signature proving possession of new private key
+}
 
 export interface DeviceKeyMetadata {
   algorithm: 'AES-GCM-256';
@@ -50,6 +85,11 @@ export interface IIdentityService {
   initialize(): Promise<void>;
 
   /**
+   * Retrieves the current local identity record (nodeId, callsign, keys)
+   */
+  getLocalIdentity(): Promise<LocalIdentityRecord>;
+
+  /**
    * Retrieves or generates the device-bound master AES-GCM-256 CryptoKey.
    * On Web: Non-extractable (extractable: false) and stored directly in IndexedDB.
    * On Android: Bound to Android Keystore in the hardware TEE / StrongBox.
@@ -62,9 +102,19 @@ export interface IIdentityService {
   getIdentityKeyPair(): Promise<CryptoKeyPair>;
 
   /**
+   * Retrieves the node's X25519 encryption keypair for E2EE key agreement.
+   */
+  getEncryptionKeyPair(): Promise<CryptoKeyPair>;
+
+  /**
    * Retrieves the node's hex-encoded public identity key.
    */
   getIdentityPublicKey(): Promise<string>;
+
+  /**
+   * Retrieves the node's hex-encoded public encryption key (X25519).
+   */
+  getEncryptionPublicKey(): Promise<string>;
 
   /**
    * Signs arbitrary payload using the non-extractable identity private key.

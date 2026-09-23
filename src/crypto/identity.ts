@@ -7,6 +7,8 @@
 
 import { deriveEd25519FromSeed, generateEd25519KeyPair, Ed25519KeyPair } from './ed25519';
 import { deriveX25519FromSeed, generateX25519KeyPair, X25519KeyPair } from './x25519';
+import { SecureSecretsStore } from '../storage/identity/secureSecretsStore';
+import { IdentityStore } from '../storage/identity/identityStore';
 
 export interface HoimuIdentity {
   nodeId: string; // 16-hex char deterministic node fingerprint derived from Ed25519 public key
@@ -72,25 +74,63 @@ export async function generateRandomIdentity(callsign: string): Promise<HoimuIde
 }
 
 /**
- * Loads an existing identity from browser storage or generates and persists a new one.
+ * Loads an existing identity from secure storage or generates and persists a new one.
+ * Conforms strictly to: localStorage = preferences only (no secrets/identities).
  */
 export async function loadOrCreateLocalIdentity(defaultCallsign = 'EST-NODE'): Promise<HoimuIdentity> {
-  if (typeof localStorage !== 'undefined') {
-    let savedSeed = localStorage.getItem(STORAGE_SEED_KEY);
-    const savedCallsign = localStorage.getItem(STORAGE_CALLSIGN_KEY) || defaultCallsign;
+  // 1. Check canonical SecureSecretsStore (IndexedDB)
+  let secret = await SecureSecretsStore.getSecret('master_identity_seed');
+  let savedCallsign = defaultCallsign;
 
-    if (!savedSeed) {
-      const randomBuf = new Uint8Array(32);
-      crypto.getRandomValues(randomBuf);
-      savedSeed = Array.from(randomBuf).map((b) => b.toString(16).padStart(2, '0')).join('');
-      localStorage.setItem(STORAGE_SEED_KEY, savedSeed);
-      localStorage.setItem(STORAGE_CALLSIGN_KEY, savedCallsign);
+  // 2. Check and migrate any legacy seed from localStorage if present
+  if (!secret && typeof localStorage !== 'undefined') {
+    const legacySeed = localStorage.getItem(STORAGE_SEED_KEY);
+    const legacyCallsign = localStorage.getItem(STORAGE_CALLSIGN_KEY);
+    if (legacySeed) {
+      await SecureSecretsStore.saveSecret({
+        keyId: 'master_identity_seed',
+        type: 'seed',
+        secretHex: legacySeed,
+      });
+      secret = { keyId: 'master_identity_seed', type: 'seed', secretHex: legacySeed, createdAt: Date.now() };
+      if (legacyCallsign) savedCallsign = legacyCallsign;
+
+      // Cleanse from localStorage
+      localStorage.removeItem(STORAGE_SEED_KEY);
+      localStorage.removeItem(STORAGE_CALLSIGN_KEY);
     }
-
-    return await createIdentityFromSeed(savedSeed, savedCallsign);
   }
 
-  return await createIdentityFromSeed('hoimu_deterministic_fallback_seed', defaultCallsign);
+  // 3. If no seed exists, generate a 32-byte cryptographically secure random seed
+  if (!secret) {
+    const randomBuf = new Uint8Array(32);
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+      crypto.getRandomValues(randomBuf);
+    } else {
+      for (let i = 0; i < 32; i++) randomBuf[i] = Math.floor(Math.random() * 256);
+    }
+    const seedHex = Array.from(randomBuf).map((b) => b.toString(16).padStart(2, '0')).join('');
+    await SecureSecretsStore.saveSecret({
+      keyId: 'master_identity_seed',
+      type: 'seed',
+      secretHex: seedHex,
+    });
+    secret = { keyId: 'master_identity_seed', type: 'seed', secretHex: seedHex, createdAt: Date.now() };
+  }
+
+  const identity = await createIdentityFromSeed(secret.secretHex, savedCallsign);
+
+  // Persist identity metadata in canonical IdentityStore (IndexedDB)
+  await IdentityStore.saveLocalIdentity({
+    nodeId: identity.nodeId,
+    callsign: identity.callsign,
+    signingPublicKeyHex: identity.signingPublicKeyHex,
+    dhPublicKeyHex: identity.dhPublicKeyHex,
+    createdAt: identity.createdAt,
+    updatedAt: Date.now(),
+  });
+
+  return identity;
 }
 
 /**
@@ -109,13 +149,29 @@ export function exportIdentityBackup(identity: HoimuIdentity, seedHex?: string):
 }
 
 /**
- * Restores an identity from a backup seed.
+ * Restores an identity from a backup seed into secure storage.
  */
 export async function restoreIdentityFromSeed(seedHex: string, callsign: string): Promise<HoimuIdentity> {
   const identity = await createIdentityFromSeed(seedHex, callsign);
+  await SecureSecretsStore.saveSecret({
+    keyId: 'master_identity_seed',
+    type: 'seed',
+    secretHex: seedHex,
+  });
+  await IdentityStore.saveLocalIdentity({
+    nodeId: identity.nodeId,
+    callsign: identity.callsign,
+    signingPublicKeyHex: identity.signingPublicKeyHex,
+    dhPublicKeyHex: identity.dhPublicKeyHex,
+    createdAt: identity.createdAt,
+    updatedAt: Date.now(),
+  });
+
+  // Ensure legacy localStorage is clean
   if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(STORAGE_SEED_KEY, seedHex);
-    localStorage.setItem(STORAGE_CALLSIGN_KEY, callsign);
+    localStorage.removeItem(STORAGE_SEED_KEY);
+    localStorage.removeItem(STORAGE_CALLSIGN_KEY);
   }
+
   return identity;
 }

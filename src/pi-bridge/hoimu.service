@@ -7,7 +7,7 @@ Wants=network.target
 Type=simple
 User=root
 WorkingDirectory=/opt/hoimu
-ExecStart=/opt/hoimu/env/bin/python3 /opt/hoimu/hoimu_daemon.py
+ExecStart=/opt/hoimu/env/bin/python3 /opt/hoimu/pi/app/daemon.py
 Restart=always
 RestartSec=5
 Environment=HOIMU_CONFIG=/etc/hoimu/config.json

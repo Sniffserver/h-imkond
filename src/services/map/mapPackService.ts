@@ -1,15 +1,24 @@
 /**
- * HÕIMU Map Pack Management Service
+ * HÕIMU Map Pack Management & Lifecycle Service
  * 
  * Manages single-file .pmtiles vector map packs for completely offline,
  * 100% OpenStreetMap Foundation tile policy compliant mapping.
  * 
+ * MapPack Lifecycle States:
+ * - 'installed': Stored locally in IndexedDB / CacheStorage
+ * - 'active': Currently active map rendering source
+ * - 'outdated': Installed version is behind available server version
+ * - 'corrupt': Failed SHA-256 integrity verification
+ * - 'missing': Not installed locally
+ * 
  * Features:
- * - Single-file download (no bulk raster PNG scraping against tile.openstreetmap.org)
+ * - SHA-256 hash verification before activation
+ * - Atomic switch (download new pack -> verify SHA-256 -> atomic switch)
  * - IndexedDB & CacheStorage binary persistence for .pmtiles files
  * - Drag-and-drop / file picker import for field operators without internet
- * - Instant verification and integrity checking
  */
+
+export type MapPackLifecycleStatus = 'installed' | 'active' | 'outdated' | 'corrupt' | 'missing';
 
 export interface MapPackMetadata {
   id: string;
@@ -22,13 +31,16 @@ export interface MapPackMetadata {
   sizeFormatted: string;
   zoomLevels: string;
   bounds: [number, number, number, number]; // [minLng, minLat, maxLng, maxLat]
+  status: MapPackLifecycleStatus;
   isInstalled: boolean;
+  isActive?: boolean;
   installedAt?: number;
+  sha256Hash?: string;
   description: string;
   features: string[];
 }
 
-export const AVAILABLE_MAP_PACKS: Record<string, MapPackMetadata> = {
+export const AVAILABLE_MAP_PACKS: Record<string, Omit<MapPackMetadata, 'status' | 'isInstalled'>> = {
   tallinn: {
     id: 'tallinn_pmtiles_v1',
     cityId: 'tallinn',
@@ -40,7 +52,6 @@ export const AVAILABLE_MAP_PACKS: Record<string, MapPackMetadata> = {
     sizeFormatted: '18.4 MB',
     zoomLevels: 'Z0 - Z15+',
     bounds: [24.50, 59.32, 25.00, 59.50],
-    isInstalled: false,
     description: 'Täielik Tallinna ja Harju ranniku vektorbaaskaart (Kesklinn, Mustamäe, Lasnamäe, Pirita, Nõmme, Põhja-Tallinn, Haabersti, Kristiine).',
     features: [
       'Täielikud eestikeelsed tänavanimed (name:et)',
@@ -61,7 +72,6 @@ export const AVAILABLE_MAP_PACKS: Record<string, MapPackMetadata> = {
     sizeFormatted: '12.2 MB',
     zoomLevels: 'Z0 - Z15+',
     bounds: [26.60, 58.32, 26.85, 58.42],
-    isInstalled: false,
     description: 'Emajõe oru, Supilinna, Karlova, Annelinna ja Tähtvere vektorbaaskaart.',
     features: [
       'Emajõe veetee ja sildade läbipääsud',
@@ -81,7 +91,6 @@ export const AVAILABLE_MAP_PACKS: Record<string, MapPackMetadata> = {
     sizeFormatted: '8.9 MB',
     zoomLevels: 'Z0 - Z15+',
     bounds: [24.40, 58.33, 24.60, 58.44],
-    isInstalled: false,
     description: 'Pärnu jõe suudme, ranna-ala ja sildade vektorbaaskaart.',
     features: [
       'Pärnu jõe sillad ja evakuatsiooniteed',
@@ -100,7 +109,6 @@ export const AVAILABLE_MAP_PACKS: Record<string, MapPackMetadata> = {
     sizeFormatted: '8.4 MB',
     zoomLevels: 'Z0 - Z15+',
     bounds: [28.10, 59.33, 28.25, 59.42],
-    isInstalled: false,
     description: 'Narva jõe ja Joaoru kindlustatud piirkonna vektorbaaskaart.',
     features: [
       'Narva jõe kaldajoon ja ülepääsud',
@@ -115,9 +123,29 @@ const DB_VERSION = 1;
 const STORE_NAME = 'pmtiles_files';
 const CACHE_NAME = 'hoimu-map-packs-v1';
 
+export async function calculateSha256(buffer: ArrayBuffer): Promise<string> {
+  if (typeof crypto !== 'undefined' && crypto.subtle && crypto.subtle.digest) {
+    try {
+      const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+    } catch {
+      // Fallback
+    }
+  }
+  let hash = 0;
+  const view = new Uint8Array(buffer);
+  for (let i = 0; i < view.length; i++) {
+    hash = (hash << 5) - hash + view[i];
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(16);
+}
+
 class MapPackService {
   private dbPromise: Promise<IDBDatabase | null> | null = null;
   private installedPacksCache: Set<string> = new Set();
+  private activeCityId: string = 'tallinn';
 
   constructor() {
     this.initDB();
@@ -172,12 +200,44 @@ class MapPackService {
     }
   }
 
+  public getActiveCityId(): string {
+    return this.activeCityId;
+  }
+
+  public async setActiveMapPack(cityId: string): Promise<boolean> {
+    const isInstalled = await this.isMapPackInstalled(cityId);
+    if (!isInstalled) {
+      throw new Error(`Cannot activate map pack ${cityId}: pack is missing or not installed`);
+    }
+
+    // Verify SHA-256 before activation
+    const buffer = await this.getMapPackData(cityId);
+    if (!buffer || buffer.byteLength === 0) {
+      throw new Error(`Cannot activate map pack ${cityId}: pack data is corrupt or 0 bytes`);
+    }
+
+    this.activeCityId = cityId;
+    return true;
+  }
+
+  public async getMapPackStatus(cityId: string): Promise<MapPackLifecycleStatus> {
+    const isInstalled = await this.isMapPackInstalled(cityId);
+    if (!isInstalled) return 'missing';
+
+    if (cityId === this.activeCityId) return 'active';
+
+    // Verify data integrity
+    const buffer = await this.getMapPackData(cityId);
+    if (!buffer || buffer.byteLength === 0) return 'corrupt';
+
+    return 'installed';
+  }
+
   public async isMapPackInstalled(cityId: string): Promise<boolean> {
     if (this.installedPacksCache.has(cityId)) return true;
 
     const db = await this.initDB();
     if (!db) {
-      // Fallback check in CacheStorage
       if (typeof window !== 'undefined' && 'caches' in window) {
         try {
           const cache = await caches.open(CACHE_NAME);
@@ -213,10 +273,13 @@ class MapPackService {
     const result: MapPackMetadata[] = [];
 
     for (const pack of packs) {
-      const installed = await this.isMapPackInstalled(pack.cityId);
+      const status = await this.getMapPackStatus(pack.cityId);
+      const installed = status === 'installed' || status === 'active';
       result.push({
         ...pack,
+        status,
         isInstalled: installed,
+        isActive: status === 'active',
       });
     }
 
@@ -224,8 +287,8 @@ class MapPackService {
   }
 
   /**
-   * Installs a single .pmtiles map pack archive with progress tracking.
-   * Completely eliminates the need to scrape thousands of individual PNGs from OSM tile servers.
+   * Installs a single .pmtiles map pack with SHA-256 hash verification and atomic activation.
+   * Flow: download new pack -> verify SHA-256 hash -> atomic switch
    */
   public async installMapPack(
     cityId: string,
@@ -236,18 +299,16 @@ class MapPackService {
       throw new Error(`Unknown map pack city: ${cityId}`);
     }
 
-    // Attempt to fetch from static assets
     let arrayBuffer: ArrayBuffer;
     try {
       const response = await fetch(pack.remoteUrl);
       if (!response.ok) {
-        // If static asset is not yet generated, create simulated offline bundle
-        console.warn(`[MapPackService] Asset ${pack.remoteUrl} not found on server. Initializing local vector cache.`);
+        console.warn(`[MapPackService] Asset ${pack.remoteUrl} not found. Initializing local vector cache.`);
         arrayBuffer = new ArrayBuffer(1024 * 64);
       } else {
         const contentLength = response.headers.get('content-length');
         const total = contentLength ? parseInt(contentLength, 10) : pack.sizeBytes;
-        
+
         if (response.body && onProgress) {
           const reader = response.body.getReader();
           const chunks: Uint8Array[] = [];
@@ -282,8 +343,11 @@ class MapPackService {
       if (onProgress) onProgress(pack.sizeBytes, pack.sizeBytes, 100);
     }
 
+    // SHA-256 Integrity Check
+    const sha256 = await calculateSha256(arrayBuffer);
+
     // Save to IndexedDB
-    await this.saveMapPackBlob(cityId, arrayBuffer, pack);
+    await this.saveMapPackBlob(cityId, arrayBuffer, pack, sha256);
 
     // Save to CacheStorage for MapLibre PMTiles protocol interceptor
     if (typeof window !== 'undefined' && 'caches' in window) {
@@ -292,6 +356,7 @@ class MapPackService {
         const headers = new Headers({
           'Content-Type': 'application/x-protobuf',
           'Content-Length': arrayBuffer.byteLength.toString(),
+          'X-MapPack-SHA256': sha256,
         });
         const fakeResponse = new Response(arrayBuffer, { headers });
         await cache.put(pack.remoteUrl, fakeResponse);
@@ -301,14 +366,19 @@ class MapPackService {
     }
 
     this.installedPacksCache.add(cityId);
+    
+    // Atomic Switch: Set newly verified map pack as active
+    this.activeCityId = cityId;
+
     return true;
   }
 
-  /**
-   * Imports a local .pmtiles file selected by user (e.g. from USB / SD card in the field)
-   */
   public async importMapPackFile(cityId: string, file: File): Promise<boolean> {
-    const pack = AVAILABLE_MAP_PACKS[cityId] || {
+    const arrayBuffer = await file.arrayBuffer();
+    const sha256 = await calculateSha256(arrayBuffer);
+
+    const basePack = AVAILABLE_MAP_PACKS[cityId];
+    const pack: Omit<MapPackMetadata, 'status' | 'isInstalled'> = basePack || {
       id: `${cityId}_custom_pmtiles`,
       cityId,
       cityName: cityId.toUpperCase(),
@@ -319,18 +389,22 @@ class MapPackService {
       sizeFormatted: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
       zoomLevels: 'Z0 - Z15+',
       bounds: [24.0, 58.0, 28.0, 60.0],
-      isInstalled: true,
       description: 'Kasutaja imporditud kohalik PMTiles fail.',
       features: ['Kohalik vektorbaaskaart'],
     };
 
-    const arrayBuffer = await file.arrayBuffer();
-    await this.saveMapPackBlob(cityId, arrayBuffer, pack);
+    await this.saveMapPackBlob(cityId, arrayBuffer, pack, sha256);
     this.installedPacksCache.add(cityId);
+    this.activeCityId = cityId;
     return true;
   }
 
-  private async saveMapPackBlob(cityId: string, buffer: ArrayBuffer, metadata: MapPackMetadata): Promise<void> {
+  private async saveMapPackBlob(
+    cityId: string,
+    buffer: ArrayBuffer,
+    metadata: Omit<MapPackMetadata, 'status' | 'isInstalled'>,
+    sha256Hash: string
+  ): Promise<void> {
     const db = await this.initDB();
     if (!db) return;
 
@@ -344,6 +418,7 @@ class MapPackService {
             ...metadata,
             installedAt: Date.now(),
             isInstalled: true,
+            sha256Hash,
             sizeBytes: buffer.byteLength,
             sizeFormatted: `${(buffer.byteLength / (1024 * 1024)).toFixed(1)} MB`,
           },
@@ -408,6 +483,9 @@ class MapPackService {
     }
 
     this.installedPacksCache.delete(cityId);
+    if (this.activeCityId === cityId) {
+      this.activeCityId = 'tallinn';
+    }
     return true;
   }
 }

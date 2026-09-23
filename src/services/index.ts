@@ -20,8 +20,9 @@ export * from './game/achievementService';
 export * from './game/seasonalChallengeService';
 export * from './game/personalStatsService';
 
-// Comms Services
+// Comms & Messaging Services
 export * from './comms/messageService';
+export * from './messaging';
 export * from './comms/capacitorBridge';
 export * from './comms/piBridge';
 

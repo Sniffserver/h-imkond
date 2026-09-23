@@ -51,6 +51,7 @@ import {
   saveCustomPerimeter,
 } from '../../utils/mapTileCache';
 import { planOfflineRoute, RouteResult, RouteStep } from '../../utils/offlineRouter';
+import { RoutingProfileType } from '../../services/routing/routingEngine';
 import {
   MapPin,
   Layers,
@@ -364,6 +365,11 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
   const [routeResult, setRouteResult] = useState<RouteResult | null>(null);
   const [isSelectingWayPoint, setIsSelectingWayPoint] = useState<'start' | 'destination' | null>(null);
   const [showRouteSteps, setShowRouteSteps] = useState(false);
+
+  // Metric Routing Engine Options
+  const [routeProfile, setRouteProfile] = useState<RoutingProfileType>('walking');
+  const [avoidStairsOption, setAvoidStairsOption] = useState(false);
+  const [avoidUnsafeOption, setAvoidUnsafeOption] = useState(false);
 
   // Selected Entity Inspector
   const [selectedPeer, setSelectedPeer] = useState<MeshNode | null>(null);
@@ -1107,16 +1113,20 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isFullscreen]);
 
-  // Recalculate offline vector route whenever start, destination, or active city changes
+  // Recalculate offline vector route whenever start, destination, profile, or options change
   useEffect(() => {
     if (routeStart && routeDestination) {
       const streets = activeCity.streets || [];
-      const result = planOfflineRoute(streets, routeStart, routeDestination);
+      const result = planOfflineRoute(streets, routeStart, routeDestination, {
+        profile: routeProfile,
+        avoidStairs: avoidStairsOption,
+        avoidUnsafeZones: avoidUnsafeOption,
+      });
       setRouteResult(result);
     } else {
       setRouteResult(null);
     }
-  }, [routeStart, routeDestination, activeCity]);
+  }, [routeStart, routeDestination, activeCity, routeProfile, avoidStairsOption, avoidUnsafeOption]);
 
   const handleMapRouteClick = useCallback((worldPos: { x: number; y: number }) => {
     if (isSelectingWayPoint === 'start' || (!routeStart && !routeDestination)) {
@@ -3513,6 +3523,88 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
                     <X className="w-3 h-3" />
                   </button>
                 )}
+              </div>
+            </div>
+
+            {/* Routing Engine Profile Selector */}
+            <div className="pt-2 border-t border-[#87A878]/20 space-y-1.5">
+              <span className="text-[10px] font-bold text-[#637062] dark:text-[#A8BDA5] block">
+                Liikumisprofiil (Routing Engine):
+              </span>
+              <div className="grid grid-cols-4 gap-1">
+                <button
+                  type="button"
+                  onClick={() => setRouteProfile('walking')}
+                  className={`py-1 px-1.5 rounded-lg text-[10px] font-bold border flex items-center justify-center gap-1 transition-colors ${
+                    routeProfile === 'walking'
+                      ? 'bg-[#588157] text-white border-[#588157]'
+                      : 'bg-black/5 dark:bg-white/5 border-transparent text-[#637062] dark:text-[#A8BDA5]'
+                  }`}
+                  title="Jalgsi liikumine (Walking)"
+                >
+                  <Footprints className="w-3 h-3" />
+                  <span>Jalgsi</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRouteProfile('bike')}
+                  className={`py-1 px-1.5 rounded-lg text-[10px] font-bold border flex items-center justify-center gap-1 transition-colors ${
+                    routeProfile === 'bike'
+                      ? 'bg-[#588157] text-white border-[#588157]'
+                      : 'bg-black/5 dark:bg-white/5 border-transparent text-[#637062] dark:text-[#A8BDA5]'
+                  }`}
+                  title="Jalgratas (Bike)"
+                >
+                  <Bike className="w-3 h-3" />
+                  <span>Ratas</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRouteProfile('wheelchair')}
+                  className={`py-1 px-1.5 rounded-lg text-[10px] font-bold border flex items-center justify-center gap-1 transition-colors ${
+                    routeProfile === 'wheelchair'
+                      ? 'bg-[#588157] text-white border-[#588157]'
+                      : 'bg-black/5 dark:bg-white/5 border-transparent text-[#637062] dark:text-[#A8BDA5]'
+                  }`}
+                  title="Ratastool (Wheelchair - eemaldab trepid)"
+                >
+                  <span>♿ Tool</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRouteProfile('emergency')}
+                  className={`py-1 px-1.5 rounded-lg text-[10px] font-bold border flex items-center justify-center gap-1 transition-colors ${
+                    routeProfile === 'emergency'
+                      ? 'bg-[#E76F51] text-white border-[#E76F51]'
+                      : 'bg-black/5 dark:bg-white/5 border-transparent text-[#637062] dark:text-[#A8BDA5]'
+                  }`}
+                  title="Hädaolukorra kiirtee (Emergency)"
+                >
+                  <span>🚨 Kiir</span>
+                </button>
+              </div>
+
+              {/* Hazard Avoidance Options */}
+              <div className="flex items-center justify-between gap-2 pt-1 text-[10px]">
+                <label className="flex items-center gap-1 cursor-pointer text-[#637062] dark:text-[#A8BDA5]">
+                  <input
+                    type="checkbox"
+                    checked={avoidStairsOption}
+                    onChange={(e) => setAvoidStairsOption(e.target.checked)}
+                    className="rounded border-[#87A878] text-[#588157]"
+                  />
+                  <span>Väldi treppe</span>
+                </label>
+
+                <label className="flex items-center gap-1 cursor-pointer text-[#637062] dark:text-[#A8BDA5]">
+                  <input
+                    type="checkbox"
+                    checked={avoidUnsafeOption}
+                    onChange={(e) => setAvoidUnsafeOption(e.target.checked)}
+                    className="rounded border-[#87A878] text-[#588157]"
+                  />
+                  <span>Väldi ohutsoone</span>
+                </label>
               </div>
             </div>
 

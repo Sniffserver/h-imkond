@@ -7,7 +7,12 @@
  */
 
 import { Capacitor } from '@capacitor/core';
-import { IIdentityService, PlatformTarget, StorageProviderType } from './types';
+import {
+  IIdentityService,
+  PlatformTarget,
+  StorageProviderType,
+  LocalIdentityRecord,
+} from './types';
 import { WebIdentityService } from './webIdentityService';
 import { AndroidIdentityService } from './androidIdentityService';
 import { getPlatformInfo } from '../runtime/platform';
@@ -46,6 +51,10 @@ class IdentityServiceFacade implements IIdentityService {
     return await this.resolveInstance().initialize();
   }
 
+  public async getLocalIdentity(): Promise<LocalIdentityRecord> {
+    return await this.resolveInstance().getLocalIdentity();
+  }
+
   public async getDeviceKey(): Promise<CryptoKey> {
     return await this.resolveInstance().getDeviceKey();
   }
@@ -54,8 +63,16 @@ class IdentityServiceFacade implements IIdentityService {
     return await this.resolveInstance().getIdentityKeyPair();
   }
 
+  public async getEncryptionKeyPair(): Promise<CryptoKeyPair> {
+    return await this.resolveInstance().getEncryptionKeyPair();
+  }
+
   public async getIdentityPublicKey(): Promise<string> {
     return await this.resolveInstance().getIdentityPublicKey();
+  }
+
+  public async getEncryptionPublicKey(): Promise<string> {
+    return await this.resolveInstance().getEncryptionPublicKey();
   }
 
   public async signWithIdentity(data: Uint8Array): Promise<string> {

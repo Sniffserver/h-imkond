@@ -5,7 +5,16 @@
 
 import { MapPackManifest, MAP_PACK_MANIFESTS } from './MapPackManifest';
 
-export type MapPackInstallState = 'available' | 'downloading' | 'verifying' | 'installed' | 'error';
+export type MapPackInstallState =
+  | 'available'
+  | 'downloading'
+  | 'verifying'
+  | 'installed'
+  | 'active'
+  | 'outdated'
+  | 'corrupt'
+  | 'missing'
+  | 'error';
 
 export interface MapPackStatusRecord {
   id: string;

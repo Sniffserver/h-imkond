@@ -19,6 +19,7 @@
 
 import { HoimuPacket, HoimuPacketHeader } from './types';
 import { PROTOCOL_MAGIC, PROTOCOL_VERSION, HoimuPacketType, PacketFlags } from './constants';
+import { canonicalize } from './canonical';
 
 const CRC32_TABLE = new Uint32Array(256);
 for (let i = 0; i < 256; i++) {
@@ -86,11 +87,13 @@ export function deserializePacket<T = any>(rawBytes: Uint8Array): HoimuPacket<T>
  * Encodes a structured packet into binary format with fixed header, variable payload, and CRC32.
  */
 export function encodeBinaryPacket<T = any>(packet: HoimuPacket<T>): Uint8Array {
-  const payloadContainer = {
+  const payloadContainer: { data: any; signature?: string } = {
     data: packet.payload,
-    signature: packet.signature,
   };
-  const payloadStr = JSON.stringify(payloadContainer);
+  if (packet.signature) {
+    payloadContainer.signature = packet.signature;
+  }
+  const payloadStr = canonicalize(payloadContainer);
   const payloadBytes = new TextEncoder().encode(payloadStr);
 
   const headerSize = 39;

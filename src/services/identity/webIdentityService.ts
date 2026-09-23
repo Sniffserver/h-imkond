@@ -5,6 +5,7 @@
  * - WebCrypto API (crypto.subtle)
  * - Hardware-isolated, Non-Extractable CryptoKey (extractable: false)
  * - IndexedDB structured clone storage (isolated from localStorage)
+ * - True cryptographic local identity: Ed25519 signing keypair + X25519 encryption keypair
  * - Zero plaintext raw keys in localStorage
  */
 
@@ -13,15 +14,19 @@ import {
   PlatformTarget,
   StorageProviderType,
   EncryptedDataEnvelope,
+  LocalIdentityRecord,
 } from './types';
+import { generateX25519KeyPair } from '../../core/crypto/x25519';
 
 const DB_NAME = 'hoimu_secure_keystore';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incremented for unified dual-key and identity record storage
 const STORE_KEYS = 'device_keys';
 const STORE_SECURE_KV = 'secure_kv';
 
 const KEY_ALIAS_DEVICE_MASTER = 'device_master_key';
 const KEY_ALIAS_IDENTITY = 'identity_key_pair';
+const KEY_ALIAS_ENCRYPTION = 'encryption_x25519_pair';
+const KEY_ALIAS_LOCAL_RECORD = 'local_identity_record';
 
 function toHex(bytes: Uint8Array): string {
   let hex = '';
@@ -33,9 +38,10 @@ function toHex(bytes: Uint8Array): string {
 }
 
 function fromHex(hex: string): Uint8Array {
-  const bytes = new Uint8Array(hex.length / 2);
+  const clean = hex.replace(/^(0x|ed25519:|x25519:)/i, '');
+  const bytes = new Uint8Array(clean.length / 2);
   for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = parseInt(hex.substring(i * 2, i * 2 + 2), 16);
+    bytes[i] = parseInt(clean.substring(i * 2, i * 2 + 2), 16);
   }
   return bytes;
 }
@@ -72,10 +78,13 @@ export class WebIdentityService implements IIdentityService {
   private db: IDBDatabase | null = null;
   private cachedDeviceKey: CryptoKey | null = null;
   private cachedIdentityKeyPair: CryptoKeyPair | null = null;
+  private cachedEncryptionKeyPair: CryptoKeyPair | null = null;
   private cachedIdentityPubKeyHex: string | null = null;
+  private cachedEncryptionPubKeyHex: string | null = null;
+  private cachedLocalIdentity: LocalIdentityRecord | null = null;
 
   // In-memory fallback if IndexedDB is disabled or unavailable (e.g. headless tests)
-  private memoryKeys = new Map<string, CryptoKey | CryptoKeyPair>();
+  private memoryKeys = new Map<string, any>();
   private memorySecureKV = new Map<string, string>();
   private initialized = false;
 
@@ -219,7 +228,7 @@ export class WebIdentityService implements IIdentityService {
         return storedKey;
       }
     } catch {
-      // Ignore IDB errors and check memory
+      // Fallback
     }
 
     // 2. Check memory store
@@ -233,14 +242,13 @@ export class WebIdentityService implements IIdentityService {
     const subtle = this.getSubtle();
     const newKey = (await subtle.generateKey(
       { name: 'AES-GCM', length: 256 },
-      false, // CRITICAL: extractable is FALSE (tamper-proof against XSS extraction)
+      false, // CRITICAL: extractable is FALSE
       ['encrypt', 'decrypt']
     )) as CryptoKey;
 
     this.cachedDeviceKey = newKey;
     this.memoryKeys.set(KEY_ALIAS_DEVICE_MASTER, newKey);
 
-    // Save to IndexedDB if available (structured clone preserves CryptoKey with extractable: false)
     try {
       await this.setIDBItem(STORE_KEYS, KEY_ALIAS_DEVICE_MASTER, newKey);
     } catch (err) {
@@ -303,6 +311,50 @@ export class WebIdentityService implements IIdentityService {
     return keyPair;
   }
 
+  /**
+   * Retrieves or generates the X25519 encryption keypair
+   */
+  public async getEncryptionKeyPair(): Promise<CryptoKeyPair> {
+    if (this.cachedEncryptionKeyPair) return this.cachedEncryptionKeyPair;
+
+    await this.initialize();
+
+    // 1. Check IndexedDB
+    try {
+      const storedPair = await this.getIDBItem<CryptoKeyPair>(STORE_KEYS, KEY_ALIAS_ENCRYPTION);
+      if (storedPair && storedPair.publicKey && storedPair.privateKey) {
+        this.cachedEncryptionKeyPair = storedPair;
+        return storedPair;
+      }
+    } catch {}
+
+    // 2. Check memory
+    const memPair = this.memoryKeys.get(KEY_ALIAS_ENCRYPTION);
+    if (memPair && 'publicKey' in memPair && 'privateKey' in memPair) {
+      this.cachedEncryptionKeyPair = memPair as CryptoKeyPair;
+      return memPair as CryptoKeyPair;
+    }
+
+    // 3. Generate new X25519 pair
+    const xPair = await generateX25519KeyPair(false);
+    const keyPair: CryptoKeyPair = {
+      publicKey: xPair.publicKey,
+      privateKey: xPair.privateKey,
+    };
+
+    this.cachedEncryptionKeyPair = keyPair;
+    this.cachedEncryptionPubKeyHex = xPair.publicKeyHex;
+    this.memoryKeys.set(KEY_ALIAS_ENCRYPTION, keyPair);
+
+    try {
+      await this.setIDBItem(STORE_KEYS, KEY_ALIAS_ENCRYPTION, keyPair);
+    } catch (err) {
+      console.warn('[WebIdentityService] Could not persist encryption keypair to IndexedDB:', err);
+    }
+
+    return keyPair;
+  }
+
   public async getIdentityPublicKey(): Promise<string> {
     if (this.cachedIdentityPubKeyHex) return this.cachedIdentityPubKeyHex;
 
@@ -319,6 +371,73 @@ export class WebIdentityService implements IIdentityService {
     const hex = toHex(new Uint8Array(rawPub));
     this.cachedIdentityPubKeyHex = hex;
     return hex;
+  }
+
+  public async getEncryptionPublicKey(): Promise<string> {
+    if (this.cachedEncryptionPubKeyHex) return this.cachedEncryptionPubKeyHex;
+
+    const pair = await this.getEncryptionKeyPair();
+    const subtle = this.getSubtle();
+
+    let rawPub: ArrayBuffer;
+    try {
+      rawPub = await subtle.exportKey('raw', pair.publicKey);
+    } catch {
+      rawPub = await subtle.exportKey('spki', pair.publicKey);
+    }
+
+    const hex = toHex(new Uint8Array(rawPub));
+    this.cachedEncryptionPubKeyHex = hex;
+    return hex;
+  }
+
+  public async getLocalIdentity(): Promise<LocalIdentityRecord> {
+    if (this.cachedLocalIdentity) return this.cachedLocalIdentity;
+
+    await this.initialize();
+
+    // Check stored record
+    try {
+      const stored = await this.getIDBItem<LocalIdentityRecord>(STORE_KEYS, KEY_ALIAS_LOCAL_RECORD);
+      if (stored && stored.nodeId) {
+        this.cachedLocalIdentity = stored;
+        return stored;
+      }
+    } catch {}
+
+    const mem = this.memoryKeys.get(KEY_ALIAS_LOCAL_RECORD);
+    if (mem && mem.nodeId) {
+      this.cachedLocalIdentity = mem;
+      return mem;
+    }
+
+    // Construct local identity record from real cryptographic keys
+    const signPubHex = await this.getIdentityPublicKey();
+    const encPubHex = await this.getEncryptionPublicKey();
+    const nodeId = signPubHex.slice(0, 16).toUpperCase();
+
+    // Check if custom callsign was previously stored
+    const storedCallsign = await this.getSecureItem('hoimu_node_callsign');
+    const callsign = storedCallsign || `NODE-${nodeId.slice(0, 6)}`;
+
+    const record: LocalIdentityRecord = {
+      nodeId,
+      callsign,
+      signingPublicKeyHex: signPubHex,
+      encryptionPublicKeyHex: encPubHex,
+      createdAt: Date.now(),
+      rotationEpoch: 1,
+      keyAlias: KEY_ALIAS_IDENTITY,
+    };
+
+    this.cachedLocalIdentity = record;
+    this.memoryKeys.set(KEY_ALIAS_LOCAL_RECORD, record);
+
+    try {
+      await this.setIDBItem(STORE_KEYS, KEY_ALIAS_LOCAL_RECORD, record);
+    } catch {}
+
+    return record;
   }
 
   public async signWithIdentity(data: Uint8Array): Promise<string> {
