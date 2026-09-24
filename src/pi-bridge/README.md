@@ -1,5 +1,7 @@
 # HÕIMU Raspberry Pi Zero 2 W Hardware Gateway Specification
 
+> **Architecture Notice**: The canonical Python Gateway implementation is located in the root `/pi` directory (`/pi/app/daemon.py`, `/pi/radio/sx1262.py`, `/pi/protocol/codec.py`). This directory (`src/pi-bridge/`) contains the host provisioning, systemd services, and installation scripts.
+
 The **HÕIMU Pi Bridge** is a low-power, solar-assisted headless mesh radio relay daemon running on Raspberry Pi Zero 2 W hardware. It bridges smartphones (via WiFi Direct or USB OTG Ethernet) to SX1262/SX1276 868MHz LoRa long-range radio hardware and BLE long-range Coded PHY nodes.
 
 ---

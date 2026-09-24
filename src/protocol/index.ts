@@ -4,3 +4,5 @@ export * from './canonical';
 export * from './packet';
 export * from './codec';
 export * from './validation';
+export * from './framing';
+

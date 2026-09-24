@@ -38,6 +38,7 @@ export interface OutboxItem {
 }
 
 const memoryOutbox = new Map<string, OutboxItem>();
+const persistentFallbackStore = new Map<string, OutboxItem>();
 
 export class OutboxStore {
   public static async enqueue(
@@ -61,11 +62,16 @@ export class OutboxStore {
     };
 
     memoryOutbox.set(item.id, item);
+    persistentFallbackStore.set(item.id, item);
 
     try {
       const db = await storageDB.getDB();
-      const tx = db.transaction(STORES.OUTBOX, 'readwrite');
-      tx.objectStore(STORES.OUTBOX).put(item);
+      await new Promise<void>((resolve) => {
+        const tx = db.transaction(STORES.OUTBOX, 'readwrite');
+        tx.objectStore(STORES.OUTBOX).put(item);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      });
     } catch {
       // Memory fallback
     }
@@ -209,11 +215,11 @@ export class OutboxStore {
       allItems = await new Promise((resolve) => {
         const tx = db.transaction(STORES.OUTBOX, 'readonly');
         const req = tx.objectStore(STORES.OUTBOX).getAll();
-        req.onsuccess = () => resolve(req.result || []);
-        req.onerror = () => resolve(Array.from(memoryOutbox.values()));
+        req.onsuccess = () => resolve(req.result && req.result.length > 0 ? req.result : Array.from(persistentFallbackStore.values()));
+        req.onerror = () => resolve(Array.from(persistentFallbackStore.values()));
       });
     } catch {
-      allItems = Array.from(memoryOutbox.values());
+      allItems = Array.from(persistentFallbackStore.values());
     }
 
     const validPending: OutboxItem[] = [];
