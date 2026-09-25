@@ -1,9 +1,13 @@
 import React from 'react';
-import { Users, Package, Radio, Mountain, Eye, EyeOff } from 'lucide-react';
+import { Users, Package, Radio, Mountain, ShieldCheck, MapPin, Activity, Sparkles, Navigation } from 'lucide-react';
 
 export interface ActiveLayerStates {
   peers: boolean;
   resources: boolean;
+  places?: boolean;
+  meshLinks?: boolean;
+  signalTrail?: boolean;
+  safety?: boolean;
   heatmap: boolean;
   terrain: boolean;
 }
@@ -11,6 +15,8 @@ export interface ActiveLayerStates {
 export interface MapLayerCounts {
   peers?: number;
   resources?: number;
+  places?: number;
+  safety?: number;
 }
 
 export interface MapLayerControlsProps {
@@ -98,15 +104,15 @@ export const MapLayerControls: React.FC<MapLayerControlsProps> = ({
     <div
       role="group"
       aria-label="Map Layer Filters"
-      className={`flex items-center gap-2 p-1.5 rounded-3xl backdrop-blur-md border shadow-lg ${
+      className={`flex flex-wrap items-center gap-2 p-1.5 rounded-3xl backdrop-blur-md border shadow-lg ${
         isNightMode
           ? 'bg-[#141F12]/85 border-[#2A3B26]'
           : 'bg-[#FAF6EE]/85 border-[#87A878]/30'
       } ${className}`}
     >
       <LayerToggleButton
-        icon={<Users className="w-4 h-4" />}
-        label="Nearby people"
+        icon={<Users className="w-4 h-4 text-emerald-500" />}
+        label="People"
         isActive={layers.peers}
         onToggle={() => onToggleLayer('peers')}
         count={counts.peers}
@@ -114,7 +120,7 @@ export const MapLayerControls: React.FC<MapLayerControlsProps> = ({
       />
 
       <LayerToggleButton
-        icon={<Package className="w-4 h-4" />}
+        icon={<Package className="w-4 h-4 text-amber-500" />}
         label="Resources"
         isActive={layers.resources}
         onToggle={() => onToggleLayer('resources')}
@@ -123,18 +129,36 @@ export const MapLayerControls: React.FC<MapLayerControlsProps> = ({
       />
 
       <LayerToggleButton
-        icon={<Radio className="w-4 h-4" />}
-        label="Signal mesh"
-        isActive={layers.heatmap}
-        onToggle={() => onToggleLayer('heatmap')}
+        icon={<MapPin className="w-4 h-4 text-cyan-500" />}
+        label="Places"
+        isActive={layers.places ?? true}
+        onToggle={() => onToggleLayer('places')}
+        count={counts.places}
         isNightMode={isNightMode}
       />
 
       <LayerToggleButton
-        icon={<Mountain className="w-4 h-4" />}
-        label="Terrain"
-        isActive={layers.terrain}
-        onToggle={() => onToggleLayer('terrain')}
+        icon={<Activity className="w-4 h-4 text-emerald-400" />}
+        label="Mesh Links"
+        isActive={layers.meshLinks ?? false}
+        onToggle={() => onToggleLayer('meshLinks')}
+        isNightMode={isNightMode}
+      />
+
+      <LayerToggleButton
+        icon={<Radio className="w-4 h-4 text-blue-400" />}
+        label="Signal Trail"
+        isActive={layers.signalTrail ?? false}
+        onToggle={() => onToggleLayer('signalTrail')}
+        isNightMode={isNightMode}
+      />
+
+      <LayerToggleButton
+        icon={<ShieldCheck className="w-4 h-4 text-rose-500" />}
+        label="Safety"
+        isActive={layers.safety ?? true}
+        onToggle={() => onToggleLayer('safety')}
+        count={counts.safety}
         isNightMode={isNightMode}
       />
     </div>

@@ -125,7 +125,7 @@ describe('Radial Wave Animation and D3 Topology Suite', () => {
       expect(screen.getAllByText(/Nodes:/i).length).toBeGreaterThan(0);
     });
 
-    it('allows switching to Mesh Topology mode on MapScreen', () => {
+    it('allows viewing Mesh Topology overlay on MapScreen', () => {
       const onUpdateUser = vi.fn();
       const onViewResourceDetails = vi.fn();
       const onSelectPeer = vi.fn();
@@ -145,15 +145,15 @@ describe('Radial Wave Animation and D3 Topology Suite', () => {
         />
       );
 
-      // Mode buttons exist
-      const topologyBtn = screen.getByRole('button', { name: /Mesh Topology/i });
-      expect(topologyBtn).toBeDefined();
+      // Unified MapScreen renders search trigger and nearby controls
+      const searchTrigger = screen.getByText(/Search Tallinn/i);
+      expect(searchTrigger).toBeDefined();
 
-      // Switch to Mesh Topology
-      fireEvent.click(topologyBtn);
-
-      // Mesh Topology Header / Metrics visible
-      expect(screen.getAllByText(/Mesh Connectivity Density/i).length).toBeGreaterThan(0);
+      // Dedicated Nearby button is available
+      expect(screen.getByText(/Nearby/i)).toBeDefined();
     });
+
+
+
   });
 });

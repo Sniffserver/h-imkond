@@ -56,6 +56,204 @@ export interface SymbiosisWeeklyPoint {
   highlight: string;
 }
 
+// =========================================================================
+// CANONICAL GEOGRAPHIC DOMAIN MODEL (HÕIMU Explore — One Coordinate System)
+// =========================================================================
+
+export type GeoPoint = {
+  lat?: number;
+  lng?: number;
+  latitude?: number;
+  longitude?: number;
+  timestamp?: number;
+  altitude?: number;
+  accuracy?: number;
+};
+
+export type GeoLineString = {
+  coordinates: [number, number][]; // [lng, lat] GeoJSON format
+};
+
+export type DataSource =
+  | 'osm'
+  | 'tallinn'
+  | 'paasteamet'
+  | 'ppa'
+  | 'hoimu'
+  | 'sensor'
+  | 'derived'
+  | 'community';
+
+export interface DataDiscrepancy {
+  sourceA: string;
+  sourceB: string;
+  field: string;
+  valueA: string;
+  valueB: string;
+  warningNote?: string;
+}
+
+export interface GeoEntity {
+  id: string;
+  source: DataSource;
+  sourceId?: string;
+  updatedAt: number;
+}
+
+export interface StreetSegment {
+  id: string;
+  streetId: string;
+  start: GeoPoint;
+  end: GeoPoint;
+  lengthMeters: number;
+  discoveryState: 'unexplored' | 'discovered';
+  discoveredAt?: number;
+}
+
+export interface Street {
+  id: string;
+  name: string;
+  geometry: GeoLineString;
+  highwayClass: string;
+  walkable: boolean;
+  bicycle: boolean;
+  access?: string;
+  lengthMeters?: number;
+  exploredPercent?: number;
+  segments?: StreetSegment[];
+  district?: string;
+}
+
+export type PoiCategory =
+  | 'safety'
+  | 'tools'
+  | 'food'
+  | 'water'
+  | 'medical'
+  | 'shelter'
+  | 'repair'
+  | 'permaculture'
+  | 'energy'
+  | 'community'
+  | 'library'
+  | 'cafe'
+  | 'hardware'
+  | 'reuse'
+  | 'transit'
+  | 'historic'
+  | (string & {});
+
+export type PlaceMainCategory =
+  | 'safety'
+  | 'tools'
+  | 'stores'
+  | 'finds'
+  | 'water'
+  | 'nature'
+  | 'energy'
+  | 'community';
+
+export type PlaceSubCategory =
+  // Safety
+  | 'police'
+  | 'fire_station'
+  | 'medical'
+  | 'hospital'
+  | 'pharmacy'
+  | 'shelter'
+  | 'emergency_services'
+  // Tools
+  | 'hardware'
+  | 'diy'
+  | 'tools'
+  | 'power_tools'
+  | 'tool_hire'
+  | 'computer_hardware'
+  | 'electronics'
+  | 'electrical'
+  | 'plumbing'
+  | 'bicycle_shop'
+  | 'auto_parts'
+  // Stores
+  | 'supermarket'
+  | 'convenience'
+  | 'general_store'
+  | 'shopping_centre'
+  | 'market'
+  | 'department_store'
+  | 'specialty'
+  | 'fuel'
+  // Finds
+  | 'second_hand'
+  | 'reuse'
+  | 'give_box'
+  | 'public_bookcase'
+  | 'tool_library'
+  | 'flea_market'
+  | 'marketplace'
+  | 'repair_cafe'
+  | 'makerspace'
+  | 'charity_shop'
+  // Water
+  | 'spring'
+  | 'tap'
+  | 'hydrant'
+  | 'well'
+  // Nature
+  | 'park'
+  | 'forest'
+  | 'green_area'
+  | 'garden'
+  // Energy & Community
+  | 'solar_hub'
+  | 'charging'
+  | 'library'
+  | 'community_center'
+  | (string & {});
+
+export interface MapPlace {
+  id: string;
+  name: string;
+  location: GeoPoint;
+  mainCategory: PlaceMainCategory;
+  subCategory: PlaceSubCategory;
+  source: DataSource;
+  sourceName?: string;
+  sourceId?: string;
+  secondarySource?: DataSource;
+  secondarySourceName?: string;
+  hasMismatch?: boolean;
+  mismatchDetails?: string;
+  discrepancies?: DataDiscrepancy[];
+  provenanceStatus: 'official' | 'community' | 'verified' | 'sensor' | 'mismatch';
+  observedByNodes?: number;
+  lastConfirmed?: string;
+  snapshotDate?: string;
+  updatedDaysAgo?: number;
+  address?: string;
+  openingHours?: string;
+  phone?: string;
+  website?: string;
+  description?: string;
+  distanceMeters?: number;
+  tags?: Record<string, string>;
+}
+
+export interface Poi {
+  id: string;
+  name: string;
+  location: GeoPoint;
+  category: PoiCategory;
+  source: DataSource;
+  sourceId?: string;
+  openingHours?: string;
+  website?: string;
+  phone?: string;
+  address?: string;
+  tags?: Record<string, string>;
+  description?: string;
+}
+
 export interface MapTransform {
   scale: number;        // Zoom level (0.5 to 5.0)
   rotation: number;     // Radians (0 to 2*PI)
@@ -90,8 +288,11 @@ export interface SurvivalPoi {
   id: string;
   name: string;
   category: SurvivalPoiCategory;
-  x: number;
-  y: number;
+  x?: number;
+  y?: number;
+  lat?: number;
+  lng?: number;
+  location?: GeoPoint;
   description?: string;
 }
 
@@ -589,15 +790,6 @@ export interface NodeDiagnosticDetail {
 // ==========================================
 // HÕIMU „Pathfinder Mode" Data Models
 // ==========================================
-
-// Geograafiline punkt
-export interface GeoPoint {
-  latitude: number;
-  longitude: number;
-  timestamp: number;
-  altitude?: number;
-  accuracy?: number;
-}
 
 // WiFi-võrk
 export interface WifiSpot {
