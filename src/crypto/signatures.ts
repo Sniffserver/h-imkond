@@ -6,8 +6,32 @@
  */
 
 import { HoimuPacket, HoimuPacketHeader } from '../protocol/types';
+import { HoimuPacketType } from '../protocol/constants';
 import { canonicalizeToBytes } from '../protocol/canonical';
 import { signBytes, verifySignature } from '../core/crypto/ed25519';
+
+/**
+ * Production Signature Requirement Matrix:
+ * MESSAGE: required
+ * DIRECT_ENCRYPTED: required
+ * CRDT: required
+ * ROUTING: required
+ * ACK: required
+ * SOS: required
+ * discovery beacon: policy-specific
+ */
+export const SIGNATURE_POLICY: Record<number, 'required' | 'optional'> = {
+  [HoimuPacketType.MESSAGE]: 'required',
+  [HoimuPacketType.DIRECT_ENCRYPTED]: 'required',
+  [HoimuPacketType.SOS]: 'required',
+  [HoimuPacketType.CRDT_SYNC]: 'required',
+  [HoimuPacketType.ROUTE_ANNOUNCE]: 'required',
+  [HoimuPacketType.ACK]: 'required',
+};
+
+export function isSignatureRequired(packetType: HoimuPacketType): boolean {
+  return SIGNATURE_POLICY[packetType] === 'required';
+}
 
 /**
  * Signs a HoimuPacket envelope canonically using the sender's Ed25519 private key.

@@ -16,25 +16,28 @@ class BleRadio(BaseRadio):
         self.stats = RadioStats()
         self._rx_queue = []
 
-    def init_hardware(self) -> bool:
+    def start(self) -> bool:
         logger.info(f"Initializing BLE GATT peripheral for service {self.service_uuid}")
         self.is_advertising = True
         return True
+
+    def stop(self) -> None:
+        self.is_advertising = False
 
     def transmit(self, data: bytes, priority: int = 1) -> bool:
         logger.info(f"[BLE-TX] Sending {len(data)} bytes to {len(self.connected_devices)} peer(s)")
         self.stats.tx_count += 1
         return True
 
-    def receive_packet(self) -> Optional[bytes]:
+    def receive(self, timeout_s: float = 0.0) -> Optional[bytes]:
         if self._rx_queue:
             pkt = self._rx_queue.pop(0)
             self.stats.rx_count += 1
             return pkt
         return None
 
-    def perform_cad(self) -> bool:
-        # BLE uses frequency hopping and connection events; always ready
+    def cad(self) -> bool:
+        # BLE uses frequency hopping and connection events; channel is always accessible
         return True
 
     def get_stats(self) -> Dict[str, Any]:
@@ -44,6 +47,14 @@ class BleRadio(BaseRadio):
             "connected_count": len(self.connected_devices),
             "tx_count": self.stats.tx_count,
             "rx_count": self.stats.rx_count,
+        }
+
+    def get_capabilities(self) -> Dict[str, Any]:
+        return {
+            "driver": "BleRadio",
+            "service_uuid": self.service_uuid,
+            "supports_coded_phy": True,
+            "mtu_bytes": 512,
         }
 
     def is_available(self) -> bool:

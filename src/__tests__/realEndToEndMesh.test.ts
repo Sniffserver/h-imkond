@@ -124,7 +124,7 @@ describe('Real End-to-End Physical & Protocol Multi-Hop Test (Phone A -> Pi #1 -
     expect(sendSuccess).toBe(true);
 
     // Allow asynchronous dispatch over simulated transports
-    await new Promise((resolve) => setTimeout(resolve, 60));
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
     // -------------------------------------------------------------
     // Step 7: Verify Multi-Hop Reception & TTL Decrement

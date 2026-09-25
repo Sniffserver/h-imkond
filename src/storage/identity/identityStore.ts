@@ -53,9 +53,9 @@ export class IdentityStore {
     memoryIdentity = { ...identity, updatedAt: Date.now() };
 
     try {
-      const db = await storageDB.getDB();
-      const tx = db.transaction(STORES.IDENTITY, 'readwrite');
-      tx.objectStore(STORES.IDENTITY).put(memoryIdentity);
+      await storageDB.writeDurably(STORES.IDENTITY, (store) => {
+        return store.put(memoryIdentity);
+      });
     } catch {
       // Memory fallback active
     }
@@ -64,9 +64,9 @@ export class IdentityStore {
   public static async clear(): Promise<void> {
     memoryIdentity = null;
     try {
-      const db = await storageDB.getDB();
-      const tx = db.transaction(STORES.IDENTITY, 'readwrite');
-      tx.objectStore(STORES.IDENTITY).clear();
+      await storageDB.writeDurably(STORES.IDENTITY, (store) => {
+        return store.clear();
+      });
     } catch {
       // Memory fallback active
     }

@@ -106,8 +106,12 @@ export function getSecureLocalStorage<T>(
             secureMemoryCache.set(key, { raw, parsed });
           } catch {}
         })
-        .catch((err) => {
-          console.warn(`[LocalStorageValidator] Background Web Crypto decryption failed for key "${key}":`, err);
+        .catch(() => {
+          // Gracefully reset obsolete or cross-session payload without noisy console errors
+          try {
+            localStorage.removeItem(key);
+            secureMemoryCache.delete(key);
+          } catch {}
         });
 
       if (cached) {

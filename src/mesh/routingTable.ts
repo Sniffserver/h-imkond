@@ -1,8 +1,16 @@
+/**
+ * HÕIMU Mesh Routing Table
+ * Tracks next-hop routes, hop counts, link quality, and ETX metrics for unicast delivery.
+ */
+
 export interface RouteEntry {
   destinationId: string;
   nextHopNodeId: string;
   hopCount: number;
   metric: number;
+  etx: number;
+  lqScore: number;
+  routeCost: number; // lower is better: hopCount * etx / (lqScore / 100)
   viaTransport: string;
   lastUpdated: number;
   expiresAt: number;
@@ -17,20 +25,38 @@ export class RoutingTable {
     nextHopNodeId: string,
     hopCount: number,
     viaTransport: string,
-    metric = 1.0
-  ): void {
+    metric = 1.0,
+    etx = 1.0,
+    lqScore = 80
+  ): RouteEntry {
     const existing = this.routes.get(destinationId);
-    if (!existing || hopCount < existing.hopCount || Date.now() > existing.expiresAt) {
-      this.routes.set(destinationId, {
+    const now = Date.now();
+    const routeCost = Math.round((hopCount * Math.max(1, etx) * (100 / Math.max(10, lqScore))) * 100) / 100;
+
+    const isBetterRoute =
+      !existing ||
+      now > existing.expiresAt ||
+      routeCost < existing.routeCost ||
+      (routeCost === existing.routeCost && hopCount < existing.hopCount);
+
+    if (isBetterRoute) {
+      const entry: RouteEntry = {
         destinationId,
         nextHopNodeId,
         hopCount,
         metric,
+        etx,
+        lqScore,
+        routeCost,
         viaTransport,
-        lastUpdated: Date.now(),
-        expiresAt: Date.now() + this.defaultRouteTtlMs,
-      });
+        lastUpdated: now,
+        expiresAt: now + this.defaultRouteTtlMs,
+      };
+      this.routes.set(destinationId, entry);
+      return entry;
     }
+
+    return existing;
   }
 
   public getRoute(destinationId: string): RouteEntry | null {
@@ -41,6 +67,10 @@ export class RoutingTable {
       return null;
     }
     return route;
+  }
+
+  public invalidateRoute(destinationId: string): void {
+    this.routes.delete(destinationId);
   }
 
   public getAllRoutes(): RouteEntry[] {

@@ -59,23 +59,76 @@ let currentBridgeIp = typeof window !== 'undefined'
   ? (localStorage.getItem(STORAGE_KEY_IP) || DEFAULT_BRIDGE_IP)
   : DEFAULT_BRIDGE_IP;
 
+// Production default is REAL (false). Mock is DEV/TEST ONLY via explicit localStorage="true" or ENV
 let useMockBridge = typeof window !== 'undefined'
-  ? (localStorage.getItem(STORAGE_KEY_MOCK) !== 'false' || isEnvMock)
-  : true;
+  ? (localStorage.getItem(STORAGE_KEY_MOCK) === 'true' || isEnvMock)
+  : false;
 
 let lastSyncTimestamp: number | null = null;
 let lastSyncPeerCount = 0;
 
+export function createTelemetryValue<T>(
+  value: T,
+  source: 'hardware' | 'measured' | 'estimated' | 'simulated',
+  unit?: string
+) {
+  return {
+    value,
+    source,
+    timestamp: Date.now(),
+    unit,
+  };
+}
+
 let cachedStatus: BridgeStatus = {
   connected: useMockBridge,
+  isSimulated: useMockBridge,
   ipAddress: currentBridgeIp,
-  piBatteryPercent: 87,
-  solarVoltage: 14.2,
-  solarWatts: 12.4,
+  piBatteryPercent: useMockBridge ? 87 : null,
+  solarVoltage: useMockBridge ? 14.2 : null,
+  solarWatts: useMockBridge ? 12.4 : null,
   radioModules: ['ble', 'lora_868', 'wifi_direct'],
-  uptimeSeconds: 18450,
-  relayedPacketsCount: 421,
+  uptimeSeconds: useMockBridge ? 18450 : null,
+  relayedPacketsCount: useMockBridge ? 421 : null,
+  telemetrySource: useMockBridge ? 'simulated' : undefined,
+  batteryTelemetry: useMockBridge ? createTelemetryValue(87, 'simulated', '%') : undefined,
+  solarWattsTelemetry: useMockBridge ? createTelemetryValue(12.4, 'simulated', 'W') : undefined,
+  solarVoltageTelemetry: useMockBridge ? createTelemetryValue(14.2, 'simulated', 'V') : undefined,
+  uptimeTelemetry: useMockBridge ? createTelemetryValue(18450, 'simulated', 's') : undefined,
+  latencyTelemetry: useMockBridge ? createTelemetryValue(45, 'simulated', 'ms') : undefined,
 };
+
+export type BridgeEventType =
+  | 'PACKET_RX'
+  | 'PACKET_TX_STATUS'
+  | 'ACK_RX'
+  | 'RADIO_STATUS'
+  | 'PEER_UPDATE';
+
+export interface BridgeStreamEvent<T = any> {
+  type: BridgeEventType;
+  timestamp: number;
+  payload: T;
+}
+
+const bridgeStreamSubscribers = new Set<(event: BridgeStreamEvent) => void>();
+
+export function subscribeBridgeStream(handler: (event: BridgeStreamEvent) => void): () => void {
+  bridgeStreamSubscribers.add(handler);
+  return () => {
+    bridgeStreamSubscribers.delete(handler);
+  };
+}
+
+export function publishBridgeStreamEvent(event: BridgeStreamEvent): void {
+  for (const handler of bridgeStreamSubscribers) {
+    try {
+      handler(event);
+    } catch (e) {
+      console.error('[PiBridge] Stream handler error:', e);
+    }
+  }
+}
 
 export function getClientId(): string {
   return currentClientId;
@@ -260,14 +313,14 @@ export async function revokeDevice(deviceId?: string): Promise<{ success: boolea
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ device_id: deviceId })
     });
-    const data = await res.json();
-    if (res.ok) {
+    if (res?.ok) {
       setBridgeAuthToken('');
       cachedStatus.connected = false;
       notifyListeners();
       return { success: true };
     }
-    return { success: false, error: data.message || 'Failed to revoke device' };
+    const errData = await res?.json().catch(() => ({}));
+    return { success: false, error: errData?.message || 'Failed to revoke device' };
   } catch (err: any) {
     return { success: false, error: err.message || 'Network error' };
   }
@@ -336,9 +389,35 @@ export function setMockBridgeMode(enabled: boolean): void {
   if (typeof window !== 'undefined') {
     localStorage.setItem(STORAGE_KEY_MOCK, String(enabled));
   }
-  cachedStatus.connected = enabled;
   if (enabled) {
+    cachedStatus.connected = true;
+    cachedStatus.isSimulated = true;
+    cachedStatus.piBatteryPercent = 87;
+    cachedStatus.solarVoltage = 14.2;
+    cachedStatus.solarWatts = 12.4;
+    cachedStatus.uptimeSeconds = 18450;
+    cachedStatus.relayedPacketsCount = 421;
+    cachedStatus.telemetrySource = 'simulated';
+    cachedStatus.batteryTelemetry = createTelemetryValue(87, 'simulated', '%');
+    cachedStatus.solarWattsTelemetry = createTelemetryValue(12.4, 'simulated', 'W');
+    cachedStatus.solarVoltageTelemetry = createTelemetryValue(14.2, 'simulated', 'V');
+    cachedStatus.uptimeTelemetry = createTelemetryValue(18450, 'simulated', 's');
+    cachedStatus.latencyTelemetry = createTelemetryValue(45, 'simulated', 'ms');
     startMockUptimeCounter();
+  } else {
+    cachedStatus.connected = false;
+    cachedStatus.isSimulated = false;
+    cachedStatus.piBatteryPercent = null;
+    cachedStatus.solarVoltage = null;
+    cachedStatus.solarWatts = null;
+    cachedStatus.uptimeSeconds = null;
+    cachedStatus.relayedPacketsCount = null;
+    cachedStatus.telemetrySource = undefined;
+    cachedStatus.batteryTelemetry = undefined;
+    cachedStatus.solarWattsTelemetry = undefined;
+    cachedStatus.solarVoltageTelemetry = undefined;
+    cachedStatus.uptimeTelemetry = undefined;
+    cachedStatus.latencyTelemetry = undefined;
   }
   notifyListeners();
 }
@@ -360,8 +439,8 @@ export function getLastSyncInfo(): { timestamp: number | null; peerCount: number
 async function authenticatedFetch(
   path: string,
   options: RequestInit = {},
-  retries: number = 2,
-  timeoutMs: number = 3500
+  retries: number = 0,
+  timeoutMs: number = 1000
 ): Promise<Response> {
   const url = path.startsWith('http') ? path : `http://${currentBridgeIp}${path}`;
   const headers = new Headers(options.headers || {});
@@ -419,10 +498,15 @@ export async function discoverBridge(customIp?: string): Promise<{
     cachedStatus = {
       ...cachedStatus,
       connected: true,
+      isSimulated: true,
       ipAddress: targetIp,
       piBatteryPercent: 87,
       solarVoltage: 14.2,
       solarWatts: 12.4,
+      telemetrySource: 'simulated',
+      batteryTelemetry: createTelemetryValue(87, 'simulated', '%'),
+      solarWattsTelemetry: createTelemetryValue(12.4, 'simulated', 'W'),
+      solarVoltageTelemetry: createTelemetryValue(14.2, 'simulated', 'V'),
     };
     notifyListeners();
     await syncBridgePeersToStore();
@@ -451,21 +535,44 @@ export async function discoverBridge(customIp?: string): Promise<{
       const statusRes = await authenticatedFetch('/api/v1/status', { method: 'GET' }, 1, 2500);
       if (statusRes.ok) {
         const data = await statusRes.json();
+        const batt = data.piBatteryPercent !== undefined ? data.piBatteryPercent : null;
+        const volts = data.solarVoltage !== undefined ? data.solarVoltage : null;
+        const watts = data.solarWatts !== undefined ? data.solarWatts : null;
+        const uptime = data.uptimeSeconds !== undefined ? data.uptimeSeconds : null;
+        const relays = data.relayedPacketsCount !== undefined ? data.relayedPacketsCount : null;
+        const latency = data.measuredLatencyMs !== undefined ? data.measuredLatencyMs : (data.latencyMs ?? null);
         cachedStatus = {
           connected: true,
+          isSimulated: false,
           ipAddress: targetIp,
-          piBatteryPercent: data.piBatteryPercent ?? 87,
-          solarVoltage: data.solarVoltage ?? 14.2,
-          solarWatts: data.solarWatts ?? 12.4,
+          piBatteryPercent: batt,
+          solarVoltage: volts,
+          solarWatts: watts,
           radioModules: data.radioModules ?? ['ble', 'lora_868', 'wifi_direct'],
-          uptimeSeconds: data.uptimeSeconds ?? 18450,
-          relayedPacketsCount: data.relayedPacketsCount ?? 421,
+          uptimeSeconds: uptime,
+          relayedPacketsCount: relays,
+          telemetrySource: 'hardware',
+          batteryTelemetry: batt !== null ? createTelemetryValue(batt, 'hardware', '%') : undefined,
+          solarWattsTelemetry: watts !== null ? createTelemetryValue(watts, 'hardware', 'W') : undefined,
+          solarVoltageTelemetry: volts !== null ? createTelemetryValue(volts, 'hardware', 'V') : undefined,
+          uptimeTelemetry: uptime !== null ? createTelemetryValue(uptime, 'hardware', 's') : undefined,
+          latencyTelemetry: latency !== null ? createTelemetryValue(latency, 'measured', 'ms') : undefined,
         };
         notifyListeners();
         await syncBridgePeersToStore();
         return { success: true, ip: targetIp, status: cachedStatus };
       } else if (statusRes.status === 401) {
         cachedStatus.connected = false;
+        cachedStatus.isSimulated = false;
+        cachedStatus.piBatteryPercent = null;
+        cachedStatus.solarVoltage = null;
+        cachedStatus.solarWatts = null;
+        cachedStatus.uptimeSeconds = null;
+        cachedStatus.relayedPacketsCount = null;
+        cachedStatus.telemetrySource = undefined;
+        cachedStatus.batteryTelemetry = undefined;
+        cachedStatus.solarWattsTelemetry = undefined;
+        cachedStatus.solarVoltageTelemetry = undefined;
         notifyListeners();
         return { success: false, needsPairing: true, ip: targetIp, status: cachedStatus };
       }
@@ -475,12 +582,28 @@ export async function discoverBridge(customIp?: string): Promise<{
   }
 
   cachedStatus.connected = false;
+  cachedStatus.isSimulated = false;
+  cachedStatus.piBatteryPercent = null;
+  cachedStatus.solarVoltage = null;
+  cachedStatus.solarWatts = null;
+  cachedStatus.uptimeSeconds = null;
+  cachedStatus.relayedPacketsCount = null;
+  cachedStatus.telemetrySource = undefined;
+  cachedStatus.batteryTelemetry = undefined;
+  cachedStatus.solarWattsTelemetry = undefined;
+  cachedStatus.solarVoltageTelemetry = undefined;
+  cachedStatus.uptimeTelemetry = undefined;
+  cachedStatus.latencyTelemetry = undefined;
   notifyListeners();
   return {
     success: false,
     ip: targetIp,
     status: cachedStatus,
   };
+}
+
+export function getCachedBridgeStatus(): BridgeStatus {
+  return { ...cachedStatus };
 }
 
 /**
@@ -490,29 +613,66 @@ export async function getBridgeStatus(): Promise<BridgeStatus> {
   if (useMockBridge || isEnvMock) {
     startMockUptimeCounter();
     cachedStatus.connected = true;
+    cachedStatus.isSimulated = true;
+    cachedStatus.telemetrySource = 'simulated';
+    cachedStatus.piBatteryPercent = cachedStatus.piBatteryPercent ?? 87;
+    cachedStatus.solarWatts = cachedStatus.solarWatts ?? 12.4;
+    cachedStatus.solarVoltage = cachedStatus.solarVoltage ?? 14.2;
+    cachedStatus.uptimeSeconds = cachedStatus.uptimeSeconds ?? 18450;
+    cachedStatus.relayedPacketsCount = cachedStatus.relayedPacketsCount ?? 421;
+    cachedStatus.batteryTelemetry = createTelemetryValue(cachedStatus.piBatteryPercent, 'simulated', '%');
+    cachedStatus.solarWattsTelemetry = createTelemetryValue(cachedStatus.solarWatts, 'simulated', 'W');
+    cachedStatus.solarVoltageTelemetry = createTelemetryValue(cachedStatus.solarVoltage, 'simulated', 'V');
+    cachedStatus.uptimeTelemetry = createTelemetryValue(cachedStatus.uptimeSeconds, 'simulated', 's');
+    cachedStatus.latencyTelemetry = createTelemetryValue(45, 'simulated', 'ms');
     notifyListeners();
     return cachedStatus;
   }
 
   try {
-    const res = await authenticatedFetch('/api/v1/status', { method: 'GET' });
-    if (res.ok) {
+    const res = await authenticatedFetch('/api/v1/status', { method: 'GET' }, 0, 1500);
+    if (res?.ok) {
       const data = await res.json();
+      const batt = data.piBatteryPercent !== undefined ? data.piBatteryPercent : null;
+      const volts = data.solarVoltage !== undefined ? data.solarVoltage : null;
+      const watts = data.solarWatts !== undefined ? data.solarWatts : null;
+      const uptime = data.uptimeSeconds !== undefined ? data.uptimeSeconds : null;
+      const relays = data.relayedPacketsCount !== undefined ? data.relayedPacketsCount : null;
+      const latency = data.measuredLatencyMs !== undefined ? data.measuredLatencyMs : (data.latencyMs ?? null);
       cachedStatus = {
         connected: true,
+        isSimulated: false,
         ipAddress: currentBridgeIp,
-        piBatteryPercent: data.piBatteryPercent ?? 87,
-        solarVoltage: data.solarVoltage ?? 14.2,
-        solarWatts: data.solarWatts ?? 12.4,
+        piBatteryPercent: batt,
+        solarVoltage: volts,
+        solarWatts: watts,
         radioModules: data.radioModules ?? ['ble', 'lora_868', 'wifi_direct'],
-        uptimeSeconds: data.uptimeSeconds ?? 18450,
-        relayedPacketsCount: data.relayedPacketsCount ?? 421,
+        uptimeSeconds: uptime,
+        relayedPacketsCount: relays,
+        telemetrySource: 'hardware',
+        batteryTelemetry: batt !== null ? createTelemetryValue(batt, 'hardware', '%') : undefined,
+        solarWattsTelemetry: watts !== null ? createTelemetryValue(watts, 'hardware', 'W') : undefined,
+        solarVoltageTelemetry: volts !== null ? createTelemetryValue(volts, 'hardware', 'V') : undefined,
+        uptimeTelemetry: uptime !== null ? createTelemetryValue(uptime, 'hardware', 's') : undefined,
+        latencyTelemetry: latency !== null ? createTelemetryValue(latency, 'measured', 'ms') : undefined,
       };
       notifyListeners();
       return cachedStatus;
     }
   } catch {
     cachedStatus.connected = false;
+    cachedStatus.isSimulated = false;
+    cachedStatus.piBatteryPercent = null;
+    cachedStatus.solarVoltage = null;
+    cachedStatus.solarWatts = null;
+    cachedStatus.uptimeSeconds = null;
+    cachedStatus.relayedPacketsCount = null;
+    cachedStatus.telemetrySource = undefined;
+    cachedStatus.batteryTelemetry = undefined;
+    cachedStatus.solarWattsTelemetry = undefined;
+    cachedStatus.solarVoltageTelemetry = undefined;
+    cachedStatus.uptimeTelemetry = undefined;
+    cachedStatus.latencyTelemetry = undefined;
     notifyListeners();
   }
 
@@ -523,43 +683,63 @@ export async function getBridgeStatus(): Promise<BridgeStatus> {
  * getMeshPeersFromBridge(): GET /api/v1/peers
  */
 export async function getMeshPeersFromBridge(): Promise<BridgePeer[]> {
-  if (useMockBridge || isEnvMock || cachedStatus.connected) {
+  if (useMockBridge || isEnvMock) {
     const mockPeers: BridgePeer[] = [
       {
         id: 'TARTU-LORA-NODE-01',
         rssi: -68,
+        snr: 9.5,
         protocol: 'lora',
         lastHeard: Date.now() - 4000,
         hops: 1,
         callsign: 'TARTU-LORA-01',
         role: 'Relay Node',
+        rssiTelemetry: createTelemetryValue(-68, 'simulated', 'dBm'),
+        snrTelemetry: createTelemetryValue(9.5, 'simulated', 'dB'),
+        stateTelemetry: createTelemetryValue('active', 'simulated'),
+        latencyTelemetry: createTelemetryValue(48, 'simulated', 'ms'),
       },
       {
         id: 'EST-SOLAR-RELAY-04',
         rssi: -82,
+        snr: 4.2,
         protocol: 'lora',
         lastHeard: Date.now() - 18000,
         hops: 2,
         callsign: 'SOLAR-RELAY-04',
         role: 'Solar Gateway',
+        rssiTelemetry: createTelemetryValue(-82, 'simulated', 'dBm'),
+        snrTelemetry: createTelemetryValue(4.2, 'simulated', 'dB'),
+        stateTelemetry: createTelemetryValue('active', 'simulated'),
+        latencyTelemetry: createTelemetryValue(110, 'simulated', 'ms'),
       },
       {
         id: 'PEER-BLE-LONG-RANGE-09',
         rssi: -54,
+        snr: 14.0,
         protocol: 'ble',
         lastHeard: Date.now() - 1500,
         hops: 1,
         callsign: 'BLE-NODE-09',
         role: 'Peer',
+        rssiTelemetry: createTelemetryValue(-54, 'simulated', 'dBm'),
+        snrTelemetry: createTelemetryValue(14.0, 'simulated', 'dB'),
+        stateTelemetry: createTelemetryValue('active', 'simulated'),
+        latencyTelemetry: createTelemetryValue(25, 'simulated', 'ms'),
       },
       {
         id: 'KAARSILD-BRIDGE-RELAY',
         rssi: -71,
+        snr: 8.1,
         protocol: 'lora',
         lastHeard: Date.now() - 9000,
         hops: 1,
         callsign: 'KAARSILD-LORA',
         role: 'Bridge Repeater',
+        rssiTelemetry: createTelemetryValue(-71, 'simulated', 'dBm'),
+        snrTelemetry: createTelemetryValue(8.1, 'simulated', 'dB'),
+        stateTelemetry: createTelemetryValue('active', 'simulated'),
+        latencyTelemetry: createTelemetryValue(62, 'simulated', 'ms'),
       },
     ];
 
@@ -570,11 +750,17 @@ export async function getMeshPeersFromBridge(): Promise<BridgePeer[]> {
 
   try {
     const res = await authenticatedFetch('/api/v1/peers', { method: 'GET' });
-    if (res.ok) {
-      const data: BridgePeer[] = await res.json();
+    if (res?.ok) {
+      const data: any[] = await res.json();
       lastSyncTimestamp = Date.now();
       lastSyncPeerCount = data.length;
-      return data;
+      return data.map((p) => ({
+        ...p,
+        rssiTelemetry: createTelemetryValue(p.rssi, 'hardware', 'dBm'),
+        snrTelemetry: p.snr !== undefined ? createTelemetryValue(p.snr, 'hardware', 'dB') : undefined,
+        stateTelemetry: createTelemetryValue(p.state || 'active', 'measured'),
+        latencyTelemetry: p.latencyMs !== undefined ? createTelemetryValue(p.latencyMs, 'measured', 'ms') : undefined,
+      }));
     }
   } catch (err) {
     console.warn('[PiBridge] Failed to fetch mesh peers from Pi', err);
@@ -609,20 +795,24 @@ export async function executeBridgeCommand(
   }
 
   try {
-    const res = await authenticatedFetch('/api/v1/command', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command, params }),
-    });
+    const res = await authenticatedFetch(
+      '/api/v1/command',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command, params }),
+      },
+      2
+    );
 
-    if (res.ok) {
+    if (res?.ok) {
       const data = await res.json();
       return { success: true, data };
     } else {
-      const errData = await res.json().catch(() => ({}));
+      const errData = await res?.json().catch(() => ({}));
       return {
         success: false,
-        error: errData.message || `Command failed with status ${res.status}`,
+        error: errData?.message || `Command failed with status ${res?.status}`,
       };
     }
   } catch (err: any) {
@@ -638,11 +828,20 @@ export async function sendViaBridge(packet: {
   from: string;
   to?: string;
   payload: any;
-}): Promise<{ success: boolean; txId?: string }> {
+}): Promise<{ success: boolean; txId?: string; measuredDurationMs?: number; airtimeMs?: number }> {
+  const startTime = performance.now();
+
   if (useMockBridge || isEnvMock) {
     cachedStatus.relayedPacketsCount += 1;
     notifyListeners();
-    return { success: true, txId: `tx-pi-${Date.now()}` };
+    const duration = Math.round(performance.now() - startTime);
+    const txId = `tx-pi-${Date.now()}`;
+    publishBridgeStreamEvent({
+      type: 'PACKET_TX_STATUS',
+      timestamp: Date.now(),
+      payload: { txId, packetId: packet.payload?.packetId, status: 'TX_DONE', durationMs: duration },
+    });
+    return { success: true, txId, measuredDurationMs: duration };
   }
 
   try {
@@ -652,11 +851,31 @@ export async function sendViaBridge(packet: {
       body: JSON.stringify(packet),
     });
 
-    if (res.ok) {
+    const duration = Math.round(performance.now() - startTime);
+
+    if (res?.ok) {
       const data = await res.json();
       cachedStatus.relayedPacketsCount += 1;
       notifyListeners();
-      return { success: true, txId: data.txId || `tx-${Date.now()}` };
+      const txId = data.txId || `tx-${Date.now()}`;
+      const airtime = data.airtimeMs;
+      publishBridgeStreamEvent({
+        type: 'PACKET_TX_STATUS',
+        timestamp: Date.now(),
+        payload: {
+          txId,
+          packetId: packet.payload?.packetId,
+          status: 'TX_DONE',
+          durationMs: duration,
+          airtimeMs: airtime,
+        },
+      });
+      return {
+        success: true,
+        txId,
+        measuredDurationMs: duration,
+        airtimeMs: airtime,
+      };
     }
   } catch (err) {
     console.error('[PiBridge] Failed to transmit via Pi hardware', err);
@@ -683,7 +902,7 @@ export async function getAsciiMapFromBridge(): Promise<string> {
       method: 'GET',
       headers: { Accept: 'text/plain' },
     });
-    if (res.ok) {
+    if (res?.ok) {
       const text = await res.text();
       return text;
     }

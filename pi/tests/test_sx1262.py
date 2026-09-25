@@ -233,5 +233,111 @@ class TestSX1262RealImplementation(unittest.TestCase):
         # Priority 3 (SOS) requires <= 100% quota (36,000ms) -> should be allowed
         self.assertTrue(driver.is_duty_cycle_allowed(airtime_ms=100, priority=3))
 
+    # =========================================================================
+    # Requirement 26 & 27: Physical LDRO Symbol Duration & Airtime Test Matrix
+    # =========================================================================
+    def test_27_physical_ldro_symbol_duration(self):
+        """
+        Validates LDRO is determined strictly by symbol duration Tsym = 2^SF / BW >= 16.0 ms:
+        - SF10 @ 125kHz: Tsym = 8.192ms  -> LDRO = False
+        - SF11 @ 125kHz: Tsym = 16.384ms -> LDRO = True
+        - SF12 @ 125kHz: Tsym = 32.768ms -> LDRO = True
+        - SF11 @ 250kHz: Tsym = 8.192ms  -> LDRO = False (critical: old sf>=11 heuristic failed here)
+        - SF12 @ 250kHz: Tsym = 16.384ms -> LDRO = True
+        """
+        from pi.radio.airtime import is_ldro_required, get_symbol_duration_ms
+
+        # SF10 @ 125kHz
+        self.assertAlmostEqual(get_symbol_duration_ms(10, 125.0), 8.192, places=3)
+        self.assertFalse(is_ldro_required(10, 125.0))
+
+        # SF11 @ 125kHz
+        self.assertAlmostEqual(get_symbol_duration_ms(11, 125.0), 16.384, places=3)
+        self.assertTrue(is_ldro_required(11, 125.0))
+
+        # SF12 @ 125kHz
+        self.assertAlmostEqual(get_symbol_duration_ms(12, 125.0), 32.768, places=3)
+        self.assertTrue(is_ldro_required(12, 125.0))
+
+        # SF11 @ 250kHz (double bandwidth halves symbol duration)
+        self.assertAlmostEqual(get_symbol_duration_ms(11, 250.0), 8.192, places=3)
+        self.assertFalse(is_ldro_required(11, 250.0))
+
+        # SF12 @ 250kHz
+        self.assertAlmostEqual(get_symbol_duration_ms(12, 250.0), 16.384, places=3)
+        self.assertTrue(is_ldro_required(12, 250.0))
+
+    def test_26_lora_airtime_full_test_matrix(self):
+        """
+        Executes requested test matrix:
+        SF: [SF7, SF8, SF9, SF10, SF11, SF12]
+        BW: [BW125, BW250]
+        Payload: [16, 32, 64, 128, 200]
+        Verifies exact physical LoRa airtimes and physical monotonicity.
+        """
+        from pi.radio.airtime import calculate_lora_airtime_ms
+
+        sf_list = [7, 8, 9, 10, 11, 12]
+        bw_list = [125.0, 250.0]
+        payloads = [16, 32, 64, 128, 200]
+
+        for sf in sf_list:
+            for bw in bw_list:
+                prev_airtime = 0
+                for pl in payloads:
+                    toa = calculate_lora_airtime_ms(payload_length_bytes=pl, sf=sf, bw_khz=bw)
+                    self.assertGreater(toa, 0)
+                    self.assertGreater(toa, prev_airtime, f"Airtime must increase with payload (SF{sf}, BW{bw}, PL{pl})")
+                    prev_airtime = toa
+
+        # Verify BW250 takes substantially less airtime than BW125 (approx half)
+        for pl in payloads:
+            toa_125 = calculate_lora_airtime_ms(pl, sf=7, bw_khz=125.0)
+            toa_250 = calculate_lora_airtime_ms(pl, sf=7, bw_khz=250.0)
+            self.assertLess(toa_250, toa_125)
+            self.assertGreater(toa_250, toa_125 * 0.45)
+            self.assertLess(toa_250, toa_125 * 0.65)
+
+    # =========================================================================
+    # Requirement 28: Unified BaseRadio API Across All Drivers
+    # =========================================================================
+    def test_28_unified_base_radio_contract(self):
+        """
+        Verifies all drivers implement unified BaseRadio interface:
+        start(), stop(), transmit(), receive(), cad(), get_stats(), get_capabilities(), is_available()
+        """
+        from pi.radio.emulator import EmulatorRadio
+        from pi.radio.ble import BleRadio
+        from pi.radio.wifi import WifiDirectRadio
+
+        drivers = [
+            self.driver,
+            EmulatorRadio(),
+            BleRadio(),
+            WifiDirectRadio()
+        ]
+
+        required_methods = [
+            "start", "stop", "transmit", "receive", "cad",
+            "get_stats", "get_capabilities", "is_available"
+        ]
+
+        for d in drivers:
+            for method_name in required_methods:
+                self.assertTrue(
+                    hasattr(d, method_name),
+                    f"{d.__class__.__name__} missing unified method {method_name}"
+                )
+                self.assertTrue(
+                    callable(getattr(d, method_name)),
+                    f"{d.__class__.__name__}.{method_name} must be callable"
+                )
+
+            # Test basic invocation
+            caps = d.get_capabilities()
+            self.assertIsInstance(caps, dict)
+            stats = d.get_stats()
+            self.assertIsInstance(stats, dict)
+
 if __name__ == '__main__':
     unittest.main()

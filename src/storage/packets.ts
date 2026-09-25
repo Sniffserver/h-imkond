@@ -10,11 +10,11 @@ export class PacketStore {
     memoryPackets.set(packetId, packet);
 
     try {
-      const db = await storageDB.getDB();
-      const tx = db.transaction(STORES.PACKETS, 'readwrite');
-      tx.objectStore(STORES.PACKETS).put({
-        packetId,
-        ...packet,
+      await storageDB.writeDurably(STORES.PACKETS, (store) => {
+        return store.put({
+          packetId,
+          ...packet,
+        });
       });
     } catch {
       // Memory fallback active

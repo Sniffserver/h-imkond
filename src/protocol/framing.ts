@@ -2,7 +2,14 @@
  * HÕIMU Wire Framing & Packet Boundaries Utility
  */
 
-import { PROTOCOL_MAGIC, PROTOCOL_VERSION } from './constants';
+import {
+  PROTOCOL_MAGIC,
+  PROTOCOL_VERSION,
+  HEADER_SIZE_BYTES,
+  SIGNATURE_SIZE_BYTES,
+  CRC_SIZE_BYTES,
+  PacketFlags,
+} from './constants';
 
 export interface FrameInfo {
   magic: number;
@@ -15,13 +22,16 @@ export interface FrameInfo {
   originId: string;
   destinationId: string;
   packetId: string;
+  createdAtEpochSeconds: number;
+  lifetimeSeconds: number;
   payloadLength: number;
+  isSigned: boolean;
   totalLength: number;
   isValidHeader: boolean;
 }
 
 export function parseFrameInfo(rawBytes: Uint8Array): FrameInfo | null {
-  if (rawBytes.length < 43) return null;
+  if (rawBytes.length < HEADER_SIZE_BYTES + CRC_SIZE_BYTES) return null;
 
   const view = new DataView(rawBytes.buffer, rawBytes.byteOffset, rawBytes.byteLength);
   const magic = view.getUint32(0, false);
@@ -35,12 +45,20 @@ export function parseFrameInfo(rawBytes: Uint8Array): FrameInfo | null {
   const decoder = new TextDecoder('utf-8');
   const originId = decoder.decode(rawBytes.subarray(13, 21)).trim();
   const destinationId = decoder.decode(rawBytes.subarray(21, 29)).trim();
-  const packetId = decoder.decode(rawBytes.subarray(29, 37)).trim();
+  const packetId = decoder.decode(rawBytes.subarray(29, 45)).trim();
 
-  const payloadLength = view.getUint16(37, false);
-  const totalLength = 39 + payloadLength + 4;
+  const createdAtEpochSeconds = view.getUint32(45, false);
+  const lifetimeSeconds = view.getUint16(49, false);
+  const payloadLength = view.getUint16(51, false);
 
-  const isValidHeader = magic === PROTOCOL_MAGIC && version === PROTOCOL_VERSION && rawBytes.length >= totalLength;
+  const isSigned = (flags & PacketFlags.IS_SIGNED) !== 0;
+  const sigLen = isSigned ? SIGNATURE_SIZE_BYTES : 0;
+  const totalLength = HEADER_SIZE_BYTES + payloadLength + sigLen + CRC_SIZE_BYTES;
+
+  const isValidHeader =
+    magic === PROTOCOL_MAGIC &&
+    version === PROTOCOL_VERSION &&
+    rawBytes.length >= totalLength;
 
   return {
     magic,
@@ -53,7 +71,10 @@ export function parseFrameInfo(rawBytes: Uint8Array): FrameInfo | null {
     originId,
     destinationId,
     packetId,
+    createdAtEpochSeconds,
+    lifetimeSeconds,
     payloadLength,
+    isSigned,
     totalLength,
     isValidHeader,
   };

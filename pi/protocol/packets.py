@@ -1,5 +1,5 @@
 """
-HÕIMU Protocol Packet Definitions
+HÕIMU Protocol Packet Definitions (53-byte Binary Wire Standard)
 """
 
 from dataclasses import dataclass
@@ -7,6 +7,11 @@ from typing import Optional, Any, Dict
 
 PROTOCOL_MAGIC = 0x484F494D  # "HOIM"
 PROTOCOL_VERSION = 1
+
+HEADER_SIZE_BYTES = 53
+SIGNATURE_SIZE_BYTES = 64
+CRC_SIZE_BYTES = 4
+MAX_PACKET_SIZE_BYTES = 255
 
 class HoimuPacketType:
     MESSAGE = 0x01
@@ -18,10 +23,11 @@ class HoimuPacketType:
 
 class PacketFlags:
     NONE = 0x00
-    IS_ENCRYPTED = 0x01
-    IS_PRIORITY = 0x02
-    ACK_REQUESTED = 0x04
-    COMPRESSED = 0x08
+    IS_SIGNED = 0x01
+    IS_ENCRYPTED = 0x02
+    IS_PRIORITY = 0x04
+    ACK_REQUESTED = 0x08
+    COMPRESSED = 0x10
 
 @dataclass
 class PacketHeader:
@@ -35,12 +41,15 @@ class PacketHeader:
     origin_id: str
     destination_id: str
     packet_id: str
+    created_at_epoch_sec: int
+    lifetime_sec: int
     payload_length: int
 
 @dataclass
 class BinaryWirePacket:
     header: PacketHeader
     payload: Any
+    signature_bytes: Optional[bytes] = None
     signature: Optional[str] = None
     crc: Optional[int] = None
     raw_bytes: Optional[bytes] = None

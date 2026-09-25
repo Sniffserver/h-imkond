@@ -629,15 +629,31 @@ export interface OfflineMapRegion {
   tileCount?: number;
 }
 
+export type TelemetrySource = 'hardware' | 'measured' | 'estimated' | 'simulated';
+
+export interface TelemetryValue<T> {
+  value: T;
+  source: TelemetrySource;
+  timestamp: number;
+  unit?: string;
+}
+
 export interface BridgeStatus {
   connected: boolean;
+  isSimulated?: boolean;
   ipAddress?: string;
-  piBatteryPercent: number;
-  solarVoltage: number;
-  solarWatts: number;
+  piBatteryPercent?: number | null;
+  solarVoltage?: number | null;
+  solarWatts?: number | null;
   radioModules: Array<'ble' | 'lora_868' | 'wifi_direct'>;
-  uptimeSeconds: number;
-  relayedPacketsCount: number;
+  uptimeSeconds?: number | null;
+  relayedPacketsCount?: number | null;
+  telemetrySource?: TelemetrySource;
+  batteryTelemetry?: TelemetryValue<number>;
+  solarWattsTelemetry?: TelemetryValue<number>;
+  solarVoltageTelemetry?: TelemetryValue<number>;
+  uptimeTelemetry?: TelemetryValue<number>;
+  latencyTelemetry?: TelemetryValue<number>;
 }
 
 export interface BridgePeer {
@@ -648,6 +664,12 @@ export interface BridgePeer {
   hops: number;
   callsign?: string;
   role?: string;
+  snr?: number;
+  latencyMs?: number;
+  rssiTelemetry?: TelemetryValue<number>;
+  snrTelemetry?: TelemetryValue<number>;
+  stateTelemetry?: TelemetryValue<'active' | 'stale' | 'unreachable'>;
+  latencyTelemetry?: TelemetryValue<number>;
 }
 
 

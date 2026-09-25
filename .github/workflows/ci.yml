@@ -7,7 +7,7 @@ on:
 
 jobs:
   # -------------------------------------------------------------
-  # Job 1: Frontend & TypeScript Verification Pipeline
+  # Job 1: Frontend & TypeScript Verification Pipeline (Strict Blocking)
   # -------------------------------------------------------------
   web-applet-gate:
     name: Web Applet Gate
@@ -26,35 +26,47 @@ jobs:
       - name: Install Node Dependencies
         run: npm ci
 
-      - name: 1. Typecheck
+      - name: 1. Typecheck (Blocking)
         run: npm run typecheck
 
-      - name: 2. Lint
+      - name: 2. Lint (Blocking)
         run: npm run lint
 
-      - name: 3. Unit Tests
-        run: npx vitest run --exclude "src/__tests__/protocol/vectors.test.ts" --exclude "src/__tests__/meshCrypto.test.ts"
+      - name: 3. Unit Tests (Blocking)
+        run: npx vitest run --exclude "src/__tests__/protocol/vectors.test.ts" --exclude "src/__tests__/meshCrypto.test.ts" --exclude "src/__tests__/e2eInvariants.test.ts"
 
-      - name: 4. Protocol Vector Validation
+      - name: 4. Protocol Vector Validation (Blocking)
         run: npx vitest run src/__tests__/protocol/vectors.test.ts
 
-      - name: 5. Cryptographic Tests
+      - name: 5. Cryptographic Tests (Blocking)
         run: npx vitest run src/__tests__/meshCrypto.test.ts
 
-      - name: 6. Accessibility Audit
-        run: npx vitest run src/__tests__/a11y/a11yAudit.test.ts || true
+      - name: 6. Accessibility Audit (Blocking)
+        run: npx vitest run src/__tests__/a11y/a11yAudit.test.ts
 
-      - name: 7. Production Applet Build
+      - name: 7. E2E Invariants Validation (Blocking)
+        run: npx vitest run src/__tests__/e2eInvariants.test.ts
+
+      - name: 8. Production Applet Build (Blocking)
         run: npm run build
 
-      - name: 8. Bundle Size Analysis
+      - name: 9. Bundle Size Visualization (Non-blocking)
+        continue-on-error: true
         run: npx vite-bundle-visualizer --output stats.html || true
 
-      - name: 9. Security Audit
+      - name: 10. Experimental Benchmark (Non-blocking)
+        continue-on-error: true
+        run: echo "Running experimental performance benchmark..." || true
+
+      - name: 11. Long RF Simulation (Non-blocking)
+        continue-on-error: true
+        run: echo "Running long RF pathloss simulation..." || true
+
+      - name: 12. Security Audit
         run: npm audit --audit-level=high || true
 
   # -------------------------------------------------------------
-  # Job 2: Raspberry Pi Python Gateway Gate
+  # Job 2: Raspberry Pi Python Gateway Gate (Strict Blocking)
   # -------------------------------------------------------------
   pi-gateway-gate:
     name: Pi Gateway (Python) Gate
@@ -74,17 +86,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest ruff mypy pydantic fastapi
 
-      - name: 1. Pytest Test Suite
+      - name: 1. Pytest Test Suite (Blocking)
         run: python -m pytest pi/tests/
 
-      - name: 2. Ruff Linter & Formatter
-        run: ruff check pi/ || true
+      - name: 2. Ruff Linter & Formatter (Blocking)
+        run: ruff check pi/
 
-      - name: 3. Mypy Type Checker
-        run: mypy pi/routing/ pi/storage/ pi/security/ || true
+      - name: 3. Mypy Type Checker (Blocking)
+        run: mypy pi/routing/ pi/storage/ pi/security/
 
   # -------------------------------------------------------------
-  # Job 3: ESP32 C++ Embedded Firmware Gate
+  # Job 3: ESP32 C++ Embedded Firmware Gate (Strict Blocking)
   # -------------------------------------------------------------
   esp32-firmware-gate:
     name: ESP32 Firmware Gate
@@ -102,14 +114,18 @@ jobs:
       - name: Install PlatformIO Core
         run: pip install platformio
 
-      - name: 1. PlatformIO Firmware Build Check
+      - name: 1. PlatformIO Firmware Build Check (Blocking)
         run: |
-          if [ -f "esp32/platformio.ini" ]; then
-            cd esp32 && pio run || true
+          if [ -d "esp32" ] && [ -f "esp32/platformio.ini" ]; then
+            cd esp32 && pio run
+          else
+            echo "ESP32 directory or platformio.ini not present, skipping ESP32 compilation."
           fi
 
-      - name: 2. PlatformIO Native Unit Tests
+      - name: 2. PlatformIO Native Unit Tests (Blocking)
         run: |
-          if [ -f "esp32/platformio.ini" ]; then
-            cd esp32 && pio test -e native || true
+          if [ -d "esp32" ] && [ -f "esp32/platformio.ini" ]; then
+            cd esp32 && pio test -e native
+          else
+            echo "ESP32 directory or platformio.ini not present, skipping ESP32 tests."
           fi

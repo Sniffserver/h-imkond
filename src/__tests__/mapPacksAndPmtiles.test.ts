@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import {
   mapPackService,
   AVAILABLE_MAP_PACKS,
@@ -8,10 +8,28 @@ import {
   TacticalMapTheme,
   initializePMTilesProtocol,
 } from '../features/map/pmtiles';
+import { createMockPMTilesHeader } from '../features/map/packs/MapPackManifest';
 
 describe('HÕIMU PMTiles Map Pack & Zero-Scraping Offline Vector Architecture', () => {
+  const originalFetch = global.fetch;
+
   beforeEach(async () => {
+    // Provide standard fetch mock with valid PMTiles header
+    global.fetch = vi.fn().mockImplementation(async (url: string) => {
+      const mockData = createMockPMTilesHeader(1024);
+      return new Response(mockData, {
+        status: 200,
+        headers: {
+          'Content-Length': String(mockData.byteLength),
+          'Content-Type': 'application/x-protobuf',
+        },
+      });
+    });
     await mapPackService.deleteMapPack('tallinn');
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
   });
 
   describe('Map Pack Service (Single-File PMTiles)', () => {
@@ -43,6 +61,27 @@ describe('HÕIMU PMTiles Map Pack & Zero-Scraping Offline Vector Architecture', 
 
       const isInstalled = await mapPackService.isMapPackInstalled('tallinn');
       expect(isInstalled).toBe(true);
+    });
+
+    it('strictly rejects HTTP fetch failures without synthesizing dummy buffers', async () => {
+      global.fetch = vi.fn().mockImplementation(async () => {
+        return new Response('Not Found', { status: 404, statusText: 'Not Found' });
+      });
+
+      await expect(mapPackService.installMapPack('tartu')).rejects.toThrow('Map pack download failed');
+      const isInstalled = await mapPackService.isMapPackInstalled('tartu');
+      expect(isInstalled).toBe(false);
+    });
+
+    it('strictly rejects corrupt PMTiles files with invalid headers', async () => {
+      const invalidData = new Uint8Array(200); // 200 zero bytes (no PMTiles magic)
+      global.fetch = vi.fn().mockImplementation(async () => {
+        return new Response(invalidData.buffer, { status: 200 });
+      });
+
+      await expect(mapPackService.installMapPack('tartu')).rejects.toThrow('Map pack verification error');
+      const isInstalled = await mapPackService.isMapPackInstalled('tartu');
+      expect(isInstalled).toBe(false);
     });
 
     it('deletes an installed map pack cleanly', async () => {

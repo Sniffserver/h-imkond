@@ -3,13 +3,26 @@ import {
   sendViaBridge,
   getMeshPeersFromBridge,
   getBridgeStatus,
+  getCachedBridgeStatus,
   isMockBridgeMode,
+  subscribeBridgeStream,
+  BridgeStreamEvent,
 } from '../../comms/piBridge';
+import { DEFAULT_RADIO_PROFILE } from '../../../mesh/radioProfile';
+
+interface PendingTxRecord {
+  packetId: string;
+  sentAt: number;
+}
 
 /**
  * LoRaBridgeTransport
  * Physical Long-Range (868MHz SX1262) transport connecting to Raspberry Pi Zero 2 W Hardware Bridge.
- * Capable of kilometers of non-line-of-sight propagation across forests and rural bioregions.
+ * 
+ * Production Event-Driven Architecture:
+ * - Listens to real asynchronous stream from Pi (PACKET_RX, PEER_UPDATE, ACK_RX, RADIO_STATUS)
+ * - Eliminates artificial 12s polling interval for packet ingress
+ * - Uses real measured physical round-trip times (RTT) without synthetic floors (Math.max(120, ...))
  */
 export class LoRaBridgeTransport implements MeshTransport {
   public readonly id = 'lora-bridge-transport';
@@ -18,14 +31,18 @@ export class LoRaBridgeTransport implements MeshTransport {
   public readonly isPhysical = true;
 
   private isRunning = false;
-  private pollIntervalId: any = null;
+  private streamUnsub: (() => void) | null = null;
   private subscribers = new Set<(packet: MeshPacket) => Promise<void> | void>();
   private discoveredPeers = new Map<string, TransportPeer>();
 
+  // Tracks in-flight transmissions for genuine physical RTT measurement upon ACK reception
+  private pendingTxTracker = new Map<string, PendingTxRecord>();
+
   public async isAvailable(): Promise<boolean> {
     try {
+      if (isMockBridgeMode()) return true;
       const status = await getBridgeStatus();
-      return status.connected || isMockBridgeMode();
+      return status.connected;
     } catch {
       return false;
     }
@@ -35,21 +52,75 @@ export class LoRaBridgeTransport implements MeshTransport {
     if (this.isRunning) return;
     this.isRunning = true;
 
-    // Initial peer discovery
+    // 1. Initial peer discovery
     await this.refreshPeers();
 
-    // Start background poll for incoming LoRa packets relayed by the Pi
-    this.pollIntervalId = setInterval(async () => {
-      if (!this.isRunning) return;
-      await this.refreshPeers();
-    }, 12000);
+    // 2. Real-time event-driven packet stream from Raspberry Pi
+    // Replaces blind 12-second polling with instant stream dispatch
+    this.streamUnsub = subscribeBridgeStream((event: BridgeStreamEvent) => {
+      this.handleBridgeStreamEvent(event);
+    });
   }
 
   public async stop(): Promise<void> {
     this.isRunning = false;
-    if (this.pollIntervalId) {
-      clearInterval(this.pollIntervalId);
-      this.pollIntervalId = null;
+    if (this.streamUnsub) {
+      this.streamUnsub();
+      this.streamUnsub = null;
+    }
+    this.pendingTxTracker.clear();
+  }
+
+  private handleBridgeStreamEvent(event: BridgeStreamEvent): void {
+    if (!this.isRunning) return;
+
+    switch (event.type) {
+      case 'PACKET_RX':
+        // Real-time packet ingress from LoRa radio
+        if (event.payload?.packet) {
+          this.handleIncomingLoRaPacket(
+            event.payload.packet,
+            event.payload.snr ?? 9.5,
+            event.payload.rssi ?? -85
+          );
+        }
+        break;
+
+      case 'PEER_UPDATE':
+        // Discrete peer presence announcement
+        if (event.payload?.peer) {
+          const bp = event.payload.peer;
+          this.discoveredPeers.set(bp.id, {
+            id: bp.id,
+            callsign: bp.callsign || bp.id,
+            transport: this.type,
+            rssi: bp.rssi || -85,
+            lastSeen: bp.lastHeard || Date.now(),
+            deviceInfo: `LoRa Node (${bp.role || 'relay'})`,
+            isOnline: true,
+            hopDistance: bp.hops || 1,
+          });
+        }
+        break;
+
+      case 'ACK_RX':
+        // Genuine physical ACK received: calculate true end-to-end RTT
+        if (event.payload?.packetId) {
+          const pending = this.pendingTxTracker.get(event.payload.packetId);
+          if (pending) {
+            const measuredRtt = Date.now() - pending.sentAt;
+            this.pendingTxTracker.delete(event.payload.packetId);
+            console.info(
+              `[LoRaBridgeTransport] ACK received for packet ${event.payload.packetId}, ` +
+              `measured RTT: ${measuredRtt}ms (genuine physical timing)`
+            );
+          }
+        }
+        break;
+
+      case 'RADIO_STATUS':
+        // Physical LoRa status updates (noise floor, duty cycle, etc.)
+        break;
     }
   }
 
@@ -61,9 +132,23 @@ export class LoRaBridgeTransport implements MeshTransport {
   public async send(packet: MeshPacket): Promise<SendResult> {
     const startTime = performance.now();
 
+    if (!isMockBridgeMode() && !getCachedBridgeStatus().connected) {
+      return {
+        success: false,
+        transport: this.type,
+        error: 'Pi Bridge not connected',
+      };
+    }
+
     if (!this.isRunning) {
       await this.start();
     }
+
+    // Register pending TX for RTT tracking
+    this.pendingTxTracker.set(packet.id, {
+      packetId: packet.id,
+      sentAt: Date.now(),
+    });
 
     try {
       const bridgePacket = {
@@ -83,17 +168,22 @@ export class LoRaBridgeTransport implements MeshTransport {
       };
 
       const result = await sendViaBridge(bridgePacket);
-      const duration = Math.round(performance.now() - startTime);
+      const rawDuration = Math.round(performance.now() - startTime);
 
       if (result.success) {
+        // Real measured duration reported by radio driver, or elapsed wall time
+        // Grounded: No artificial Math.max(120, duration) synthetic padding
+        const measuredLatency = result.measuredDurationMs ?? rawDuration;
+
         return {
           success: true,
           transport: this.type,
           txId: result.txId || `lora-tx-${Date.now()}`,
           recipientCount: this.discoveredPeers.size,
-          latencyMs: Math.max(120, duration), // LoRa time-on-air is physically ~120-400ms
+          latencyMs: measuredLatency,
         };
       } else {
+        this.pendingTxTracker.delete(packet.id);
         return {
           success: false,
           transport: this.type,
@@ -101,6 +191,7 @@ export class LoRaBridgeTransport implements MeshTransport {
         };
       }
     } catch (err: any) {
+      this.pendingTxTracker.delete(packet.id);
       return {
         success: false,
         transport: this.type,
@@ -124,7 +215,7 @@ export class LoRaBridgeTransport implements MeshTransport {
       originTransport: this.type,
       rssi,
       snr,
-      frequencyMhz: 868.1,
+      frequencyMhz: DEFAULT_RADIO_PROFILE.defaultChannel.frequencyMhz,
     };
 
     this.discoveredPeers.set(packet.senderId || packet.senderCallsign, {
@@ -148,6 +239,9 @@ export class LoRaBridgeTransport implements MeshTransport {
   }
 
   private async refreshPeers(): Promise<void> {
+    if (!isMockBridgeMode() && !getCachedBridgeStatus().connected) {
+      return;
+    }
     try {
       const bridgePeers = await getMeshPeersFromBridge();
       bridgePeers.forEach((bp) => {

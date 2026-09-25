@@ -21,6 +21,7 @@ import { PWAInstallButton } from './PWAInstallButton';
 import { SosButton } from './SosButton';
 import { PiBridgeStatusBadge } from './PiBridgeStatusBadge';
 import { ThemeMode, FieldDisplayMode } from '../hooks/useAppThemeModes';
+import { SystemStatusStrip } from './SystemStatusStrip';
 
 interface HoimuAppHeaderProps {
   batteryStatus: BatteryManagerStatus;
@@ -120,6 +121,10 @@ export const HoimuAppHeader: React.FC<HoimuAppHeaderProps> = ({
           : 'bg-[#FAF6EE]/92 border-[#87A878]/30'
       }`}
     >
+      <SystemStatusStrip
+        batteryPercent={batteryStatus.batteryLevelPercent ?? 82}
+        onWarningClick={onOpenDiagnostics}
+      />
       {/* Top Solarpunk Telemetry Banner */}
       <div
         className={`px-4 py-1.5 text-[11px] font-mono flex items-center justify-between border-b transition-colors ${

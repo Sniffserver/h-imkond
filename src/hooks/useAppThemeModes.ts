@@ -5,6 +5,13 @@ import { calculateSolarTimes, SolarTimes } from '../services/utils/solarTime';
 export type ThemeMode = 'auto' | 'day' | 'night';
 export type FieldDisplayMode = 'normal' | 'night' | 'red';
 
+export interface DisplayProfile {
+  luminance: 'day' | 'night' | 'sun';
+  vision: 'normal' | 'red' | 'highContrast';
+  mapStyle: 'standard' | 'eco' | 'crisis';
+  quality: 'powerSaver' | 'balanced' | 'detail';
+}
+
 export interface UseAppThemeModesProps {
   addToast: (title: string, description?: string, type?: ToastMessage['type']) => void;
   userLat?: number;
@@ -269,7 +276,56 @@ export function useAppThemeModes({ addToast, userLat = 59.437, userLng = 24.7535
     });
   }, [addToast]);
 
+  // Compute unified DisplayProfile (Requirement 49)
+  const displayProfile = useMemo<DisplayProfile>(() => {
+    let luminance: 'day' | 'night' | 'sun' = 'day';
+    if (isDirectSun) luminance = 'sun';
+    else if (isNightMode) luminance = 'night';
+
+    let vision: 'normal' | 'red' | 'highContrast' = 'normal';
+    if (fieldDisplayMode === 'red') vision = 'red';
+    else if (isHighContrast) vision = 'highContrast';
+
+    let mapStyle: 'standard' | 'eco' | 'crisis' = 'standard';
+    if (fieldDisplayMode === 'red') mapStyle = 'crisis';
+    else if (isNightMode) mapStyle = 'eco';
+
+    let quality: 'powerSaver' | 'balanced' | 'detail' = 'balanced';
+    if (isGloveMode) quality = 'powerSaver';
+
+    return {
+      luminance,
+      vision,
+      mapStyle,
+      quality,
+    };
+  }, [isDirectSun, isNightMode, fieldDisplayMode, isHighContrast, isGloveMode]);
+
+  const setDisplayProfile = useCallback((profile: Partial<DisplayProfile>) => {
+    if (profile.luminance === 'sun') {
+      setIsDirectSun(true);
+    } else if (profile.luminance === 'night') {
+      setIsDirectSun(false);
+      setThemeModeState('night');
+    } else if (profile.luminance === 'day') {
+      setIsDirectSun(false);
+      setThemeModeState('day');
+    }
+
+    if (profile.vision === 'red') {
+      setFieldDisplayModeState('red');
+    } else if (profile.vision === 'highContrast') {
+      setIsHighContrast(true);
+      setFieldDisplayModeState('normal');
+    } else if (profile.vision === 'normal') {
+      setIsHighContrast(false);
+      setFieldDisplayModeState('normal');
+    }
+  }, []);
+
   return {
+    displayProfile,
+    setDisplayProfile,
     themeMode,
     setThemeMode,
     fieldDisplayMode,

@@ -1,19 +1,28 @@
 """
 Hardware Driver for Semtech SX1262 LoRa Transceiver via SPI & GPIO on Raspberry Pi Zero 2 W
 
-Implements full physical pipeline:
-- 8.1 SX1262 Initialization (reset, standby, packet type, frequency, PA config, TX params, buffer base, modulation, packet params, IRQ)
-- 8.2 Real RX path (IRQ -> GetIrqStatus -> GetRxBufferStatus -> ReadBuffer -> Unpack -> CRC)
-- 8.3 CAD / Collision Handling (Physical Channel Activity Detection & exponential slot backoff)
-- 8.4 Persistent rolling 1-hour duty cycle accounting with priority awareness
+Features:
+- Event-driven DIO1 IRQ handling & background packet worker
+- Low-latency hardware BUSY synchronization (tight spin with progressive backoff)
+- Physically grounded symbol duration Tsym = 2^SF / BW and LDRO policy
+- Exact Semtech LoRa Time-on-Air (ToA) calculation and priority-aware duty-cycle tracking
+- Unified BaseRadio contract (start, stop, transmit, receive, cad, get_stats, get_capabilities)
 """
 
 import time
 import math
 import random
 import logging
-from typing import Optional, Tuple, Dict, Any, List
+import threading
+import queue
+from typing import Optional, Tuple, Dict, Any, List, Callable
 from .base import BaseRadio, RadioStats
+from .profile import DEFAULT_RADIO_PROFILE, RadioRegionPolicy
+from .airtime import (
+    calculate_lora_airtime_ms,
+    is_ldro_required,
+    get_symbol_duration_ms
+)
 
 logger = logging.getLogger("hoimu.sx1262")
 
@@ -67,12 +76,13 @@ class SX1262Driver(BaseRadio):
         reset_pin: int = 18,
         busy_pin: int = 24,
         dio1_pin: int = 23,
-        frequency_mhz: float = 868.0,
-        bandwidth_khz: float = 125.0,
-        spreading_factor: int = 7,
-        coding_rate: int = 1, # 4/5
-        tx_power_dbm: int = 14,
-        duty_cycle_storage = None
+        frequency_mhz: float = DEFAULT_RADIO_PROFILE.default_channel.frequency_mhz,
+        bandwidth_khz: float = DEFAULT_RADIO_PROFILE.default_channel.bandwidth_khz,
+        spreading_factor: int = DEFAULT_RADIO_PROFILE.default_channel.spreading_factor,
+        coding_rate: int = DEFAULT_RADIO_PROFILE.default_channel.coding_rate,
+        tx_power_dbm: int = DEFAULT_RADIO_PROFILE.default_channel.tx_power_dbm,
+        duty_cycle_storage = None,
+        profile: RadioRegionPolicy = DEFAULT_RADIO_PROFILE
     ):
         self.spi_bus = spi_bus
         self.spi_device = spi_device
@@ -84,6 +94,7 @@ class SX1262Driver(BaseRadio):
         self.spreading_factor = spreading_factor
         self.coding_rate = coding_rate
         self.tx_power_dbm = tx_power_dbm
+        self.profile = profile
 
         self.spi = None
         self.gpio = None
@@ -93,15 +104,55 @@ class SX1262Driver(BaseRadio):
         self.duty_cycle_storage = duty_cycle_storage
         self._duty_cycle_history: List[Tuple[float, int, int]] = [] # (timestamp, airtime_ms, priority)
 
-        # Virtual RX queue for loopback/testing when physical hardware absent
+        # Event-driven threading primitives
+        self._dio1_event = threading.Event()
+        self._tx_done_event = threading.Event()
+        self._cad_done_event = threading.Event()
+        self._cad_busy_detected = False
+        self._rx_packet_queue: queue.Queue = queue.Queue()
         self._virtual_rx_queue: List[bytes] = []
 
+        self._irq_worker_thread: Optional[threading.Thread] = None
+        self._running = False
+        self._on_packet_cb: Optional[Callable[[bytes, float, float], None]] = None
+
     # =========================================================================
-    # 8.1 SX1262 Initialization
+    # BaseRadio Lifecycle
+    # =========================================================================
+    def start(self) -> bool:
+        """Initializes hardware and starts event-driven IRQ worker thread."""
+        success = self.init_hardware()
+        if success:
+            self._running = True
+            self._irq_worker_thread = threading.Thread(
+                target=self._event_irq_worker,
+                name="SX1262-IRQ-Worker",
+                daemon=True
+            )
+            self._irq_worker_thread.start()
+        return success
+
+    def stop(self) -> None:
+        """Powers down radio and terminates event worker."""
+        self._running = False
+        self._dio1_event.set()
+        if self.is_hardware_available:
+            try:
+                self._set_standby(STDBY_RC)
+            except Exception:
+                pass
+        if self.gpio:
+            try:
+                self.gpio.remove_event_detect(self.dio1_pin)
+            except Exception:
+                pass
+
+    # =========================================================================
+    # Hardware Initialization
     # =========================================================================
     def init_hardware(self) -> bool:
         """
-        Full 10-step SX1262 hardware initialization sequence.
+        Full 10-step SX1262 hardware initialization sequence with physical LDRO.
         """
         try:
             import spidev
@@ -112,6 +163,17 @@ class SX1262Driver(BaseRadio):
             self.gpio.setup(self.reset_pin, GPIO.OUT)
             self.gpio.setup(self.busy_pin, GPIO.IN)
             self.gpio.setup(self.dio1_pin, GPIO.IN)
+
+            # Register hardware rising-edge interrupt on DIO1 for zero-polling event loop
+            try:
+                self.gpio.add_event_detect(
+                    self.dio1_pin,
+                    GPIO.RISING,
+                    callback=self._on_dio1_interrupt,
+                    bouncetime=1
+                )
+            except Exception as irq_err:
+                logger.warning(f"Could not bind GPIO edge event for DIO1: {irq_err}")
 
             self.spi = spidev.SpiDev()
             self.spi.open(self.spi_bus, self.spi_device)
@@ -139,7 +201,7 @@ class SX1262Driver(BaseRadio):
             # Step 7: Buffer Base Addresses
             self._set_buffer_base_address(tx_base=0x00, rx_base=0x00)
 
-            # Step 8: Modulation Params (SF, BW, CR, LowDataRateOptimize)
+            # Step 8: Modulation Params (SF, BW, CR, physical LDRO check)
             self._set_modulation_params(self.spreading_factor, bw_khz=self.bandwidth_khz, cr=self.coding_rate)
 
             # Step 9: Packet Params (Preamble=8, Explicit header, Max 255 payload, CRC ON, Standard IQ)
@@ -161,22 +223,37 @@ class SX1262Driver(BaseRadio):
             self.is_hardware_available = False
             return False
 
-    def _wait_busy(self, timeout_s: float = 0.1):
+    # =========================================================================
+    # Hardware Synchronization: BUSY Pin
+    # =========================================================================
+    def _wait_busy(self, timeout_s: float = 0.05):
+        """
+        Field-grade hardware synchronization on SX1262 BUSY line.
+        Avoids arbitrary blocking sleeps: first performs tight spin-checks (typical BUSY
+        transition is only 30-100 microseconds), then yields to kernel with micro-sleeps.
+        """
         if not self.gpio or not self.is_hardware_available:
             return
+
+        # Fast spin path for sub-millisecond command execution
+        for _ in range(80):
+            if self.gpio.input(self.busy_pin) == 0:
+                return
+
+        # Progressive yielding path if chip is doing PLL lock or calibration
         start = time.time()
         while self.gpio.input(self.busy_pin) == 1:
             if time.time() - start > timeout_s:
-                logger.warning("SX1262 busy wait timeout")
+                logger.warning(f"SX1262 BUSY line hold timeout (> {timeout_s * 1000:.1f}ms)")
                 break
-            time.sleep(0.0005)
+            time.sleep(0.0001)
 
     def _reset(self):
         if self.gpio:
             self.gpio.output(self.reset_pin, self.gpio.LOW)
-            time.sleep(0.01)
+            time.sleep(0.001)
             self.gpio.output(self.reset_pin, self.gpio.HIGH)
-            time.sleep(0.02)
+            time.sleep(0.002)
         self._wait_busy()
 
     def _set_standby(self, mode: int = STDBY_RC):
@@ -222,15 +299,21 @@ class SX1262Driver(BaseRadio):
             self.spi.xfer2([OP_SET_BUFFER_BASE_ADDRESS, tx_base, rx_base])
 
     def _set_modulation_params(self, sf: int, bw_khz: float = 125.0, cr: int = 1):
+        """
+        Configures modulation params.
+        Enables LDRO based on physical symbol duration Tsym >= 16.0 ms, not an arbitrary heuristic.
+        """
         self.spreading_factor = sf
-        # SX1262 BW encoding: 125kHz -> 0x04, 250kHz -> 0x05, 500kHz -> 0x06
+        self.bandwidth_khz = bw_khz
+        self.coding_rate = cr
+
         bw_code = 0x04
         if bw_khz >= 500:
             bw_code = 0x06
         elif bw_khz >= 250:
             bw_code = 0x05
 
-        ldro = 0x01 if (sf >= 11 and bw_khz <= 125.0) else 0x00
+        ldro = 0x01 if is_ldro_required(sf, bw_khz) else 0x00
         cmd = [OP_SET_MODULATION_PARAMS, sf, bw_code, cr, ldro]
         if self.is_hardware_available:
             self._wait_busy()
@@ -291,58 +374,74 @@ class SX1262Driver(BaseRadio):
             ])
 
     # =========================================================================
-    # 8.2 Real RX Path
+    # Event-Driven DIO1 IRQ Architecture
     # =========================================================================
-    def receive_packet(self) -> Optional[bytes]:
+    def _on_dio1_interrupt(self, _channel: int):
+        """GPIO edge interrupt handler: immediately awakens background worker."""
+        self._dio1_event.set()
+
+    def _event_irq_worker(self):
         """
-        Physical RX sequence:
-        1. Check IRQ Status (via DIO1 or SPI GetIrqStatus)
-        2. Detect IRQ_RX_DONE
-        3. Check CRC error
-        4. Read RX Buffer Status (GetRxBufferStatus -> payloadLen, rxStartBufferPointer)
-        5. Read bytes from buffer (ReadBuffer)
-        6. Clear IRQ status
-        7. Re-enter continuous RX
+        Background worker thread: processes DIO1 IRQs asynchronously.
+        Flow: DIO1 IRQ -> Event -> Worker -> GetIrqStatus -> ReadBuffer -> Queue.
         """
+        while self._running:
+            signaled = self._dio1_event.wait(timeout=0.2)
+            if not self._running:
+                break
+            if not signaled:
+                continue
+
+            self._dio1_event.clear()
+            self._process_hardware_irqs()
+
+    def _process_hardware_irqs(self):
+        """Reads and handles active hardware IRQ flags."""
         if not self.is_hardware_available:
-            # Fallback to virtual buffer for test harness
-            if self._virtual_rx_queue:
-                packet = self._virtual_rx_queue.pop(0)
-                self.stats.rx_count += 1
-                return packet
-            return None
+            return
 
         irq = self._get_irq_status()
-        if not (irq & IRQ_RX_DONE):
-            return None
+        if irq == 0:
+            return
 
-        # Check for CRC error flag from SX1262
-        if irq & IRQ_CRC_ERROR:
-            logger.warning("[SX1262-RX] Dropping packet with hardware CRC error")
-            self.stats.rx_errors += 1
-            self._clear_irq_status(IRQ_ALL)
+        # 1. TX Done
+        if irq & IRQ_TX_DONE:
+            self._tx_done_event.set()
+
+        # 2. CAD Done
+        if irq & IRQ_CAD_DONE:
+            self._cad_busy_detected = bool(irq & IRQ_CAD_DETECTED)
+            self._cad_done_event.set()
+
+        # 3. RX Done
+        if irq & IRQ_RX_DONE:
+            if irq & IRQ_CRC_ERROR:
+                logger.warning("[SX1262-RX] Dropping packet with hardware CRC error")
+                self.stats.rx_errors += 1
+            else:
+                self._read_and_enqueue_rx()
+
+        # Clear processed IRQ flags and return to RX
+        self._clear_irq_status(IRQ_ALL)
+        if not (irq & IRQ_TX_DONE):
             self._set_rx(0x000000)
-            return None
 
+    def _read_and_enqueue_rx(self):
+        """Fetches payload bytes and signal status from SX1262 internal memory."""
         try:
-            # Opcode 0x13: GetRxBufferStatus -> [status, rxPayloadLength, rxStartBufferPointer]
             self._wait_busy()
             status_res = self.spi.xfer2([OP_GET_RX_BUFFER_STATUS, 0x00, 0x00, 0x00])
             payload_len = status_res[2]
             start_pointer = status_res[3]
 
             if payload_len == 0:
-                self._clear_irq_status(IRQ_ALL)
-                self._set_rx(0x000000)
-                return None
+                return
 
-            # Opcode 0x1E: ReadBuffer -> [OP_READ_BUFFER, offset, NOP] + payload
             self._wait_busy()
             read_cmd = [OP_READ_BUFFER, start_pointer, 0x00] + [0x00] * payload_len
             buf_res = self.spi.xfer2(read_cmd)
             raw_bytes = bytes(buf_res[3:3+payload_len])
 
-            # Read Packet Status (RSSI & SNR)
             self._wait_busy()
             pkt_status = self.spi.xfer2([OP_GET_PACKET_STATUS, 0x00, 0x00, 0x00, 0x00])
             rssi_val = -pkt_status[2] / 2.0
@@ -353,26 +452,53 @@ class SX1262Driver(BaseRadio):
             self.stats.last_snr = snr_val
             self.stats.rx_count += 1
 
-            self._clear_irq_status(IRQ_ALL)
-            self._set_rx(0x000000)
+            self._rx_packet_queue.put(raw_bytes)
 
-            logger.info(f"[SX1262-RX] Received {len(raw_bytes)} bytes (RSSI: {rssi_val:.1f} dBm, SNR: {snr_val:.1f} dB)")
-            return raw_bytes
+            if self._on_packet_cb:
+                try:
+                    self._on_packet_cb(raw_bytes, rssi_val, snr_val)
+                except Exception as cb_err:
+                    logger.error(f"[SX1262] on_packet callback error: {cb_err}")
 
         except Exception as e:
             logger.error(f"[SX1262-RX] Error reading hardware buffer: {e}")
             self.stats.rx_errors += 1
-            self._clear_irq_status(IRQ_ALL)
-            self._set_rx(0x000000)
+
+    # =========================================================================
+    # Unified Receive API
+    # =========================================================================
+    def receive(self, timeout_s: float = 0.0) -> Optional[bytes]:
+        """
+        Receives next frame from event queue.
+        Supports both hardware queue and virtual queue for testing.
+        """
+        # If virtual test frames exist, return them
+        if self._virtual_rx_queue:
+            pkt = self._virtual_rx_queue.pop(0)
+            self.stats.rx_count += 1
+            return pkt
+
+        # If hardware is available but worker thread is not started (e.g. direct synchronous test)
+        if self.is_hardware_available and not self._running:
+            irq = self._get_irq_status()
+            if irq & IRQ_RX_DONE:
+                self._process_hardware_irqs()
+
+        try:
+            if timeout_s > 0:
+                return self._rx_packet_queue.get(timeout=timeout_s)
+            else:
+                return self._rx_packet_queue.get_nowait()
+        except queue.Empty:
             return None
 
     # =========================================================================
-    # 8.3 CAD / Collision Handling
+    # Channel Activity Detection (CAD)
     # =========================================================================
-    def perform_cad(self) -> bool:
+    def cad(self) -> bool:
         """
-        Physical Channel Activity Detection (CAD).
-        Checks if the channel has active LoRa preambles or symbols.
+        Performs physical Channel Activity Detection (CAD).
+        Uses Semtech SX1261/SX1262 datasheet configuration.
         Returns:
             True: Channel is CLEAR for transmission.
             False: Channel is BUSY.
@@ -383,15 +509,21 @@ class SX1262Driver(BaseRadio):
         self._set_standby(STDBY_RC)
         self._clear_irq_status(IRQ_ALL)
 
-        # Set CAD Parameters: 4 symbols, peak det=22, min det=10, exit to STDBY_RC (0), timeout=0
+        # Set CAD Parameters based on Semtech SX1261/SX1262 AN1200.48 / profile
+        cad_sym_code = 0x02 if self.profile.cad_symbol_num == 4 else (0x01 if self.profile.cad_symbol_num == 2 else 0x00)
+        det_peak = self.profile.cad_det_peak
+        det_min = self.profile.cad_det_min
         self._wait_busy()
-        self.spi.xfer2([OP_SET_CAD_PARAMS, 0x02, 22, 10, 0x00, 0x00, 0x00, 0x00])
+        self.spi.xfer2([OP_SET_CAD_PARAMS, cad_sym_code, det_peak, det_min, 0x00, 0x00, 0x00, 0x00])
+
+        self._cad_done_event.clear()
+        self._cad_busy_detected = False
 
         # Trigger CAD
         self._wait_busy()
         self.spi.xfer2([OP_SET_CAD])
 
-        # Poll for CAD_DONE (typically completes within 2 - 8 ms depending on SF)
+        # Poll or wait for CAD_DONE
         start = time.time()
         while time.time() - start < 0.05:
             irq = self._get_irq_status()
@@ -403,42 +535,31 @@ class SX1262Driver(BaseRadio):
                     return False # Channel BUSY
                 else:
                     self._clear_irq_status(IRQ_ALL)
+                    self._set_rx(0x000000)
                     return True # Channel CLEAR
             time.sleep(0.001)
 
         self._clear_irq_status(IRQ_ALL)
-        return True # Timeout assumed clear
+        self._set_rx(0x000000)
+        return True # Assumed clear on timeout
 
     # =========================================================================
-    # 8.4 Duty Cycle & Transmission Pipeline
+    # Duty Cycle & Transmission Pipeline
     # =========================================================================
     def calculate_airtime_ms(self, payload_length: int) -> int:
-        """
-        Calculates theoretical airtime for Semtech LoRa packets.
-        """
-        tsym = (2 ** self.spreading_factor) / (self.bandwidth_khz * 1000)
-        t_preamble = (8 + 4.25) * tsym
-
-        de = 1 if (self.spreading_factor >= 11 and self.bandwidth_khz <= 125.0) else 0
-        h = 0 # explicit header
-        cr = self.coding_rate
-
-        numerator = 8 * payload_length - 4 * self.spreading_factor + 28 + 16 - 20 * h
-        denominator = 4 * (self.spreading_factor - 2 * de)
-        n_payload = 8 + max(math.ceil(numerator / denominator) * (cr + 4), 0)
-
-        t_payload = n_payload * tsym
-        total_airtime_s = t_preamble + t_payload
-        return max(10, int(total_airtime_s * 1000))
+        """Calculates exact physical Time-on-Air based on modulation physics."""
+        return calculate_lora_airtime_ms(
+            payload_length_bytes=payload_length,
+            sf=self.spreading_factor,
+            bw_khz=self.bandwidth_khz,
+            coding_rate=self.coding_rate,
+            preamble_symbols=8,
+            explicit_header=True,
+            crc_enabled=True,
+        )
 
     def get_rolling_hour_airtime_ms(self) -> int:
-        """
-        Sums airtime consumed in the last 3600 seconds.
-        Integrates with SQLite storage if configured.
-        """
         cutoff = time.time() - 3600.0
-
-        # Load from SQLite if available
         if self.duty_cycle_storage:
             try:
                 records = self.duty_cycle_storage.get_airtime_window(cutoff)
@@ -446,18 +567,10 @@ class SX1262Driver(BaseRadio):
             except Exception:
                 pass
 
-        # In-memory window
         self._duty_cycle_history = [r for r in self._duty_cycle_history if r[0] >= cutoff]
         return sum(r[1] for r in self._duty_cycle_history)
 
     def is_duty_cycle_allowed(self, airtime_ms: int, priority: int = 1) -> bool:
-        """
-        Enforces ETSI EU868 1% duty cycle (36,000 ms per rolling hour) with priority awareness:
-        - Priority 3 (EMERGENCY/SOS): Allowed up to hard 36,000 ms limit.
-        - Priority 2 (ACK/DIRECT): Allowed up to 80% quota (28,800 ms).
-        - Priority 1 (NORMAL): Allowed up to 50% quota (18,000 ms).
-        - Priority 0 (TELEMETRY): Allowed up to 30% quota (10,800 ms).
-        """
         used_ms = self.get_rolling_hour_airtime_ms()
         quota_ms = 36000 # 1% of 3600s
 
@@ -476,11 +589,11 @@ class SX1262Driver(BaseRadio):
         """
         Full hardware transmission sequence:
         1. Duty cycle validation
-        2. Physical CAD check with exponential backoff (8.3)
+        2. Physical CAD check with exponential backoff
         3. Write to SX1262 hardware buffer
         4. Trigger SetTx
-        5. Await TxDone IRQ
-        6. Record airtime in persistent accounting (8.4)
+        5. Wait for TxDone
+        6. Record real airtime in accounting
         7. Return to continuous RX
         """
         airtime_ms = self.calculate_airtime_ms(len(data))
@@ -491,14 +604,13 @@ class SX1262Driver(BaseRadio):
             self.stats.tx_errors += 1
             return False
 
-        # CAD Collision Handling with randomized slot backoff (8.3)
+        # CAD Collision Handling with randomized slot backoff
         cad_attempts = 0
         max_cad_attempts = 4
         while cad_attempts < max_cad_attempts:
-            if self.perform_cad():
+            if self.cad():
                 break # Channel clear!
             cad_attempts += 1
-            # Physical slot backoff: random 5ms - 20ms * attempt
             backoff_s = random.uniform(0.005, 0.02) * (2 ** cad_attempts)
             time.sleep(backoff_s)
 
@@ -511,16 +623,13 @@ class SX1262Driver(BaseRadio):
         if self.is_hardware_available:
             try:
                 self._set_standby(STDBY_RC)
-                # Set payload length in packet params
                 self._set_packet_params(preamble_len=8, header_type=0, payload_len=len(data), crc_on=1, invert_iq=0)
-
-                # Reset buffer pointer and write payload
                 self._set_buffer_base_address(tx_base=0x00, rx_base=0x00)
                 self._wait_busy()
                 self.spi.xfer2([OP_WRITE_BUFFER, 0x00] + list(data))
 
-                # Clear IRQs and trigger TX (timeout 0 = infinite)
                 self._clear_irq_status(IRQ_ALL)
+                self._tx_done_event.clear()
                 self._wait_busy()
                 self.spi.xfer2([OP_SET_TX, 0x00, 0x00, 0x00])
 
@@ -534,7 +643,7 @@ class SX1262Driver(BaseRadio):
                     if irq & IRQ_TX_DONE:
                         tx_success = True
                         break
-                    time.sleep(0.002)
+                    time.sleep(0.001)
 
                 self._clear_irq_status(IRQ_ALL)
                 self._set_rx(0x000000)
@@ -549,7 +658,7 @@ class SX1262Driver(BaseRadio):
                 self.stats.tx_errors += 1
                 return False
 
-        # Record airtime accounting (8.4)
+        # Record airtime accounting
         now = time.time()
         self._duty_cycle_history.append((now, airtime_ms, priority))
         if self.duty_cycle_storage:
@@ -560,11 +669,12 @@ class SX1262Driver(BaseRadio):
 
         self.stats.tx_count += 1
         self.stats.airtime_ms_total += airtime_ms
+        self.stats.total_airtime_ms += airtime_ms
         logger.info(f"[SX1262-TX] Transmitted {len(data)} bytes (Airtime: {airtime_ms}ms, Priority: {priority})")
         return True
 
     def inject_simulated_rx(self, packet: bytes):
-        """Used by integration test harness to verify RX unpacking."""
+        """Used by test harness to verify RX unpacking."""
         self._virtual_rx_queue.append(packet)
 
     def get_stats(self) -> Dict[str, Any]:
@@ -584,6 +694,18 @@ class SX1262Driver(BaseRadio):
             "cad_busy_count": self.stats.cad_busy_count,
             "rolling_hour_airtime_ms": used_ms,
             "duty_cycle_percent": round((used_ms / 3600000.0) * 100, 3),
+        }
+
+    def get_capabilities(self) -> Dict[str, Any]:
+        return {
+            "driver": "SX1262Driver",
+            "frequency_mhz": self.frequency_mhz,
+            "spreading_factor": self.spreading_factor,
+            "bandwidth_khz": self.bandwidth_khz,
+            "ldro_enabled": is_ldro_required(self.spreading_factor, self.bandwidth_khz),
+            "symbol_duration_ms": get_symbol_duration_ms(self.spreading_factor, self.bandwidth_khz),
+            "event_driven_dio1": True,
+            "cad_supported": True,
         }
 
     def is_available(self) -> bool:

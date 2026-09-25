@@ -179,10 +179,17 @@ export const PiBridgePanel: React.FC<PiBridgePanelProps> = ({
         {/* Connection Status Indicator */}
         <div className="flex items-center gap-2">
           {status?.connected ? (
-            <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-[#33ff00]/20 text-[#203A2A] dark:text-[#33ff00] border border-[#33ff00]/40 flex items-center gap-1.5 shadow-xs">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#33ff00] animate-pulse" />
-              Connected to hoimu-pi ({status.ipAddress})
-            </span>
+            status?.isSimulated || isMock ? (
+              <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-[#E9C46A]/20 text-[#E9C46A] border border-[#E9C46A]/40 flex items-center gap-1.5 shadow-xs">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#E9C46A] animate-pulse" />
+                SIMULATED (Dev Mode) ({status.ipAddress})
+              </span>
+            ) : (
+              <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-[#33ff00]/20 text-[#203A2A] dark:text-[#33ff00] border border-[#33ff00]/40 flex items-center gap-1.5 shadow-xs">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#33ff00] animate-pulse" />
+                Connected to hoimu-pi ({status.ipAddress})
+              </span>
+            )
           ) : isScanning ? (
             <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-[#E9C46A]/20 text-[#E9C46A] border border-[#E9C46A]/40 flex items-center gap-1.5">
               <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -210,11 +217,18 @@ export const PiBridgePanel: React.FC<PiBridgePanelProps> = ({
             <Sun className="w-4 h-4 text-[#E9C46A]" />
           </div>
           <div>
-            <span className="text-xl font-bold font-mono text-[#2A9D8F]">
-              {status?.solarWatts ?? 12.4}W
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xl font-bold font-mono text-[#2A9D8F]">
+                {status?.solarWatts != null ? `${status.solarWatts}W` : '--'}
+              </span>
+              {(status?.isSimulated || status?.solarWattsTelemetry?.source === 'simulated' || status?.telemetrySource === 'simulated' || isMock) && status?.solarWatts != null && (
+                <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#E9C46A]/20 text-[#E9C46A] border border-[#E9C46A]/30">
+                  SIM
+                </span>
+              )}
+            </div>
             <span className="text-[10px] block text-[#588157] font-mono">
-              {status?.solarVoltage ?? 14.2}V PV Input
+              {status?.solarVoltage != null ? `${status.solarVoltage}V PV Input` : 'No PV input'}
             </span>
           </div>
         </div>
@@ -230,9 +244,16 @@ export const PiBridgePanel: React.FC<PiBridgePanelProps> = ({
             <BatteryCharging className="w-4 h-4 text-[#33ff00]" />
           </div>
           <div>
-            <span className="text-xl font-bold font-mono text-[#33ff00]">
-              {status?.piBatteryPercent ?? 87}%
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xl font-bold font-mono text-[#33ff00]">
+                {status?.piBatteryPercent != null ? `${status.piBatteryPercent}%` : '--'}
+              </span>
+              {(status?.isSimulated || status?.batteryTelemetry?.source === 'simulated' || status?.telemetrySource === 'simulated' || isMock) && status?.piBatteryPercent != null && (
+                <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#E9C46A]/20 text-[#E9C46A] border border-[#E9C46A]/30">
+                  SIM
+                </span>
+              )}
+            </div>
             <span className="text-[10px] block text-[#588157]">LiFePO4 Solar Pack</span>
           </div>
         </div>
@@ -248,9 +269,16 @@ export const PiBridgePanel: React.FC<PiBridgePanelProps> = ({
             <Activity className="w-4 h-4 text-[#2A9D8F]" />
           </div>
           <div>
-            <span className="text-xl font-bold font-mono text-[#203A2A] dark:text-[#F0F5EE]">
-              {status?.relayedPacketsCount ?? 421}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xl font-bold font-mono text-[#203A2A] dark:text-[#F0F5EE]">
+                {status?.relayedPacketsCount != null ? status.relayedPacketsCount : '--'}
+              </span>
+              {(status?.isSimulated || status?.telemetrySource === 'simulated' || isMock) && status?.relayedPacketsCount != null && (
+                <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#E9C46A]/20 text-[#E9C46A] border border-[#E9C46A]/30">
+                  SIM
+                </span>
+              )}
+            </div>
             <span className="text-[10px] block text-[#588157]">Packets Repeated</span>
           </div>
         </div>
@@ -266,9 +294,16 @@ export const PiBridgePanel: React.FC<PiBridgePanelProps> = ({
             <Server className="w-4 h-4 text-[#E9C46A]" />
           </div>
           <div>
-            <span className="text-lg font-bold font-mono text-[#203A2A] dark:text-[#F0F5EE]">
-              {formatUptime(status?.uptimeSeconds ?? 18450)}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-lg font-bold font-mono text-[#203A2A] dark:text-[#F0F5EE]">
+                {status?.uptimeSeconds != null ? formatUptime(status.uptimeSeconds) : '--'}
+              </span>
+              {(status?.isSimulated || status?.telemetrySource === 'simulated' || isMock) && status?.uptimeSeconds != null && (
+                <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#E9C46A]/20 text-[#E9C46A] border border-[#E9C46A]/30">
+                  SIM
+                </span>
+              )}
+            </div>
             <span className="text-[10px] block text-[#588157]">Headless Daemon</span>
           </div>
         </div>

@@ -56,7 +56,9 @@ export const PiBridgeStatusBadge: React.FC<PiBridgeStatusBadgeProps> = ({
       }`}
       title={
         isConnected
-          ? `Pi Zero 2 W Bridge Active (${status?.ipAddress}) • ${status?.solarWatts}W Solar • ${status?.piBatteryPercent}% Battery`
+          ? status?.isSimulated
+            ? `Pi Zero 2 W Bridge Simulated • ${status?.solarWatts != null ? `${status.solarWatts}W Solar · SIM` : 'Solar N/A'} • ${status?.piBatteryPercent != null ? `${status.piBatteryPercent}% Battery · SIM` : 'Battery N/A'}`
+            : `Pi Zero 2 W Bridge Active (${status?.ipAddress}) • ${status?.solarWatts != null ? `${status.solarWatts}W Solar` : 'No Solar Data'} • ${status?.piBatteryPercent != null ? `${status.piBatteryPercent}% Battery` : 'No Battery Data'}`
           : isScanning
           ? 'Scanning for Raspberry Pi Bridge...'
           : 'Raspberry Pi Bridge Disconnected. Click to scan.'
@@ -67,11 +69,15 @@ export const PiBridgeStatusBadge: React.FC<PiBridgeStatusBadgeProps> = ({
       {isConnected ? (
         <span className="flex items-center gap-1">
           <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#33ff00] opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#33ff00]" />
+            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${status?.isSimulated ? 'bg-[#E9C46A]' : 'bg-[#33ff00]'} opacity-75`} />
+            <span className={`relative inline-flex rounded-full h-2 w-2 ${status?.isSimulated ? 'bg-[#E9C46A]' : 'bg-[#33ff00]'}`} />
           </span>
-          <span className="hidden sm:inline">Pi Bridge</span>
-          <span className="text-[10px] opacity-80">({status?.solarWatts}W)</span>
+          <span className="hidden sm:inline">{status?.isSimulated ? 'SIMULATED' : 'Pi Bridge'}</span>
+          {status?.solarWatts != null && (
+            <span className="text-[10px] opacity-80">
+              ({status.solarWatts}W{status?.isSimulated ? ' · SIM' : ''})
+            </span>
+          )}
         </span>
       ) : isScanning ? (
         <span className="flex items-center gap-1 text-[#E9C46A]">

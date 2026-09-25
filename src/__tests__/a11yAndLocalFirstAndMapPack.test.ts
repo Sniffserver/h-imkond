@@ -4,8 +4,21 @@ import { computeMapStateInfo } from '../services/map/mapState';
 import { mapPackService, calculateSha256 } from '../services/map/mapPackService';
 import { LocalStateEngine } from '../engine/localStateEngine';
 import { generateRandomIdentity } from '../crypto/identity';
+import { createMockPMTilesHeader } from '../features/map/packs/MapPackManifest';
 
 describe('Requirement 29: Accessibility, Red Mode Non-Color Indicators & Glove Mode', () => {
+  beforeEach(() => {
+    global.fetch = vi.fn().mockImplementation(async () => {
+      const mockData = createMockPMTilesHeader(512);
+      return new Response(mockData, {
+        status: 200,
+        headers: {
+          'Content-Length': String(mockData.byteLength),
+          'Content-Type': 'application/x-protobuf',
+        },
+      });
+    });
+  });
   it('announces network and map state changes via aria-live polite regions', () => {
     let lastPolite = '';
     const unsubscribe = a11yAnnouncer.subscribe(({ polite }) => {

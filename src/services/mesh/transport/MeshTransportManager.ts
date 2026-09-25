@@ -4,6 +4,7 @@ import {
   SendResult,
   TransportPeer,
   TransportType,
+  TransportPolicyMode,
 } from './types';
 import { BroadcastChannelTransport } from './BroadcastChannelTransport';
 import { LoopbackTransport } from './LoopbackTransport';
@@ -33,7 +34,7 @@ export interface TransportManagerStats {
 /**
  * MeshTransportManager
  * Central orchestration and routing hub for HÕIMU's multi-bearer mesh transports.
- * Implements store-and-forward relaying across heterogeneous radio technologies:
+ * Implements energy-aware store-and-forward relaying across heterogeneous radio technologies:
  * BLE <-> Wi-Fi Direct <-> LoRa <-> BroadcastChannel
  */
 export class MeshTransportManager {
@@ -52,14 +53,48 @@ export class MeshTransportManager {
   private peerCache: Map<string, TransportPeer> = new Map();
   public localNodeId?: string;
 
-  constructor(options?: { localNodeId?: string }) {
+  // Requirement 40: Transport policy mode (default to 'test' in test runner, otherwise 'normal')
+  private policyMode: TransportPolicyMode =
+    typeof process !== 'undefined' && process.env.NODE_ENV === 'test' ? 'test' : 'normal';
+
+  constructor(options?: { localNodeId?: string; policyMode?: TransportPolicyMode }) {
     this.localNodeId = options?.localNodeId;
+    if (options?.policyMode) {
+      this.policyMode = options.policyMode;
+    }
     // Register standard transport bearers
     this.registerTransport(new BroadcastChannelTransport());
     this.registerTransport(new BleTransport());
     this.registerTransport(new WifiAwareTransport());
     this.registerTransport(new LoRaBridgeTransport());
     this.registerTransport(new LoopbackTransport());
+  }
+
+  public setPolicyMode(mode: TransportPolicyMode): void {
+    this.policyMode = mode;
+  }
+
+  public getPolicyMode(): TransportPolicyMode {
+    return this.policyMode;
+  }
+
+  /**
+   * Energy-aware transport policy filter (Requirement 40)
+   * - Normal: BLE / Wi-Fi Aware (short-range) + LoRa (long-range). Excludes dev/test loopback/broadcast_channel.
+   * - Emergency: LoRa + BLE + Wi-Fi Aware if available for maximum critical reach.
+   * - Test: Enables Loopback + BroadcastChannel only in explicit test profile.
+   */
+  public isTransportAllowedForPolicy(type: TransportType): boolean {
+    switch (this.policyMode) {
+      case 'normal':
+        return type === 'ble' || type === 'wifi_aware' || type === 'lora_bridge';
+      case 'emergency':
+        return type === 'lora_bridge' || type === 'ble' || type === 'wifi_aware';
+      case 'test':
+        return true; // Explicit test profile allows all transports
+      default:
+        return true;
+    }
   }
 
   public async initialize(): Promise<void> {
@@ -200,10 +235,14 @@ export class MeshTransportManager {
         });
       }
     } else {
-      // Multi-bearer broadcast: transmit across all ready transports
+      // Multi-bearer broadcast: transmit across policy-allowed transports
       const promises: Promise<SendResult>[] = [];
 
       for (const [type, transport] of this.transports.entries()) {
+        if (!this.isTransportAllowedForPolicy(type)) {
+          continue;
+        }
+
         promises.push(
           (async () => {
             try {

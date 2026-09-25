@@ -189,15 +189,15 @@ export const MapScreen: React.FC<MapScreenProps> = ({
   const handleToggleLayer = (layerKey: keyof ActiveLayerStates) => {
     setActiveLayers((prev) => {
       const next = { ...prev, [layerKey]: !prev[layerKey] };
-      if (onAddToast) {
-        onAddToast(
-          `${layerKey.charAt(0).toUpperCase() + layerKey.slice(1)} Layer ${next[layerKey] ? 'Enabled' : 'Hidden'}`,
-          `Updated map overlay visibility`,
-          'info'
-        );
-      }
       return next;
     });
+    if (onAddToast) {
+      onAddToast(
+        `${layerKey.charAt(0).toUpperCase() + layerKey.slice(1)} Layer Toggled`,
+        `Updated map overlay visibility`,
+        'info'
+      );
+    }
   };
 
   useEffect(() => {

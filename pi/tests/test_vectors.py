@@ -29,7 +29,7 @@ class TestGoldenVectors(unittest.TestCase):
         self.assertEqual(decoded['type'], HoimuPacketType.MESSAGE)
         self.assertEqual(decoded['originId'], 'TAL-01')
         self.assertEqual(decoded['destinationId'], '*')
-        self.assertEqual(decoded['packetId'], 'PKT101')
+        self.assertEqual(decoded['packetId'], 'PKT_000000000101')
         self.assertEqual(decoded['sequence'], 101)
         self.assertEqual(decoded['payload'], {'text': 'Hello Tallinn mesh'})
 
@@ -44,7 +44,9 @@ class TestGoldenVectors(unittest.TestCase):
             payload_data=decoded['payload'],
             signature=decoded.get('signature'),
             flags=decoded['flags'],
-            hop_count=decoded['hopCount']
+            hop_count=decoded['hopCount'],
+            created_at_epoch_sec=decoded['createdAtEpochSeconds'],
+            lifetime_sec=decoded['lifetimeSeconds']
         )
         self.assertEqual(reencoded.hex(), hex_content)
 
@@ -60,7 +62,7 @@ class TestGoldenVectors(unittest.TestCase):
         self.assertEqual(decoded['type'], HoimuPacketType.DIRECT_ENCRYPTED)
         self.assertEqual(decoded['originId'], 'NODE-A')
         self.assertEqual(decoded['destinationId'], 'NODE-B')
-        self.assertEqual(decoded['packetId'], 'ENC102')
+        self.assertEqual(decoded['packetId'], 'ENC_000000000102')
         self.assertEqual(decoded['sequence'], 102)
         self.assertEqual(decoded['payload']['ciphertextHex'], 'a1b2c3d4e5f6')
 
@@ -74,7 +76,9 @@ class TestGoldenVectors(unittest.TestCase):
             payload_data=decoded['payload'],
             signature=decoded.get('signature'),
             flags=decoded['flags'],
-            hop_count=decoded['hopCount']
+            hop_count=decoded['hopCount'],
+            created_at_epoch_sec=decoded['createdAtEpochSeconds'],
+            lifetime_sec=decoded['lifetimeSeconds']
         )
         self.assertEqual(reencoded.hex(), hex_content)
 
@@ -90,7 +94,7 @@ class TestGoldenVectors(unittest.TestCase):
         self.assertEqual(decoded['type'], HoimuPacketType.SOS)
         self.assertEqual(decoded['originId'], 'RESCUE')
         self.assertEqual(decoded['destinationId'], '*')
-        self.assertEqual(decoded['packetId'], 'SOS103')
+        self.assertEqual(decoded['packetId'], 'SOS_000000000103')
         self.assertEqual(decoded['payload']['emergencyType'], 'medical')
         self.assertEqual(decoded['payload']['callsign'], 'TALLINN-ALPHA')
 
@@ -104,7 +108,9 @@ class TestGoldenVectors(unittest.TestCase):
             payload_data=decoded['payload'],
             signature=decoded.get('signature'),
             flags=decoded['flags'],
-            hop_count=decoded['hopCount']
+            hop_count=decoded['hopCount'],
+            created_at_epoch_sec=decoded['createdAtEpochSeconds'],
+            lifetime_sec=decoded['lifetimeSeconds']
         )
         self.assertEqual(reencoded.hex(), hex_content)
 
@@ -120,7 +126,7 @@ class TestGoldenVectors(unittest.TestCase):
         self.assertEqual(decoded['type'], HoimuPacketType.ACK)
         self.assertEqual(decoded['originId'], 'RELAY-1')
         self.assertEqual(decoded['destinationId'], 'TAL-01')
-        self.assertEqual(decoded['packetId'], 'ACK104')
+        self.assertEqual(decoded['packetId'], 'ACK_000000000104')
         self.assertEqual(decoded['payload']['ackStatus'], 'received')
 
         reencoded = BinaryCodec.encode(
@@ -133,7 +139,9 @@ class TestGoldenVectors(unittest.TestCase):
             payload_data=decoded['payload'],
             signature=decoded.get('signature'),
             flags=decoded['flags'],
-            hop_count=decoded['hopCount']
+            hop_count=decoded['hopCount'],
+            created_at_epoch_sec=decoded['createdAtEpochSeconds'],
+            lifetime_sec=decoded['lifetimeSeconds']
         )
         self.assertEqual(reencoded.hex(), hex_content)
 
@@ -149,7 +157,7 @@ class TestGoldenVectors(unittest.TestCase):
         self.assertEqual(decoded['type'], HoimuPacketType.ROUTE_ANNOUNCE)
         self.assertEqual(decoded['originId'], 'GATE-01')
         self.assertEqual(decoded['destinationId'], '*')
-        self.assertEqual(decoded['packetId'], 'RTE105')
+        self.assertEqual(decoded['packetId'], 'RTE_000000000105')
         self.assertEqual(decoded['payload']['routerNodeId'], 'GATE-01')
 
         reencoded = BinaryCodec.encode(
@@ -162,9 +170,8 @@ class TestGoldenVectors(unittest.TestCase):
             payload_data=decoded['payload'],
             signature=decoded.get('signature'),
             flags=decoded['flags'],
-            hop_count=decoded['hopCount']
+            hop_count=decoded['hopCount'],
+            created_at_epoch_sec=decoded['createdAtEpochSeconds'],
+            lifetime_sec=decoded['lifetimeSeconds']
         )
         self.assertEqual(reencoded.hex(), hex_content)
-
-if __name__ == '__main__':
-    unittest.main()

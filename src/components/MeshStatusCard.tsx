@@ -7,6 +7,8 @@ import { useMeshStore } from '../store/meshStore';
 import { simulatePeerSyncPulse } from '../services/mesh/meshSync';
 import { BackgroundSyncAdjusterCard } from './BackgroundSyncAdjusterCard';
 import { meshTransportManager, TransportManagerStats } from '../services/mesh/transport';
+import { Storage } from '../storage/canonicalStorage';
+import { Database } from 'lucide-react';
 
 interface MeshStatusCardProps {
   peerCount: number;
@@ -403,6 +405,31 @@ export const MeshStatusCard: React.FC<MeshStatusCardProps> = ({
               <span className="text-[#B58A2B] font-bold">Inter-Tab</span>
             </div>
           </div>
+
+          {/* Storage Durability Status */}
+          {(() => {
+            const durability = Storage.getDurabilityStatus();
+            return (
+              <div className="p-2 bg-white/90 rounded-xl border border-[#87A878]/20 text-[11px] col-span-2 sm:col-span-1">
+                <div className="flex items-center justify-between font-semibold text-[#203A2A]">
+                  <span className="flex items-center gap-1">
+                    <Database className="w-3 h-3 text-[#2A9D8F]" />
+                    Storage Engine
+                  </span>
+                  <span
+                    className={`w-2 h-2 rounded-full ${durability.isDurable ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`}
+                    title={durability.label}
+                  />
+                </div>
+                <div className="text-[10px] text-[#637062] font-mono mt-1 flex justify-between">
+                  <span>Persistence</span>
+                  <span className={`font-bold ${durability.isDurable ? 'text-[#2A9D8F]' : 'text-amber-600'}`}>
+                    {durability.isDurable ? 'DURABLE' : 'LOCAL ONLY'}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
 

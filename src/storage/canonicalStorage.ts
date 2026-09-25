@@ -58,6 +58,14 @@ export const Storage = {
   db: storageDB,
 
   /**
+   * Returns storage persistence and durability status.
+   * If IndexedDB is unavailable, warns that system is in volatile fallback mode.
+   */
+  getDurabilityStatus(): { isDurable: boolean; mode: 'durable_indexeddb' | 'volatile_memory'; label: string } {
+    return storageDB.getDurabilityStatus();
+  },
+
+  /**
    * Initializes the canonical storage engine, runs migrations,
    * and automatically sanitizes localStorage to enforce domain boundaries.
    */

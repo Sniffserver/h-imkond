@@ -20,7 +20,13 @@ let globalProtocolInstance: Protocol | null = null;
 export function initializePMTilesProtocol(): Protocol {
   if (!pmtilesProtocolInitialized) {
     globalProtocolInstance = new Protocol();
-    maplibregl.addProtocol('pmtiles', globalProtocolInstance.tile);
+    const originalTile = globalProtocolInstance.tile.bind(globalProtocolInstance);
+    maplibregl.addProtocol('pmtiles', (requestParameters, abortController) => {
+      return originalTile(requestParameters, abortController).catch(() => {
+        // Return empty ArrayBuffer when byte serving is unavailable or tile missing
+        return { data: new ArrayBuffer(0) };
+      });
+    });
     pmtilesProtocolInitialized = true;
   }
   return globalProtocolInstance!;
@@ -207,6 +213,7 @@ export function getTacticalVectorMapStyle(
   return {
     version: 8,
     name: `HÕIMU Tactical Map (${theme.toUpperCase()})`,
+    glyphs: '/fonts/glyphs/{fontstack}/{range}.pbf',
     sources: {
       protomaps: {
         type: 'vector',
@@ -286,14 +293,23 @@ export function getTacticalVectorMapStyle(
         },
       },
 
-      // 5. ROADS HIERARCHY
-      // ZOOM 11+: Major Arteries (Tallinna ringtee, Pärnu mnt, Tartu mnt, Narva mnt, Paldiski mnt)
+      // 5. ROADS HIERARCHY (Strict Protomaps/OSM attribute filters to prevent overdraw)
+      // ZOOM 11+: Major Arteries (Motorway, Trunk, Primary)
       {
         id: 'roads-motorway-primary',
         type: 'line',
         source: 'protomaps',
         'source-layer': 'roads',
         minzoom: 11,
+        filter: [
+          'any',
+          [
+            'in',
+            ['coalesce', ['get', 'pmap:kind'], ['get', 'kind'], ['get', 'highway'], ['get', 'class'], ''],
+            ['literal', ['motorway', 'trunk', 'primary', 'highway', 'major_road', 'motorway_link', 'trunk_link', 'primary_link']],
+          ],
+          ['==', ['get', 'pmap:kind'], 'major_road'],
+        ],
         paint: {
           'line-color': p.roadsPrimary,
           'line-width': [
@@ -307,13 +323,22 @@ export function getTacticalVectorMapStyle(
         },
       },
 
-      // ZOOM 13+: Secondary & Connecting Roads
+      // ZOOM 13+: Secondary & Connecting Roads (Secondary, Tertiary)
       {
         id: 'roads-secondary',
         type: 'line',
         source: 'protomaps',
         'source-layer': 'roads',
         minzoom: 13,
+        filter: [
+          'any',
+          [
+            'in',
+            ['coalesce', ['get', 'pmap:kind'], ['get', 'kind'], ['get', 'highway'], ['get', 'class'], ''],
+            ['literal', ['secondary', 'tertiary', 'medium_road', 'secondary_link', 'tertiary_link']],
+          ],
+          ['==', ['get', 'pmap:kind'], 'medium_road'],
+        ],
         paint: {
           'line-color': p.roadsSecondary,
           'line-width': [
@@ -326,13 +351,22 @@ export function getTacticalVectorMapStyle(
         },
       },
 
-      // ZOOM 14+: Residential & Service Roads
+      // ZOOM 14+: Residential & Service Roads (Minor, Residential, Service, Path)
       {
         id: 'roads-residential',
         type: 'line',
         source: 'protomaps',
         'source-layer': 'roads',
         minzoom: 14,
+        filter: [
+          'any',
+          [
+            'in',
+            ['coalesce', ['get', 'pmap:kind'], ['get', 'kind'], ['get', 'highway'], ['get', 'class'], ''],
+            ['literal', ['residential', 'service', 'track', 'path', 'footway', 'cycleway', 'unclassified', 'minor_road', 'living_street', 'pedestrian', 'road']],
+          ],
+          ['==', ['get', 'pmap:kind'], 'minor_road'],
+        ],
         paint: {
           'line-color': p.roadsResidential,
           'line-width': 1.2,

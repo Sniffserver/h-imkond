@@ -36,9 +36,9 @@ export class MeshEventStore {
     }
 
     try {
-      const db = await storageDB.getDB();
-      const tx = db.transaction(STORES.EVENTS, 'readwrite');
-      tx.objectStore(STORES.EVENTS).put(record);
+      await storageDB.writeDurably(STORES.EVENTS, (store) => {
+        return store.put(record);
+      });
     } catch {
       // Memory fallback active
     }
@@ -67,9 +67,9 @@ export class MeshEventStore {
   public static async clear(): Promise<void> {
     memoryEvents.length = 0;
     try {
-      const db = await storageDB.getDB();
-      const tx = db.transaction(STORES.EVENTS, 'readwrite');
-      tx.objectStore(STORES.EVENTS).clear();
+      await storageDB.writeDurably(STORES.EVENTS, (store) => {
+        return store.clear();
+      });
     } catch {
       // Memory fallback active
     }

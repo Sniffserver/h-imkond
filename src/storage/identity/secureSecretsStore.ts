@@ -70,9 +70,9 @@ export class SecureSecretsStore {
     memorySecrets.set(record.keyId, record);
 
     try {
-      const db = await storageDB.getDB();
-      const tx = db.transaction(STORES.SECURE_SECRETS, 'readwrite');
-      tx.objectStore(STORES.SECURE_SECRETS).put(record);
+      await storageDB.writeDurably(STORES.SECURE_SECRETS, (store) => {
+        return store.put(record);
+      });
     } catch {
       // Memory fallback active
     }
@@ -85,9 +85,9 @@ export class SecureSecretsStore {
     memorySecrets.delete(keyId);
 
     try {
-      const db = await storageDB.getDB();
-      const tx = db.transaction(STORES.SECURE_SECRETS, 'readwrite');
-      tx.objectStore(STORES.SECURE_SECRETS).delete(keyId);
+      await storageDB.writeDurably(STORES.SECURE_SECRETS, (store) => {
+        return store.delete(keyId);
+      });
     } catch {
       // Memory fallback active
     }
@@ -100,9 +100,9 @@ export class SecureSecretsStore {
     memorySecrets.clear();
 
     try {
-      const db = await storageDB.getDB();
-      const tx = db.transaction(STORES.SECURE_SECRETS, 'readwrite');
-      tx.objectStore(STORES.SECURE_SECRETS).clear();
+      await storageDB.writeDurably(STORES.SECURE_SECRETS, (store) => {
+        return store.clear();
+      });
     } catch {
       // Memory fallback active
     }

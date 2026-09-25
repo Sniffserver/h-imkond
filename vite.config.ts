@@ -91,6 +91,9 @@ export default defineConfig(() => {
         '@': path.resolve(process.cwd()),
       },
     },
+    optimizeDeps: {
+      exclude: ['maplibre-gl', 'pmtiles'],
+    },
     build: {
       chunkSizeWarningLimit: 3000,
     },

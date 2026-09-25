@@ -11,7 +11,7 @@ import { pairingManager } from '../core/identity/pairing';
 import { OutboxStore, OutboxItem } from '../storage/outbox';
 
 describe('PHASE 1: Canonical Protocol & Wire Framing', () => {
-  it('encodes and decodes canonical 39-byte header binary frames with CRC32 verification', () => {
+  it('encodes and decodes canonical 53-byte header binary frames with CRC32 verification', () => {
     const packet = createHoimuPacket({
       type: HoimuPacketType.MESSAGE,
       originId: 'TALLINN1',

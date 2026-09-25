@@ -3,7 +3,7 @@
  */
 
 export const DB_NAME = 'hoimu_canonical_storage_v2';
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 
 export const STORES = {
   // Identity & Secrets
@@ -16,6 +16,7 @@ export const STORES = {
   PEERS: 'peers',
   PACKETS: 'packets',
   EVENTS: 'events',
+  DEDUP: 'dedup',
 
   // App Domain State
   APP_STATE: 'app_state',
@@ -96,5 +97,12 @@ export function runMigrations(db: IDBDatabase, oldVersion: number, newVersion: n
     const diagStore = db.createObjectStore(STORES.DIAGNOSTICS, { keyPath: 'id' });
     diagStore.createIndex('timestamp', 'timestamp', { unique: false });
     diagStore.createIndex('type', 'type', { unique: false });
+  }
+
+  // Version 3: Durable Mesh Deduplication Store (survives reboots)
+  if (!db.objectStoreNames.contains(STORES.DEDUP)) {
+    const dedupStore = db.createObjectStore(STORES.DEDUP, { keyPath: 'packetId' });
+    dedupStore.createIndex('expiresAt', 'expiresAt', { unique: false });
+    dedupStore.createIndex('originId', 'originId', { unique: false });
   }
 }

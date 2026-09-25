@@ -15,6 +15,8 @@ export type TransportType =
   | 'wifi_aware'
   | 'lora_bridge';
 
+export type TransportPolicyMode = 'normal' | 'emergency' | 'test';
+
 export type MeshPacketType = 
   | 'MESSAGE'
   | 'CRDT_SYNC'

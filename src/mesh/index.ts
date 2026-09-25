@@ -5,4 +5,5 @@ export * from './routingTable';
 export * from './neighborTable';
 export * from './dutyCycle';
 export * from './delivery';
+export * from './radioProfile';
 export * from './router';

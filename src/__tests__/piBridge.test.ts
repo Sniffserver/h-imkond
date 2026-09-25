@@ -47,10 +47,15 @@ describe('piBridge Service HTTP & Pairing interactions', () => {
       ok: true,
       json: async () => ({ piBatteryPercent: 90, solarWatts: 15.0 }),
     });
+    // 3rd call: /api/v1/peers (peers sync)
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [],
+    });
 
     const res = await discoverBridge();
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(res.success).toBe(true);
     expect(fetchMock.mock.calls[0][0]).toBe('http://192.168.4.1:8080/api/v1/health');
     const statusCall = fetchMock.mock.calls[1];

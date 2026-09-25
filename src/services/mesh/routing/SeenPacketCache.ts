@@ -9,6 +9,8 @@
  * - Completely separated from Outbox / Queued Packet Delivery State ("I still need to transmit/relay this").
  */
 
+import { DurableDedupStore } from '../../../storage/dedupStore';
+
 export interface SeenPacketEntry {
   packetId: string;
   firstSeen: number;
@@ -66,13 +68,27 @@ export class SeenPacketCache {
   }
 
   /**
-   * Alias for add()
+   * Explicitly marks a packet as seen until an absolute timestamp (expiresAt).
+   */
+  public markSeenUntil(packetId: string, expiresAt: number, meta?: { originId?: string; sequence?: number }): void {
+    this.add(packetId, undefined, expiresAt, meta);
+  }
+
+  /**
+   * Explicitly marks a packet as seen for a relative TTL duration in milliseconds.
+   */
+  public markSeenFor(packetId: string, ttlMs: number, meta?: { originId?: string; sequence?: number }): void {
+    this.add(packetId, ttlMs, undefined, meta);
+  }
+
+  /**
+   * Disambiguated alias for add()
    */
   public markSeen(packetId: string, customExpiresOrTtlMs?: number, meta?: { originId?: string; sequence?: number }): void {
-    if (customExpiresOrTtlMs && customExpiresOrTtlMs > Date.now()) {
-      this.add(packetId, undefined, customExpiresOrTtlMs, meta);
+    if (customExpiresOrTtlMs && customExpiresOrTtlMs > 100_000_000_000) {
+      this.markSeenUntil(packetId, customExpiresOrTtlMs, meta);
     } else {
-      this.add(packetId, customExpiresOrTtlMs, undefined, meta);
+      this.markSeenFor(packetId, customExpiresOrTtlMs ?? this.defaultTtlMs, meta);
     }
   }
 
@@ -121,6 +137,9 @@ export class SeenPacketCache {
       originId: meta?.originId,
       sequence: meta?.sequence,
     });
+
+    // Persist to durable storage across reboots
+    DurableDedupStore.recordSeen(packetId, expires, meta).catch(() => {});
   }
 
   /**

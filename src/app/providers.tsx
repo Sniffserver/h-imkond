@@ -30,7 +30,11 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
     (title: string, description?: string, type: 'success' | 'warning' | 'info' = 'success') => {
       const id = Date.now().toString() + Math.random().toString().slice(2, 6);
       const newToast: ToastMessage = { id, title, description, type };
-      setToasts((prev) => [...prev, newToast]);
+
+      // Queue state update to prevent setState-in-render collision with child components
+      queueMicrotask(() => {
+        setToasts((prev) => [...prev, newToast]);
+      });
 
       setTimeout(() => {
         setToasts((prev) => prev.filter((t) => t.id !== id));

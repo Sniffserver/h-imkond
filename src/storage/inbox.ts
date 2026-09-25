@@ -28,9 +28,9 @@ export class InboxStore {
     memoryInbox.set(item.packetId, item);
 
     try {
-      const db = await storageDB.getDB();
-      const tx = db.transaction(STORES.INBOX, 'readwrite');
-      tx.objectStore(STORES.INBOX).put(item);
+      await storageDB.writeDurably(STORES.INBOX, (store) => {
+        return store.put(item);
+      });
     } catch {
       // Memory fallback active
     }

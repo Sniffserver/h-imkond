@@ -16,24 +16,27 @@ class WifiDirectRadio(BaseRadio):
         self.stats = RadioStats()
         self._rx_queue = []
 
-    def init_hardware(self) -> bool:
+    def start(self) -> bool:
         logger.info(f"Initializing Wi-Fi Direct interface on {self.interface}:{self.port}")
         self.is_active = True
         return True
+
+    def stop(self) -> None:
+        self.is_active = False
 
     def transmit(self, data: bytes, priority: int = 1) -> bool:
         logger.info(f"[WiFi-TX] Broadcast {len(data)} bytes over {self.interface}")
         self.stats.tx_count += 1
         return True
 
-    def receive_packet(self) -> Optional[bytes]:
+    def receive(self, timeout_s: float = 0.0) -> Optional[bytes]:
         if self._rx_queue:
             pkt = self._rx_queue.pop(0)
             self.stats.rx_count += 1
             return pkt
         return None
 
-    def perform_cad(self) -> bool:
+    def cad(self) -> bool:
         return True
 
     def get_stats(self) -> Dict[str, Any]:
@@ -44,6 +47,14 @@ class WifiDirectRadio(BaseRadio):
             "is_active": self.is_active,
             "tx_count": self.stats.tx_count,
             "rx_count": self.stats.rx_count,
+        }
+
+    def get_capabilities(self) -> Dict[str, Any]:
+        return {
+            "driver": "WifiDirectRadio",
+            "interface": self.interface,
+            "port": self.port,
+            "throughput_mbps": 54,
         }
 
     def is_available(self) -> bool:

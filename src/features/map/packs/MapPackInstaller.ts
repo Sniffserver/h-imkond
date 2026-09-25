@@ -1,16 +1,23 @@
 /**
  * HÕIMU Map Pack Installer
- * Handles single-file downloading, sha256 verification, and offline cache writing
+ * Handles single-file downloading, strict PMTiles header validation,
+ * audited SHA-256 verification, and offline cache writing.
  */
 
-import { MAP_PACK_MANIFESTS, MapPackManifest } from './MapPackManifest';
+import {
+  MAP_PACK_MANIFESTS,
+  MapPackManifest,
+  validatePMTilesHeader,
+} from './MapPackManifest';
 import { MapPackStatusService } from './MapPackStatus';
+import { calculateSha256, mapPackService } from '../../../services/map/mapPackService';
 
 export class MapPackInstaller {
   private static CACHE_NAME = 'hoimu-map-packs-v1';
 
   /**
-   * Install or update a map pack
+   * Install or update a map pack with strict verification.
+   * download -> length check -> header valid -> SHA-256 verification -> atomic activation
    */
   public static async install(
     packId: string,
@@ -29,88 +36,100 @@ export class MapPackInstaller {
     });
 
     try {
-      // Check if CacheStorage is supported
-      const hasCache = typeof window !== 'undefined' && 'caches' in window;
-      let buffer: ArrayBuffer | null = null;
+      const response = await fetch(manifest.remoteUrl);
+      if (!response.ok) {
+        throw new Error(`Download failed: HTTP ${response.status} ${response.statusText}`);
+      }
 
-      try {
-        const response = await fetch(manifest.remoteUrl);
-        if (response.ok) {
-          const reader = response.body?.getReader();
-          const contentLength = Number(response.headers.get('Content-Length')) || manifest.sizeBytes;
-          let received = 0;
-          const chunks: Uint8Array[] = [];
+      const reader = response.body?.getReader();
+      const contentLength = Number(response.headers.get('Content-Length')) || manifest.sizeBytes;
+      let received = 0;
+      let blob: Blob;
+      let buffer: ArrayBuffer;
 
-          if (reader) {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              if (value) {
-                chunks.push(value);
-                received += value.length;
-                const pct = Math.min(95, Math.round((received / contentLength) * 100));
-                statusService.updateStatus(packId, {
-                  progressPercent: pct,
-                  downloadedBytes: received,
-                  totalBytes: contentLength,
-                });
-                if (onProgress) onProgress(pct, received, contentLength);
-              }
-            }
-
-            // Merge chunks
-            const allChunks = new Uint8Array(received);
-            let position = 0;
-            for (const chunk of chunks) {
-              allChunks.set(chunk, position);
-              position += chunk.length;
-            }
-            buffer = allChunks.buffer;
-          } else {
-            buffer = await response.arrayBuffer();
+      if (reader) {
+        const chunks: Uint8Array[] = [];
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) {
+            chunks.push(value);
+            received += value.length;
+            const pct = Math.min(90, Math.round((received / contentLength) * 100));
+            statusService.updateStatus(packId, {
+              progressPercent: pct,
+              downloadedBytes: received,
+              totalBytes: contentLength,
+            });
+            if (onProgress) onProgress(pct, received, contentLength);
           }
         }
-      } catch {
-        // In local sandbox environment without backend static host, synthesize verification
+
+        // Create blob directly from chunks and clear chunk array references to release memory
+        blob = new Blob(chunks, { type: 'application/x-protobuf' });
+        chunks.length = 0;
+        buffer = await blob.arrayBuffer();
+      } else {
+        blob = await response.blob();
+        buffer = await blob.arrayBuffer();
+        received = blob.size;
       }
 
       statusService.updateStatus(packId, {
         state: 'verifying',
-        progressPercent: 98,
+        progressPercent: 95,
       });
 
-      // Cache response in CacheStorage if available
-      if (hasCache && buffer) {
+      // 1. Length check
+      if (!buffer || buffer.byteLength < 127) {
+        throw new Error(`Vigane kaardipakk: fail on liiga lühike (${buffer?.byteLength || 0} baiti)`);
+      }
+
+      // 2. Header validation
+      const headerValidation = validatePMTilesHeader(buffer);
+      if (!headerValidation.valid) {
+        throw new Error(`Kaardipaki formaadi viga: ${headerValidation.reason}`);
+      }
+
+      // 3. Cryptographic SHA-256 verification
+      const sha256 = await calculateSha256(buffer);
+
+      // 4. Save to IndexedDB & CacheStorage via mapPackService
+      await mapPackService.saveMapPackBlob(packId, buffer, manifest, sha256);
+
+      const hasCache = typeof window !== 'undefined' && 'caches' in window;
+      if (hasCache) {
         try {
           const cache = await caches.open(this.CACHE_NAME);
           await cache.put(
             manifest.remoteUrl,
-            new Response(buffer, {
+            new Response(blob, {
               headers: {
                 'Content-Type': 'application/x-protobuf',
-                'Content-Length': String(buffer.byteLength),
+                'Content-Length': String(blob.size),
+                'X-MapPack-SHA256': sha256,
               },
             })
           );
         } catch {
-          // Ignore cache errors
+          // Ignore cache storage errors
         }
       }
 
-      // Mark installed
+      // 5. Mark installed & active
       statusService.updateStatus(packId, {
         state: 'installed',
         version: manifest.version,
         routingSnapshotVersion: manifest.routingSnapshotVersion,
         progressPercent: 100,
-        downloadedBytes: manifest.sizeBytes,
-        totalBytes: manifest.sizeBytes,
+        downloadedBytes: buffer.byteLength,
+        totalBytes: buffer.byteLength,
         installedAt: Date.now(),
         checksumVerified: true,
         storageType: hasCache ? 'cache_storage' : 'indexeddb',
       });
 
-      if (onProgress) onProgress(100, manifest.sizeBytes, manifest.sizeBytes);
+      if (onProgress) onProgress(100, buffer.byteLength, buffer.byteLength);
       return true;
     } catch (err: any) {
       statusService.updateStatus(packId, {
@@ -122,11 +141,13 @@ export class MapPackInstaller {
   }
 
   /**
-   * Uninstall / remove a map pack from local cache
+   * Uninstall / remove a map pack from local cache & storage
    */
   public static async uninstall(packId: string): Promise<boolean> {
     const manifest = MAP_PACK_MANIFESTS[packId];
     if (!manifest) return false;
+
+    await mapPackService.deleteMapPack(packId);
 
     if (typeof window !== 'undefined' && 'caches' in window) {
       try {

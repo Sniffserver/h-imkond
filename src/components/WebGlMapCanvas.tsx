@@ -23,6 +23,7 @@ import { MapPackModal } from '../features/map/packs/MapPackModal';
 import { MAP_PACK_MANIFESTS } from '../features/map/packs/MapPackManifest';
 
 import { computeMapStateInfo } from '../services/map/mapState';
+import { mapEngine } from '../features/map/mapEngine';
 
 const BioregionalMapCanvas = lazy(() =>
   import('./BioregionalMapCanvas').then((m) => ({ default: m.BioregionalMapCanvas }))
@@ -135,6 +136,7 @@ export const WebGlMapCanvas: React.FC<WebGlMapCanvasExtendedProps> = React.memo(
       map.on('load', () => {
         setIsMapLoaded(true);
         setMapInstance(map);
+        mapEngine.setMapLibreInstance(map);
         applyMapTheme(map, tacticalTheme);
       });
 
@@ -146,6 +148,7 @@ export const WebGlMapCanvas: React.FC<WebGlMapCanvasExtendedProps> = React.memo(
 
     return () => {
       if (mapRef.current) {
+        mapEngine.setMapLibreInstance(null);
         mapRef.current.remove();
         mapRef.current = null;
         setMapInstance(null);
