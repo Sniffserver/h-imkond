@@ -37,9 +37,8 @@ export function localGridToGeoPoint(x: number, y: number, coordsText: string): G
   const dLng = dx / (111111 * Math.cos((center.lat * Math.PI) / 180));
   
   return {
-    latitude: center.lat + dLat,
-    longitude: center.lng + dLng,
-    timestamp: Date.now(),
+    lat: center.lat + dLat,
+    lng: center.lng + dLng,
   };
 }
 

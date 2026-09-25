@@ -82,8 +82,8 @@ class PathfinderScannerService {
     isPaused: false,
     activeSession: null,
     currentLocation: {
-      latitude: ESTONIA_CITY_DEFAULTS.tallinn.lat,
-      longitude: ESTONIA_CITY_DEFAULTS.tallinn.lng,
+      lat: ESTONIA_CITY_DEFAULTS.tallinn.lat,
+      lng: ESTONIA_CITY_DEFAULTS.tallinn.lng,
       timestamp: Date.now(),
     },
     totalDistanceMeters: 0,
@@ -111,10 +111,8 @@ class PathfinderScannerService {
       Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 5000 })
         .then((pos) => {
           this.state.currentLocation = {
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-            altitude: pos.coords.altitude || undefined,
-            accuracy: pos.coords.accuracy || undefined,
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
             timestamp: pos.timestamp || Date.now(),
           };
           this.notify();
@@ -439,21 +437,19 @@ class PathfinderScannerService {
       if (!this.state.isRecording || this.state.isPaused) return;
 
       const curr = this.state.currentLocation || {
-        latitude: ESTONIA_CITY_DEFAULTS.tallinn.lat,
-        longitude: ESTONIA_CITY_DEFAULTS.tallinn.lng,
+        lat: ESTONIA_CITY_DEFAULTS.tallinn.lat,
+        lng: ESTONIA_CITY_DEFAULTS.tallinn.lng,
         timestamp: Date.now(),
       };
 
       // Gentle random turn
       angle += (Math.random() - 0.5) * 0.4;
-      const nextLat = curr.latitude + Math.cos(angle) * speed;
-      const nextLon = curr.longitude + (Math.sin(angle) * speed) / Math.cos((curr.latitude * Math.PI) / 180);
+      const nextLat = curr.lat + Math.cos(angle) * speed;
+      const nextLon = curr.lng + (Math.sin(angle) * speed) / Math.cos((curr.lat * Math.PI) / 180);
 
       const nextPoint: GeoPoint = {
-        latitude: nextLat,
-        longitude: nextLon,
-        timestamp: Date.now(),
-        accuracy: 4,
+        lat: nextLat,
+        lng: nextLon,
       };
 
       this.addGpsBreadcrumb(nextPoint);

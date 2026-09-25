@@ -160,13 +160,13 @@ export function searchPlaces(
 
   const { rawQuery, matchedCategories, matchedSubCategories, matchedTags } = normalizeSearchQuery(query);
 
-  const uLat = userLocation?.lat ?? userLocation?.latitude;
-  const uLng = userLocation?.lng ?? userLocation?.longitude;
+  const uLat = userLocation?.lat;
+  const uLng = userLocation?.lng;
 
   const results = allPlaces
     .map((place) => {
-      const pLat = place.location.lat ?? place.location.latitude ?? 0;
-      const pLng = place.location.lng ?? place.location.longitude ?? 0;
+      const pLat = place.location.lat;
+      const pLng = place.location.lng;
       
       let distanceMeters = 0;
       if (uLat !== undefined && uLng !== undefined) {

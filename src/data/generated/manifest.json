@@ -1,0 +1,22 @@
+{
+  "region": "tallinn",
+  "version": "2026.09.x",
+  "generatedAt": "2026-09-25T00:00:00Z",
+  "basemap": {
+    "filename": "tallinn-basemap.pmtiles",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "poi": {
+    "filename": "tallinn-poi.pmtiles",
+    "index": "tallinn-poi.index",
+    "sha256": "a1b2c3d4e5f678901234567890abcdef1234567890abcdef1234567890abcdef"
+  },
+  "routing": {
+    "filename": "routing.graph",
+    "sha256": "7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12345678"
+  },
+  "streetIndex": {
+    "filename": "street-index.bin",
+    "sha256": "cdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd"
+  }
+}

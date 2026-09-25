@@ -214,12 +214,12 @@ const INITIAL_BASELINE_WALK: WalkSession = {
   newBluetoothSpots: ['ble_hydro_sensor_1', 'ble_hoimu_beacon_2'],
   newLoraNodes: ['lora_tartu_r1', 'lora_supilinn_hub_3'],
   track: [
-    { latitude: 58.3780, longitude: 26.7290, timestamp: Date.now() - 86400000 * 2 - 7200000 },
-    { latitude: 58.3795, longitude: 26.7260, timestamp: Date.now() - 86400000 * 2 - 6600000 },
-    { latitude: 58.3815, longitude: 26.7225, timestamp: Date.now() - 86400000 * 2 - 6000000 },
-    { latitude: 58.3842, longitude: 26.7198, timestamp: Date.now() - 86400000 * 2 - 5400000 },
-    { latitude: 58.3860, longitude: 26.7170, timestamp: Date.now() - 86400000 * 2 - 4800000 },
-    { latitude: 58.3885, longitude: 26.7132, timestamp: Date.now() - 86400000 * 2 - 4200000 },
+    { lat: 58.3780, lng: 26.7290, timestamp: Date.now() - 86400000 * 2 - 7200000 },
+    { lat: 58.3795, lng: 26.7260, timestamp: Date.now() - 86400000 * 2 - 6600000 },
+    { lat: 58.3815, lng: 26.7225, timestamp: Date.now() - 86400000 * 2 - 6000000 },
+    { lat: 58.3842, lng: 26.7198, timestamp: Date.now() - 86400000 * 2 - 5400000 },
+    { lat: 58.3860, lng: 26.7170, timestamp: Date.now() - 86400000 * 2 - 4800000 },
+    { lat: 58.3885, lng: 26.7132, timestamp: Date.now() - 86400000 * 2 - 4200000 },
   ],
   notes: 'Esmane eetriardumine Emajõe kallastel. Tuvastatud Supilinna avatud võrk ja LoRa relee.',
 };
@@ -546,10 +546,10 @@ export function calculateTrackDistanceMeters(track: GeoPoint[]): number {
   let totalDist = 0;
   for (let i = 1; i < track.length; i++) {
     totalDist += getHaversineDistanceMeters(
-      track[i - 1].latitude,
-      track[i - 1].longitude,
-      track[i].latitude,
-      track[i].longitude
+      track[i - 1].lat,
+      track[i - 1].lng,
+      track[i].lat,
+      track[i].lng
     );
   }
   return Math.round(totalDist);
@@ -581,8 +581,8 @@ export function exportWalkSessionAsGPX(session: WalkSession): string {
   const gpxPoints = session.track
     .map(
       (pt) =>
-        `    <trkpt lat="${pt.latitude.toFixed(6)}" lon="${pt.longitude.toFixed(6)}">
-      <time>${new Date(pt.timestamp).toISOString()}</time>
+        `    <trkpt lat="${pt.lat.toFixed(6)}" lon="${pt.lng.toFixed(6)}">
+      <time>${new Date(pt.timestamp || Date.now()).toISOString()}</time>
       ${pt.altitude ? `<ele>${pt.altitude.toFixed(1)}</ele>` : ''}
     </trkpt>`
     )

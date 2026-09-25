@@ -29,13 +29,13 @@ export function calculateNearbyReport(
   radiusMeters: number = 3000,
   placesPool: MapPlace[] = TALLINN_MAP_PLACES
 ): NearbyPlacesReport {
-  const uLat = userLocation.lat ?? userLocation.latitude ?? 59.4370;
-  const uLng = userLocation.lng ?? userLocation.longitude ?? 24.7535;
+  const uLat = userLocation.lat;
+  const uLng = userLocation.lng;
 
   const placesWithDistance: MapPlace[] = placesPool
     .map((place) => {
-      const pLat = place.location.lat ?? place.location.latitude ?? 0;
-      const pLng = place.location.lng ?? place.location.longitude ?? 0;
+      const pLat = place.location.lat;
+      const pLng = place.location.lng;
       const dist = Math.round(haversineDistanceMeters(uLat, uLng, pLat, pLng));
       return {
         ...place,

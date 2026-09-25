@@ -24,7 +24,7 @@ describe('HÕIMU Multi-Source POI Pipeline & Provenance', () => {
     expect(kesklinnaPolice?.source).toBe('ppa');
     expect(kesklinnaPolice?.secondarySource).toBe('osm');
     expect(kesklinnaPolice?.hasMismatch).toBe(true);
-    expect(kesklinnaPolice?.provenanceStatus).toBe('mismatch');
+    expect(kesklinnaPolice?.provenanceStatus).toBe('conflict');
     expect(kesklinnaPolice?.discrepancies).toBeDefined();
     expect(kesklinnaPolice?.discrepancies?.length).toBeGreaterThan(0);
 

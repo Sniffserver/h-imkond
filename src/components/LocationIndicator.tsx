@@ -1,21 +1,16 @@
 import React, { useState } from 'react';
-import { Crosshair, Info, CheckCircle2, AlertCircle, X, Radio, Navigation, ShieldCheck } from 'lucide-react';
+import { Crosshair, X, ShieldCheck, AlertCircle } from 'lucide-react';
+import { LocationState } from '../types';
 
 export interface LocationIndicatorProps {
-  accuracy: number; // meters (e.g. 5, 15, 60)
-  isHighAccuracy: boolean;
-  lastUpdated: Date;
-  latitude?: number;
-  longitude?: number;
-  heading?: number; // degrees 0-360
-  source?: 'GNSS/GPS' | 'Mesh Trilateration' | 'Low-Power Fused' | 'Manual Fix';
+  locationState: LocationState;
   onShareLocation?: () => void;
   onRecenter?: () => void;
   isNightMode?: boolean;
 }
 
-function formatRelativeTime(date: Date): string {
-  const diffSec = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+function formatRelativeTime(timestamp: number): string {
+  const diffSec = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
   if (diffSec < 10) return 'just now';
   if (diffSec < 60) return `${diffSec}s ago`;
   const diffMin = Math.floor(diffSec / 60);
@@ -25,22 +20,18 @@ function formatRelativeTime(date: Date): string {
 }
 
 export const LocationIndicator: React.FC<LocationIndicatorProps> = ({
-  accuracy,
-  isHighAccuracy,
-  lastUpdated,
-  latitude = 59.437,
-  longitude = 24.7535,
-  heading,
-  source = 'GNSS/GPS',
+  locationState,
   onShareLocation,
   onRecenter,
   isNightMode = false,
 }) => {
   const [showDetails, setShowDetails] = useState(false);
 
-  // Optical radius for confidence ring (clamp for visual usability: 24px min, 96px max)
-  const visualRadiusPx = Math.min(80, Math.max(24, Math.round(accuracy * 1.5)));
-  const confidencePercent = Math.max(10, Math.min(99, Math.round(100 - accuracy * 1.2)));
+  const isLive = locationState.status === 'live' || locationState.status === 'stale';
+  const accuracy = isLive ? locationState.accuracyMeters : 0;
+  const isHighAccuracy = isLive && accuracy <= 20;
+  const visualRadiusPx = isLive ? Math.min(80, Math.max(24, Math.round(accuracy * 1.5))) : 0;
+  const confidencePercent = isLive ? Math.max(10, Math.min(99, Math.round(100 - accuracy * 1.2))) : 0;
 
   const handleToggleDetails = () => {
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
@@ -58,61 +49,59 @@ export const LocationIndicator: React.FC<LocationIndicatorProps> = ({
       className="relative inline-flex items-center"
       data-testid="location-indicator"
     >
-      {/* Visual Pulsing Dot and Confidence Ring */}
+      {/* Visual Pulsing Dot and Confidence Ring if live */}
       <div className="relative flex items-center justify-center">
-        {/* Animated Confidence SVG Ring */}
-        <svg
-          className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 left-1/2 top-1/2 overflow-visible"
-          width={visualRadiusPx * 2}
-          height={visualRadiusPx * 2}
-          aria-hidden="true"
-        >
-          <circle
-            cx="50%"
-            cy="50%"
-            r={visualRadiusPx - 4}
-            fill={isHighAccuracy ? 'rgba(42, 157, 143, 0.12)' : 'rgba(233, 196, 106, 0.15)'}
-            stroke={isHighAccuracy ? 'rgba(42, 157, 143, 0.4)' : 'rgba(233, 196, 106, 0.5)'}
-            strokeWidth="1.5"
-            strokeDasharray={isHighAccuracy ? 'none' : '3 3'}
-            className="animate-pulse"
-          />
-          {heading !== undefined && (
-            <line
-              x1="50%"
-              y1="50%"
-              x2={`${50 + 40 * Math.sin((heading * Math.PI) / 180)}%`}
-              y2={`${50 - 40 * Math.cos((heading * Math.PI) / 180)}%`}
-              stroke={isHighAccuracy ? '#2A9D8F' : '#E9C46A'}
-              strokeWidth="2"
-              strokeLinecap="round"
+        {isLive && (
+          <svg
+            className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 left-1/2 top-1/2 overflow-visible"
+            width={visualRadiusPx * 2}
+            height={visualRadiusPx * 2}
+            aria-hidden="true"
+          >
+            <circle
+              cx="50%"
+              cy="50%"
+              r={visualRadiusPx - 4}
+              fill={isHighAccuracy ? 'rgba(42, 157, 143, 0.12)' : 'rgba(233, 196, 106, 0.15)'}
+              stroke={isHighAccuracy ? 'rgba(42, 157, 143, 0.4)' : 'rgba(233, 196, 106, 0.5)'}
+              strokeWidth="1.5"
+              strokeDasharray={isHighAccuracy ? 'none' : '3 3'}
+              className="animate-pulse"
             />
-          )}
-        </svg>
+          </svg>
+        )}
 
-        {/* Pulsing Core Center Dot */}
+        {/* Core Status Button */}
         <button
           type="button"
           onClick={handleToggleDetails}
-          className={`relative z-10 p-2 rounded-full min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer transition-transform active:scale-95 shadow-md ${
-            isHighAccuracy
-              ? 'bg-[#2A9D8F] text-white hover:bg-[#238276]'
-              : 'bg-[#E9C46A] text-[#203A2A] hover:bg-[#d8b356]'
+          className={`relative z-10 px-3 py-2 rounded-2xl min-h-[44px] flex items-center gap-2 cursor-pointer transition-transform active:scale-95 shadow-md border ${
+            locationState.status === 'live'
+              ? 'bg-[#2A9D8F] text-white hover:bg-[#238276] border-[#238276]'
+              : locationState.status === 'stale'
+              ? 'bg-[#E9C46A] text-[#203A2A] hover:bg-[#d8b356] border-[#d8b356]'
+              : isNightMode
+              ? 'bg-[#141F12]/90 text-[#A8BDA5] hover:bg-[#182315] border-[#2A3B26]'
+              : 'bg-white/95 text-[#588157] hover:bg-[#FAF6EE] border-[#87A878]/40'
           }`}
-          aria-label={`Location indicator: Accurate within ${accuracy} meters. Tap for GPS details.`}
+          aria-label={
+            isLive
+              ? `GPS Live: Accurate within ${accuracy} meters. Tap for details.`
+              : 'GPS unavailable. Map centered on Tallinn.'
+          }
           aria-expanded={showDetails}
         >
-          <span className="sr-only">
-            Your location is accurate within {accuracy} meters. Updated {formatRelativeTime(lastUpdated)}.
-          </span>
-          <div className="relative">
-            <span className="absolute -inset-1 rounded-full animate-ping opacity-75 bg-current" />
-            <Crosshair className="w-4 h-4 relative z-10" />
+          <div className="relative flex items-center justify-center">
+            {isLive && <span className="absolute -inset-1 rounded-full animate-ping opacity-75 bg-current" />}
+            {isLive ? <Crosshair className="w-4 h-4 relative z-10" /> : <AlertCircle className="w-4 h-4 relative z-10 text-amber-500" />}
           </div>
+          <span className="text-xs font-mono font-bold">
+            {locationState.status === 'live' ? `±${accuracy}m` : locationState.status === 'stale' ? `Stale (±${accuracy}m)` : 'GPS Off'}
+          </span>
         </button>
       </div>
 
-      {/* Detail Popover / Modal on Tap */}
+      {/* Detail Popover */}
       {showDetails && (
         <div
           role="dialog"
@@ -126,7 +115,7 @@ export const LocationIndicator: React.FC<LocationIndicatorProps> = ({
           <div className="flex items-center justify-between border-b border-black/10 dark:border-white/10 pb-2">
             <div className="flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-[#2A9D8F]" />
-              <h4 className="font-display font-bold text-xs">You Are Here</h4>
+              <h4 className="font-display font-bold text-xs">GPS Fix Status</h4>
             </div>
             <button
               type="button"
@@ -139,69 +128,45 @@ export const LocationIndicator: React.FC<LocationIndicatorProps> = ({
           </div>
 
           <div className="space-y-2 text-[11px]">
-            {/* Accuracy & Confidence */}
-            <div className="flex items-center justify-between p-2 rounded-xl bg-black/5 dark:bg-white/5">
-              <span className="text-[#588157] dark:text-[#A8BDA5]">Accuracy Radius:</span>
-              <span className="font-mono font-bold">±{accuracy} meters</span>
-            </div>
+            {isLive ? (
+              <>
+                <div className="flex items-center justify-between p-2 rounded-xl bg-black/5 dark:bg-white/5">
+                  <span className="text-[#588157] dark:text-[#A8BDA5]">Status:</span>
+                  <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 uppercase">
+                    {locationState.status === 'live' ? '● GPS LIVE' : '○ GPS STALE'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-2 rounded-xl bg-black/5 dark:bg-white/5">
+                  <span className="text-[#588157] dark:text-[#A8BDA5]">Accuracy Radius:</span>
+                  <span className="font-mono font-bold">±{accuracy} meters</span>
+                </div>
+                <div className="flex items-center justify-between p-2 rounded-xl bg-black/5 dark:bg-white/5">
+                  <span className="text-[#588157] dark:text-[#A8BDA5]">Confidence Level:</span>
+                  <span className="font-mono font-bold text-[#2A9D8F]">{confidencePercent}%</span>
+                </div>
+                <div className="flex items-center justify-between p-2 rounded-xl bg-black/5 dark:bg-white/5">
+                  <span className="text-[#588157] dark:text-[#A8BDA5]">Last Fix:</span>
+                  <span className="font-mono">{formatRelativeTime(locationState.timestamp)}</span>
+                </div>
+              </>
+            ) : (
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-200 space-y-1">
+                <p className="font-bold">○ GPS unavailable</p>
+                <p className="text-[10px] opacity-90">Map centered on Tallinn default view. No live GNSS fix acquired. Street exploration disabled without real GPS.</p>
+              </div>
+            )}
 
-            <div className="flex items-center justify-between p-2 rounded-xl bg-black/5 dark:bg-white/5">
-              <span className="text-[#588157] dark:text-[#A8BDA5]">Confidence Level:</span>
-              <span className="font-mono font-bold text-[#2A9D8F]">{confidencePercent}%</span>
-            </div>
-
-            {/* Source and Status */}
-            <div className="flex items-center justify-between p-2 rounded-xl bg-black/5 dark:bg-white/5">
-              <span className="text-[#588157] dark:text-[#A8BDA5]">Position Source:</span>
-              <span className="font-semibold flex items-center gap-1">
-                <Radio className="w-3 h-3 text-[#2A9D8F]" />
-                {source}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between p-2 rounded-xl bg-black/5 dark:bg-white/5">
-              <span className="text-[#588157] dark:text-[#A8BDA5]">Last Fix:</span>
-              <span className="font-mono">{formatRelativeTime(lastUpdated)}</span>
-            </div>
-
-            {/* Coordinates */}
-            <div className="text-[10px] font-mono text-[#637062] dark:text-[#A8BDA5] pt-1">
-              Lat: {latitude.toFixed(5)}°, Lng: {longitude.toFixed(5)}°
-            </div>
-          </div>
-
-          <div className="space-y-2 pt-1">
             {onRecenter && (
               <button
                 type="button"
                 onClick={() => {
-                  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-                    try { navigator.vibrate(10); } catch {}
-                  }
-                  onRecenter();
                   setShowDetails(false);
+                  onRecenter();
                 }}
-                className="w-full py-2 px-3 min-h-[44px] bg-[#2A9D8F] hover:bg-[#238276] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                className="w-full mt-2 py-2 px-3 rounded-xl bg-[#2A9D8F] text-white font-bold flex items-center justify-center gap-1.5 hover:bg-[#238276] transition-colors cursor-pointer"
               >
                 <Crosshair className="w-3.5 h-3.5" />
-                <span>Center Map On Me</span>
-              </button>
-            )}
-
-            {onShareLocation && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-                    try { navigator.vibrate(15); } catch {}
-                  }
-                  onShareLocation();
-                  setShowDetails(false);
-                }}
-                className="w-full py-2 px-3 min-h-[44px] bg-[#588157] hover:bg-[#476a46] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-              >
-                <Navigation className="w-3.5 h-3.5" />
-                <span>Share Location Over Mesh</span>
+                <span>Recenter Map</span>
               </button>
             )}
           </div>

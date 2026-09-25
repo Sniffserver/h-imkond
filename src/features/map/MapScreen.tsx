@@ -5,10 +5,13 @@ import {
   UserProfile,
   BatteryManagerStatus,
   GeoPoint,
+  LocationState,
+  MapPlace,
 } from '../../types';
 import { MapController } from './mapController';
 import { MapEngineState } from './mapState';
 import { MapQualityMode } from './mapCapabilities';
+import { streetDiscoveryService } from './streets/streetDiscoveryService';
 import {
   Zap,
   X,
@@ -20,29 +23,17 @@ import {
 } from 'lucide-react';
 import { soundFeedback } from '../../services/utils/soundFeedback';
 import { unifiedTileCache } from './UnifiedTileCache';
-import {
-  LoRaBridgeRangeHUD,
-  LoRaParameters,
-  DEFAULT_LORA_CONFIG,
-  estimateLoRaRangeKm,
-} from './components/LoRaBridgeRangeHUD';
 
 import { MapSkeleton } from './MapSkeleton';
 import { LocationIndicator } from '../../components/LocationIndicator';
-import { SmartZoomBadge } from './components/SmartZoomLayerController';
 import { MapLayerControls, ActiveLayerStates } from './components/MapLayerControls';
 import { MapGestures } from './components/MapGestures';
-import { MapPerformanceOverlay } from '../../components/MapPerformanceOverlay';
-import { PerformanceDashboard } from '../../components/PerformanceDashboard';
-import { MapQualitySelector } from '../../components/MapQualitySelector';
 import { MapQualityManager } from './qualityManager';
 import { lazyWithRetry } from '../../utils/lazyWithRetry';
 import { StreetExplorerSheet } from './streets/StreetExplorerSheet';
-import { streetDiscoveryService } from './streets/streetDiscoveryService';
-import { TALLINN_POIS } from './streets/poiData';
 import { NearbyPlacesSheet } from './places/NearbyPlacesSheet';
 import { PlaceDetailCard } from './places/PlaceDetailCard';
-import { MapPlace } from '../../types';
+import { mapRepository } from './data/repository';
 
 // Lazy-loaded Map View Tab with automatic retry for resilience
 const MapViewTab = lazyWithRetry(() =>
@@ -113,17 +104,6 @@ export const MapScreen: React.FC<MapScreenProps> = ({
     heatmap: true,
     terrain: true,
   });
-
-  const [vectorLoraConfig, setVectorLoraConfig] = useState<LoRaParameters>(DEFAULT_LORA_CONFIG);
-  const vectorLoraKm = useMemo(() => estimateLoRaRangeKm(vectorLoraConfig), [vectorLoraConfig]);
-  const vectorCoveredResources = useMemo(
-    () => resources.filter((r) => (r.distanceKm || 0) <= vectorLoraKm).length,
-    [resources, vectorLoraKm]
-  );
-  const vectorCoveredPeers = useMemo(
-    () => peers.filter((p) => ((p as any).distanceKm || 1.2) <= vectorLoraKm).length,
-    [peers, vectorLoraKm]
-  );
 
   const qualityManager = useMemo(() => new MapQualityManager(), []);
 
@@ -220,29 +200,72 @@ export const MapScreen: React.FC<MapScreenProps> = ({
     }
   }, [batteryStatus, controller]);
 
-  const userLocation: GeoPoint = useMemo(() => {
-    return {
-      lat: (user as any).location?.lat || 59.4370,
-      lng: (user as any).location?.lng || 24.7535,
-    };
-  }, [user]);
+  const [locationState, setLocationState] = useState<LocationState>({
+    status: 'unavailable',
+  });
 
-  // GPS Trace processor for street segment discoveries
+  // Real Device GPS Watcher & Street Discovery Guard
   useEffect(() => {
-    const discovered = streetDiscoveryService.processGPSFix({
-      lat: userLocation.lat,
-      lng: userLocation.lng,
-      accuracyMeters: 8,
-      timestamp: Date.now(),
-    });
-    if (discovered.length > 0 && onAddToast) {
-      onAddToast(
-        '🌟 New Street Discovered!',
-        `Logged exploration segment on ${discovered[0].streetId.replace('_', ' ')}`,
-        'success'
-      );
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setLocationState({ status: 'unavailable' });
+      return;
     }
-  }, [userLocation, onAddToast]);
+
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const fix = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracyMeters: pos.coords.accuracy,
+          timestamp: pos.timestamp || Date.now(),
+        };
+
+        setLocationState({
+          status: 'live',
+          position: { lat: fix.lat, lng: fix.lng },
+          accuracyMeters: fix.accuracyMeters,
+          timestamp: fix.timestamp,
+        });
+
+        // Strict GPS validation guardrail: only discover if accuracy is <= 35m
+        if (fix.accuracyMeters <= 35) {
+          const discovered = streetDiscoveryService.processGPSFix({
+            lat: fix.lat,
+            lng: fix.lng,
+            accuracyMeters: fix.accuracyMeters,
+            timestamp: fix.timestamp,
+          });
+          if (discovered.length > 0 && onAddToast) {
+            onAddToast(
+              '🌟 New Street Discovered!',
+              `Logged exploration segment on ${discovered[0].streetId.replace('_', ' ')}`,
+              'success'
+            );
+          }
+        }
+      },
+      (err) => {
+        console.warn('GPS Fix unavailable:', err.message);
+        setLocationState({ status: 'unavailable' });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 10000,
+      }
+    );
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+    };
+  }, [onAddToast]);
+
+  const userLocation: GeoPoint = useMemo(() => {
+    if (locationState.status === 'live' || locationState.status === 'stale') {
+      return locationState.position;
+    }
+    return { lat: 59.4370, lng: 24.7535 }; // Default Tallinn center view when GPS unavailable
+  }, [locationState]);
 
   return (
     <div className="relative w-full h-full flex flex-col">
@@ -413,63 +436,10 @@ export const MapScreen: React.FC<MapScreenProps> = ({
           counts={{
             peers: peers.length,
             resources: resources.length,
-            places: TALLINN_POIS.length,
-            safety: TALLINN_POIS.filter((p) => p.category === 'shelter' || p.category === 'water').length,
+            places: mapRepository.getAllPlaces().length,
+            safety: mapRepository.getAllPlaces().filter((p) => p.mainCategory === 'safety').length,
           }}
           isNightMode={isNightMode}
-        />
-      </div>
-
-      {/* Real-time Floating Performance Overlay and Quality Bar (Top Right) */}
-      <div className="absolute top-16 right-3 z-20 flex items-center gap-2 pointer-events-auto">
-        <MapPerformanceOverlay
-          isNightMode={isNightMode}
-          onTogglePerformanceDetails={() => setShowMetricsPanel(!showMetricsPanel)}
-        />
-
-        <MapQualitySelector
-          isNightMode={isNightMode}
-          onQualityChange={(mode) => {
-            const mappedMode: MapQualityMode = mode === 'power-saver' ? 'power_saver' : mode;
-            controller.setQualityMode(mappedMode);
-            qualityManager.setQualityMode(mode, true);
-          }}
-        />
-      </div>
-
-      {/* Metrics Inspector Panel / Real-Time Performance Dashboard */}
-      {showMetricsPanel && (
-        <div
-          role="region"
-          aria-label="Map Engine Performance Metrics"
-          className="absolute top-28 right-3 z-30 max-w-lg w-[calc(100vw-24px)] pointer-events-auto"
-        >
-          <PerformanceDashboard
-            isOpen={showMetricsPanel}
-            onClose={() => setShowMetricsPanel(false)}
-            isNightMode={isNightMode}
-            isDevMode={true}
-          />
-        </div>
-      )}
-
-      {/* Floating Smart Zoom Badge (Top Left) */}
-      <div className="absolute top-16 left-3 z-20 pointer-events-auto">
-        <SmartZoomBadge
-          zoomLevel={currentZoom}
-          qualityMode={engineState.qualityMode}
-          isNightMode={isNightMode}
-        />
-      </div>
-
-      {/* Floating LoRa Bridge Range Overlay HUD in Vector Mode */}
-      <div className="absolute top-28 left-3 z-20 max-w-xs pointer-events-auto">
-        <LoRaBridgeRangeHUD
-          config={vectorLoraConfig}
-          onChangeConfig={setVectorLoraConfig}
-          isNightMode={isNightMode}
-          coveredResourcesCount={vectorCoveredResources}
-          coveredPeersCount={vectorCoveredPeers}
         />
       </div>
 
@@ -537,16 +507,12 @@ export const MapScreen: React.FC<MapScreenProps> = ({
       {/* Floating "You Are Here" Location Indicator (Bottom Right) */}
       <div className="absolute bottom-4 right-4 z-20 pointer-events-auto">
         <LocationIndicator
-          accuracy={8}
-          isHighAccuracy={true}
-          lastUpdated={new Date()}
-          latitude={userLocation.lat}
-          longitude={userLocation.lng}
+          locationState={locationState}
           onRecenter={() => {
             if (onAddToast) {
               onAddToast(
-                'Centered on GPS Fix',
-                'Map viewpoint centered on your live coordinates',
+                'Centered on Map View',
+                'Map viewpoint centered',
                 'info'
               );
             }
@@ -555,7 +521,7 @@ export const MapScreen: React.FC<MapScreenProps> = ({
             if (onAddToast) {
               onAddToast(
                 'Location Shared',
-                `Your current GPS location (${userLocation.lat.toFixed(4)}°, ${userLocation.lng.toFixed(4)}°) broadcasted via mesh radio.`,
+                `Location broadcasted via mesh radio.`,
                 'info'
               );
             }

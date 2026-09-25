@@ -3,15 +3,14 @@
  * Generates actionable, loop-based field exploration routes based on nearby unexplored streets and useful POIs.
  */
 
-import { GeoPoint, Street, Poi } from '../../../types';
-import { streetDiscoveryService } from './streetDiscoveryService';
-import { TALLINN_POIS } from './poiData';
+import { GeoPoint, Street, MapPlace } from '../../../types';
+import { mapRepository } from '../data/repository';
 import { haversineDistanceMeters } from '../../../geo/projection';
 
 export interface FieldWalkStop {
   id: string;
   name: string;
-  type: 'street' | 'poi' | 'start' | 'home';
+  type: 'street' | 'place' | 'start' | 'home';
   location: GeoPoint;
   category?: string;
   actionInstruction: string;
@@ -25,7 +24,7 @@ export interface FieldWalkRoute {
   estimatedTimeMinutes: number;
   stops: FieldWalkStop[];
   unexploredStreets: Street[];
-  suggestedPois: Poi[];
+  suggestedPlaces: MapPlace[];
   fieldcraftRewards: {
     streetsToDiscover: number;
     placesToFind: number;
@@ -36,9 +35,9 @@ export interface FieldWalkRoute {
 export function generateFieldWalkRoute(
   startLoc: GeoPoint = { lat: 59.4370, lng: 24.7535 }
 ): FieldWalkRoute {
-  const allStreets = streetDiscoveryService.getStreets();
-  const sLat = startLoc.lat ?? startLoc.latitude ?? 59.4370;
-  const sLng = startLoc.lng ?? startLoc.longitude ?? 24.7535;
+  const allStreets = mapRepository.getAllStreets();
+  const sLat = startLoc.lat;
+  const sLng = startLoc.lng;
   const safeStart: GeoPoint = { lat: sLat, lng: sLng };
   
   // 1. Sort unexplored or partially explored streets by distance from start
@@ -46,22 +45,16 @@ export function generateFieldWalkRoute(
     .filter((s) => (s.exploredPercent || 0) < 100)
     .map((s) => {
       const firstPt: GeoPoint = { lat: s.geometry.coordinates[0][1], lng: s.geometry.coordinates[0][0] };
-      const dist = haversineDistanceMeters(sLat, sLng, firstPt.lat!, firstPt.lng!);
+      const dist = haversineDistanceMeters(sLat, sLng, firstPt.lat, firstPt.lng);
       return { street: s, distanceMeters: dist, firstPt };
     })
     .sort((a, b) => a.distanceMeters - b.distanceMeters);
 
   const selectedStreets = candidateStreets.slice(0, 3).map((c) => c.street);
 
-  // 2. Find nearby useful POIs (Hardware, Shelter, Library, Permaculture, Reuse)
-  const candidatePois = TALLINN_POIS.map((poi) => {
-    const pLat = poi.location.lat ?? poi.location.latitude ?? 59.4370;
-    const pLng = poi.location.lng ?? poi.location.longitude ?? 24.7535;
-    const dist = haversineDistanceMeters(sLat, sLng, pLat, pLng);
-    return { poi, distanceMeters: dist };
-  }).sort((a, b) => a.distanceMeters - b.distanceMeters);
-
-  const selectedPois = candidatePois.slice(0, 2).map((c) => c.poi);
+  // 2. Find nearby useful places from mapRepository
+  const nearbyPlaces = mapRepository.getNearbyPlaces(startLoc, 3000);
+  const selectedPlaces = nearbyPlaces.slice(0, 2);
 
   // 3. Build ordered stops loop: START -> Street 1 -> POI 1 -> Street 2 -> Street 3 -> HOME
   const stops: FieldWalkStop[] = [
@@ -85,15 +78,15 @@ export function generateFieldWalkRoute(
     });
   }
 
-  if (selectedPois[0]) {
-    const p1 = selectedPois[0];
+  if (selectedPlaces[0]) {
+    const p1 = selectedPlaces[0];
     stops.push({
       id: `stop_${p1.id}`,
       name: p1.name,
-      type: 'poi',
-      category: p1.category,
+      type: 'place',
+      category: p1.mainCategory,
       location: p1.location,
-      actionInstruction: `Verify place: ${p1.description || p1.address || 'Field POI'}`,
+      actionInstruction: `Verify place: ${p1.description || p1.address || 'Field Place'}`,
     });
   }
 
@@ -148,10 +141,10 @@ export function generateFieldWalkRoute(
     estimatedTimeMinutes: Math.max(15, estimatedTimeMinutes),
     stops,
     unexploredStreets: selectedStreets,
-    suggestedPois: selectedPois,
+    suggestedPlaces: selectedPlaces,
     fieldcraftRewards: {
       streetsToDiscover: selectedStreets.length,
-      placesToFind: selectedPois.length,
+      placesToFind: selectedPlaces.length,
       distanceKm: Math.max(1.2, totalDistanceKm),
     },
   };

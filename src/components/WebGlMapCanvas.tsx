@@ -201,7 +201,7 @@ export const WebGlMapCanvas: React.FC<WebGlMapCanvasExtendedProps> = React.memo(
     const targetZoom = Math.log2(scale) + 13;
 
     mapInstance.flyTo({
-      center: [geo.longitude, geo.latitude],
+      center: [geo.lng, geo.lat],
       zoom: targetZoom,
       duration: 1200,
     });
@@ -226,7 +226,7 @@ export const WebGlMapCanvas: React.FC<WebGlMapCanvasExtendedProps> = React.memo(
         const activeCityId = props.cityId || DEFAULT_CITY_ID;
         const centerCoordsText = CITY_MAPS[activeCityId]?.centerCoordsText || CITY_MAPS[DEFAULT_CITY_ID]?.centerCoordsText || '59.4370° N, 24.7535° E';
         const geo = localGridToGeoPoint(pos.x, pos.y, centerCoordsText);
-        mapInstance.flyTo({ center: [geo.longitude, geo.latitude], zoom: 15, duration: 1000 });
+        mapInstance.flyTo({ center: [geo.lng, geo.lat], zoom: 15, duration: 1000 });
       }
     }
   };

@@ -589,8 +589,8 @@ export const RAW_HOIMU_COMMUNITY_PLACES: RawHoimuObservationRecord[] = [
     address: 'Mäekalda 2, Kadriorg',
     observedByNodes: 2,
     lastConfirmed: '2026-09-25 (Today)',
-    description: '400W Off-grid solar array with 1.2kWh LiFePO4 battery bank. Offers 5V USB-C emergency phone charging ports and HÕIMU packet relay.',
-    tags: { solar_capacity: '400W', battery: 'LiFePO4_1200Wh' },
+    description: 'Off-grid autonomous solar and LoRa relay station with emergency device charging ports.',
+    tags: {},
   },
 ];
 
@@ -678,7 +678,7 @@ export function buildCanonicalMapPlaces(): MapPlace[] {
           ? `Discrepancy identified between ${auth.sourceName} and OpenStreetMap community tags (${discrepancies.length} field variance)`
           : undefined,
         discrepancies: hasMismatch ? discrepancies : undefined,
-        provenanceStatus: hasMismatch ? 'mismatch' : 'official',
+        provenanceStatus: hasMismatch ? 'conflict' : 'official',
         snapshotDate: auth.snapshotDate,
         updatedDaysAgo: osmMatch.updatedDaysAgo,
         address: auth.address,
@@ -722,7 +722,7 @@ export function buildCanonicalMapPlaces(): MapPlace[] {
       source: 'osm',
       sourceName: 'OpenStreetMap (OSM Vector Snapshot)',
       sourceId: osm.osmId,
-      provenanceStatus: 'verified',
+      provenanceStatus: 'osm',
       updatedDaysAgo: osm.updatedDaysAgo,
       snapshotDate: '2026-09-15',
       address: osm.address,

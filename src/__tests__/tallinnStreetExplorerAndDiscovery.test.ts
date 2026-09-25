@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { streetDiscoveryService } from '../features/map/streets/streetDiscoveryService';
 import { generateFieldWalkRoute } from '../features/map/streets/streetWalkGenerator';
-import { TALLINN_POIS } from '../features/map/streets/poiData';
+import { mapRepository } from '../features/map/data/repository';
 import { getTallinnStreets } from '../features/map/streets/streetData';
 
 describe('Tallinn Street Explorer, Discovery & Field Walk Engine', () => {
@@ -25,14 +25,15 @@ describe('Tallinn Street Explorer, Discovery & Field Walk Engine', () => {
     });
 
     it('loads authentic Tallinn POIs with GeoPoint location coordinates', () => {
-      expect(TALLINN_POIS.length).toBeGreaterThanOrEqual(8);
+      const places = mapRepository.getAllPlaces();
+      expect(places.length).toBeGreaterThanOrEqual(8);
 
-      const hardware = TALLINN_POIS.find((p) => p.category === 'hardware' || p.category === 'tools');
+      const hardware = places.find((p) => p.mainCategory === 'tools' || p.subCategory === 'hardware');
       expect(hardware).toBeDefined();
       expect(hardware?.location.lat).toBeGreaterThan(59.0);
       expect(hardware?.location.lng).toBeGreaterThan(24.0);
 
-      const shelter = TALLINN_POIS.find((p) => p.category === 'shelter');
+      const shelter = places.find((p) => p.mainCategory === 'safety' && p.subCategory === 'shelter');
       expect(shelter).toBeDefined();
       expect(shelter?.source).toBe('paasteamet');
     });
@@ -54,16 +55,16 @@ describe('Tallinn Street Explorer, Discovery & Field Walk Engine', () => {
     });
 
     it('validates and discovers street segments when user has high-accuracy GPS on street', () => {
-      // First fix along Narva mnt start
+      // First fix along Narva mnt start (establishes trace point 1)
       const fix1 = streetDiscoveryService.processGPSFix({
         lat: 59.4368,
         lng: 24.7548,
         accuracyMeters: 8,
         timestamp: Date.now(),
       });
-      expect(fix1.length).toBeGreaterThanOrEqual(1);
+      expect(fix1.length).toBe(0); // Need trace evidence (at least 2 points)
 
-      // Second fix after moving 40m along the street
+      // Second fix after moving 40m along the street (establishes trace point 2)
       const fix2 = streetDiscoveryService.processGPSFix({
         lat: 59.4372,
         lng: 24.7570,
@@ -71,6 +72,7 @@ describe('Tallinn Street Explorer, Discovery & Field Walk Engine', () => {
         timestamp: Date.now() + 5000,
       });
 
+      expect(fix2.length).toBeGreaterThanOrEqual(1);
       const narva = streetDiscoveryService.getStreetById('narva_mnt');
       expect(narva?.exploredPercent).toBeGreaterThan(0);
     });

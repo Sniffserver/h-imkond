@@ -1,10 +1,11 @@
 /**
- * Segment-Based Street Discovery Engine with GPS Validation Guardrails
+ * Segment-Based Street Discovery Engine with GPS Trace & Movement Validation
  * 
  * Rules:
  * - Minimum GPS accuracy <= 35 meters
  * - Maximum orthogonal distance from segment <= 25 meters
  * - Minimum continuous movement along street segment >= 15 meters
+ * - Trace evidence requirement: at least 2 consecutive valid GPS trace points near segment (P1 -> P2)
  * - Prevents indoor drift / static GPS errors from triggering false discoveries
  */
 
@@ -39,17 +40,16 @@ export type DiscoveryListener = (result: DiscoveryResult) => void;
  * Calculates shortest distance from point P to line segment AB in meters.
  */
 function distancePointToSegmentMeters(p: GeoPoint, a: GeoPoint, b: GeoPoint): number {
-  const pLat = p.lat ?? p.latitude ?? 0;
-  const pLng = p.lng ?? p.longitude ?? 0;
-  const aLat = a.lat ?? a.latitude ?? 0;
-  const aLng = a.lng ?? a.longitude ?? 0;
-  const bLat = b.lat ?? b.latitude ?? 0;
-  const bLng = b.lng ?? b.longitude ?? 0;
+  const pLat = p.lat;
+  const pLng = p.lng;
+  const aLat = a.lat;
+  const aLng = a.lng;
+  const bLat = b.lat;
+  const bLng = b.lng;
 
   const l2 = haversineDistanceMeters(aLat, aLng, bLat, bLng);
   if (l2 === 0) return haversineDistanceMeters(pLat, pLng, aLat, aLng);
 
-  // Parameter t of projection onto line segment
   const dx = bLng - aLng;
   const dy = bLat - aLat;
   const t = Math.max(0, Math.min(1, ((pLng - aLng) * dx + (pLat - aLat) * dy) / (dx * dx + dy * dy)));
@@ -64,6 +64,8 @@ export class StreetDiscoveryService {
   private discoveredSegmentIds: Set<string> = new Set();
   private listeners: Set<DiscoveryListener> = new Set();
   private lastValidFix: GPSFix | null = null;
+  private recentTrace: GPSFix[] = [];
+  private static MAX_TRACE_POINTS = 5;
 
   private constructor() {
     this.loadFromStorage();
@@ -149,11 +151,11 @@ export class StreetDiscoveryService {
   }
 
   /**
-   * Evaluates a real GPS position against Tallinn street segments with guardrails.
+   * Evaluates a real GPS trace against Tallinn street segments with rigorous trace evidence validation.
    */
   public processGPSFix(fix: GPSFix): StreetSegment[] {
-    // 1. Guardrail: reject poor accuracy (e.g. indoors or cell-tower triangulations > 35m)
-    if (fix.accuracyMeters && fix.accuracyMeters > GPS_MAX_ACCURACY_METERS) {
+    // 1. Guardrail: reject poor accuracy (> 35m)
+    if (fix.accuracyMeters !== undefined && fix.accuracyMeters > GPS_MAX_ACCURACY_METERS) {
       return [];
     }
 
@@ -171,7 +173,18 @@ export class StreetDiscoveryService {
     }
 
     this.lastValidFix = fix;
-    const currentPoint: GeoPoint = { lat: fix.lat, lng: fix.lng };
+
+    // Append to trace buffer (P1 -> P2 -> P3)
+    this.recentTrace.push(fix);
+    if (this.recentTrace.length > StreetDiscoveryService.MAX_TRACE_POINTS) {
+      this.recentTrace.shift();
+    }
+
+    // Require at least 2 trace points as real trace evidence before confirming segment
+    if (this.recentTrace.length < 2) {
+      return [];
+    }
+
     const streets = this.getStreets();
     const newlyDiscovered: StreetSegment[] = [];
 
@@ -179,9 +192,17 @@ export class StreetDiscoveryService {
       for (const segment of street.segments || []) {
         if (this.discoveredSegmentIds.has(segment.id)) continue;
 
-        // 3. Guardrail: check distance from segment
-        const dist = distancePointToSegmentMeters(currentPoint, segment.start, segment.end);
-        if (dist <= SEGMENT_PROXIMITY_METERS) {
+        // 3. Trace evidence check: verify that multiple points in the trace intersect segment proximity
+        let intersectingPointsCount = 0;
+        for (const pt of this.recentTrace) {
+          const dist = distancePointToSegmentMeters({ lat: pt.lat, lng: pt.lng }, segment.start, segment.end);
+          if (dist <= SEGMENT_PROXIMITY_METERS) {
+            intersectingPointsCount++;
+          }
+        }
+
+        // Require trace evidence (at least 2 points intersecting segment proximity)
+        if (intersectingPointsCount >= 2) {
           this.discoveredSegmentIds.add(segment.id);
           segment.discoveryState = 'discovered';
           segment.discoveredAt = fix.timestamp || Date.now();
@@ -198,9 +219,6 @@ export class StreetDiscoveryService {
     return newlyDiscovered;
   }
 
-  /**
-   * Manually explore a street or segment (used for unit tests and manual field tagging)
-   */
   public markSegmentDiscovered(segmentId: string): boolean {
     if (!this.discoveredSegmentIds.has(segmentId)) {
       this.discoveredSegmentIds.add(segmentId);
@@ -214,6 +232,7 @@ export class StreetDiscoveryService {
   public resetForTesting(): void {
     this.discoveredSegmentIds.clear();
     this.lastValidFix = null;
+    this.recentTrace = [];
     this.saveToStorage();
     this.notify();
   }

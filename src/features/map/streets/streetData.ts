@@ -6,7 +6,7 @@
 import { Street, StreetSegment, GeoPoint } from '../../../types';
 import { haversineDistanceMeters } from '../../../geo/projection';
 
-function generateSegments(streetId: string, coords: [number, number][], discoveredIds: Set<string>): { segments: StreetSegment[]; totalMeters: number; exploredPercent: number } {
+function generateSegments(streetId: string, coords: [number, number][], discoveredIds: Set<string>): { segments: StreetSegment[]; totalMeters: number; discoveredMeters: number; exploredPercent: number } {
   const segments: StreetSegment[] = [];
   let totalMeters = 0;
   let discoveredMeters = 0;
@@ -34,7 +34,7 @@ function generateSegments(streetId: string, coords: [number, number][], discover
   }
 
   const exploredPercent = totalMeters > 0 ? Math.round((discoveredMeters / totalMeters) * 100) : 0;
-  return { segments, totalMeters, exploredPercent };
+  return { segments, totalMeters, discoveredMeters, exploredPercent };
 }
 
 export const RAW_TALLINN_STREETS: Array<{
@@ -252,7 +252,7 @@ export const RAW_TALLINN_STREETS: Array<{
 
 export function getTallinnStreets(discoveredSegmentIds: Set<string> = new Set()): Street[] {
   return RAW_TALLINN_STREETS.map((raw) => {
-    const { segments, totalMeters, exploredPercent } = generateSegments(raw.id, raw.coordinates, discoveredSegmentIds);
+    const { segments, totalMeters, discoveredMeters, exploredPercent } = generateSegments(raw.id, raw.coordinates, discoveredSegmentIds);
     return {
       id: raw.id,
       name: raw.name,
@@ -261,6 +261,7 @@ export function getTallinnStreets(discoveredSegmentIds: Set<string> = new Set())
       walkable: raw.walkable,
       bicycle: raw.bicycle,
       lengthMeters: totalMeters,
+      discoveredMeters,
       exploredPercent,
       segments,
       geometry: {

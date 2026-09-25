@@ -60,7 +60,7 @@ export interface SymbiosisWeeklyPoint {
 // CANONICAL GEOGRAPHIC DOMAIN MODEL (HÕIMU Explore — One Coordinate System)
 // =========================================================================
 
-export type GeoPoint = {
+export interface GeoPoint {
   lat?: number;
   lng?: number;
   latitude?: number;
@@ -68,7 +68,32 @@ export type GeoPoint = {
   timestamp?: number;
   altitude?: number;
   accuracy?: number;
-};
+}
+
+export interface GeoFix extends GeoPoint {
+  accuracyMeters: number;
+  timestamp: number;
+  altitudeMeters?: number;
+  speedMps?: number;
+  headingDeg?: number;
+}
+
+export type LocationState =
+  | {
+      status: 'live';
+      position: GeoPoint;
+      accuracyMeters: number;
+      timestamp: number;
+    }
+  | {
+      status: 'stale';
+      position: GeoPoint;
+      accuracyMeters: number;
+      timestamp: number;
+    }
+  | {
+      status: 'unavailable';
+    };
 
 export type GeoLineString = {
   coordinates: [number, number][]; // [lng, lat] GeoJSON format
@@ -82,7 +107,8 @@ export type DataSource =
   | 'hoimu'
   | 'sensor'
   | 'derived'
-  | 'community';
+  | 'community'
+  | 'fixture';
 
 export interface DataDiscrepancy {
   sourceA: string;
@@ -119,6 +145,7 @@ export interface Street {
   bicycle: boolean;
   access?: string;
   lengthMeters?: number;
+  discoveredMeters?: number;
   exploredPercent?: number;
   segments?: StreetSegment[];
   district?: string;
@@ -225,7 +252,14 @@ export interface MapPlace {
   hasMismatch?: boolean;
   mismatchDetails?: string;
   discrepancies?: DataDiscrepancy[];
-  provenanceStatus: 'official' | 'community' | 'verified' | 'sensor' | 'mismatch';
+  provenanceStatus:
+    | 'official'
+    | 'osm'
+    | 'community'
+    | 'observed'
+    | 'derived'
+    | 'conflict'
+    | 'unknown';
   observedByNodes?: number;
   lastConfirmed?: string;
   snapshotDate?: string;
@@ -413,6 +447,7 @@ export interface ResourceItem {
   category: ResourceCategory;
   type?: 'offer' | 'request';
   imageUrl?: string;
+  location?: GeoPoint;
   coordinates?: { x: number; y: number; name?: string };
   distanceKm: number;
   createdAt: number;
@@ -799,8 +834,10 @@ export interface WifiSpot {
   rssi: number;         // signaali tugevus dBm
   signalDbm?: number;   // alias for rssi in some visualizations
   security: 'open' | 'wpa' | 'wpa2' | 'wpa3';
-  latitude: number;
-  longitude: number;
+  lat?: number;
+  lng?: number;
+  latitude?: number;
+  longitude?: number;
   firstSeenAt: number;
   lastSeenAt: number;
   walkSessionId: string;
@@ -815,8 +852,10 @@ export interface BluetoothSpot {
   address: string;      // MAC
   rssi: number;
   deviceClass?: string; // nt telefon, sülearvuti, sensor, beacon, survivor_tag
-  latitude: number;
-  longitude: number;
+  lat?: number;
+  lng?: number;
+  latitude?: number;
+  longitude?: number;
   firstSeenAt: number;
   lastSeenAt: number;
   walkSessionId: string;
@@ -831,8 +870,10 @@ export interface LoraNode {
   rssi: number;
   snr: number;          // signaali-müra suhe
   frequency: number;    // MHz
-  latitude: number;
-  longitude: number;
+  lat?: number;
+  lng?: number;
+  latitude?: number;
+  longitude?: number;
   lastHeardAt: number;
   firstSeenAt?: number;
   walkSessionId?: string;

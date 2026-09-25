@@ -544,8 +544,8 @@ export const PathfinderTab: React.FC<PathfinderTabProps> = ({
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-[#588157] animate-ping" />
             <span className="font-mono opacity-80">
-              GPS: {scannerState.currentLocation?.latitude.toFixed(5)}°,{' '}
-              {scannerState.currentLocation?.longitude.toFixed(5)}°
+              GPS: {scannerState.currentLocation?.lat.toFixed(5)}°,{' '}
+              {scannerState.currentLocation?.lng.toFixed(5)}°
             </span>
             <span className="text-[10px] opacity-60">
               ({scannerState.isSimulatingWalk ? 'Simuleeritud rada' : 'Seadme GPS'})
