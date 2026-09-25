@@ -47,6 +47,7 @@ import { backgroundSyncAdjuster } from '../services/mesh/backgroundSyncAdjuster'
 import { initMessageStorage } from '../services/comms/messageService';
 import { initSosService } from '../services/utils/sosService';
 import { signCanonicalPayload } from '../core/identity';
+import { createDomainCommands, DomainCommands } from '../core/commands/domainCommands';
 
 export interface UseAppDomainStateProps {
   addToast: (title: string, description?: string, type?: ToastMessage['type']) => void;
@@ -942,6 +943,43 @@ export function useAppDomainState({ addToast, isWishlistOpen }: UseAppDomainStat
     addToast('✓ Key Imported', `Active identity set to ${imported.publicKey.slice(0, 16)}...`, 'success');
   }, [addToast]);
 
+  // Domain Commands Architecture (Requirement 8)
+  const domainCommands = useMemo<DomainCommands>(() => {
+    return createDomainCommands({
+      onQuickAddResource: handleQuickAddResource,
+      onRequestExchange: handleRequestExchange,
+      onSaveReflection: (res, text, sentiment) => handleSaveReflection(res, text, sentiment),
+      getResources: () => resources,
+      onSendMessage: handleSendMessage,
+      onBlockPeer: (peerId) => {
+        setPeers(prev => prev.map(p => p.id === peerId ? { ...p, trustLevel: 'blocked' as any } : p));
+        addToast('Peer Blocked', `Traffic from ${peerId} will be dropped.`, 'info');
+      },
+      onUnblockPeer: (peerId) => {
+        setPeers(prev => prev.map(p => p.id === peerId ? { ...p, trustLevel: 'unverified' as any } : p));
+        addToast('Peer Unblocked', `${peerId} unblocked.`, 'info');
+      },
+      onAddCalendarEvent: handleAddCalendarEvent,
+      onToggleRsvp: handleToggleRsvp,
+      onCreateProposal: handleCreateProposal,
+      onVoteProposal: handleVoteProposal,
+      onEndorseTransaction: handleEndorseTransaction,
+    });
+  }, [
+    handleQuickAddResource,
+    handleRequestExchange,
+    handleSaveReflection,
+    resources,
+    handleSendMessage,
+    setPeers,
+    addToast,
+    handleAddCalendarEvent,
+    handleToggleRsvp,
+    handleCreateProposal,
+    handleVoteProposal,
+    handleEndorseTransaction,
+  ]);
+
   return {
     user,
     setUser,
@@ -980,7 +1018,10 @@ export function useAppDomainState({ addToast, isWishlistOpen }: UseAppDomainStat
     activeWishlistMatches,
     activeWishlistMatchesCount,
 
-    // Actions
+    // Domain Commands (Requirement 8)
+    domainCommands,
+
+    // Actions (Backwards-compatible)
     handleExportLocalDataJSON,
     handleAddCalendarEvent,
     handleToggleRsvp,

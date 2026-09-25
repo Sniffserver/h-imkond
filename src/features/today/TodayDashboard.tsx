@@ -20,6 +20,7 @@ import {
 import { MeshNode, ResourceItem, UserProfile, DaoProposal, NavTab, BatteryManagerStatus } from '../../types';
 import { TechTooltip } from '../../components/TechTooltip';
 import { EmptyState } from '../../components/EmptyState';
+import { CampfireNodeHero } from '../../components/CampfireNodeHero';
 
 interface TodayDashboardProps {
   user: UserProfile;
@@ -62,46 +63,16 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
 
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
-      {/* 1. Daily Loop Greeting & System Status Banner */}
-      <section
-        aria-labelledby="today-greeting-title"
-        className={`p-5 sm:p-6 rounded-3xl border transition-all shadow-xs ${
-          isNightMode
-            ? 'bg-[#182315] border-[#2A3B26] text-[#F0F5EE]'
-            : 'bg-white border-[#87A878]/30 text-[#203A2A]'
-        }`}
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#2A9D8F]/15 text-[#2A9D8F] border border-[#2A9D8F]/30">
-              <span className="w-2 h-2 rounded-full bg-[#2A9D8F] animate-pulse" />
-              <span>
-                <TechTooltip termKey="mesh">Nearby network active</TechTooltip>
-              </span>
-            </div>
-            <h1
-              id="today-greeting-title"
-              className="text-xl sm:text-2xl font-display font-bold tracking-tight text-[#203A2A] dark:text-[#F0F5EE]"
-            >
-              {getGreeting()}, {user.callsign}
-            </h1>
-            <p className="text-xs sm:text-sm text-[#637062] dark:text-[#A8BDA5] max-w-lg">
-              Here is your off-grid community summary for today. Your device is connected directly to nearby neighbors.
-            </p>
-          </div>
-
-          {/* Quick Telemetry Glance */}
-          <div className="flex items-center gap-2 self-start sm:self-center">
-            <div
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono bg-[#588157]/10 border border-[#588157]/25 text-[#588157] dark:text-[#87A878]"
-              title="Community contribution score"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Score: {user.symbiosisScore}</span>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* 1. The Living Campfire Node Hero */}
+      <CampfireNodeHero
+        user={user}
+        peers={peers}
+        batteryStatus={batteryStatus}
+        isNightMode={isNightMode}
+        onNavigateTab={onNavigateTab}
+        onOpenQuickAdd={onOpenQuickAdd}
+        onOpenChatWithPeer={onOpenChatWithPeer}
+      />
 
       {/* 2. Primary 4-Action Navigation Shortcuts */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -176,7 +147,7 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
 
         <button
           type="button"
-          onClick={() => onNavigateTab('sos')}
+          onClick={() => onNavigateTab('exchange')}
           className={`p-4 rounded-2xl border text-left transition-all active:scale-98 cursor-pointer flex flex-col justify-between min-h-[105px] group ${
             isNightMode
               ? 'bg-[#182315] hover:bg-[#223120] border-[#2A3B26]'
@@ -188,11 +159,11 @@ export const TodayDashboard: React.FC<TodayDashboardProps> = ({
           </div>
           <div>
             <div className="text-xs font-bold text-[#203A2A] dark:text-[#F0F5EE] flex items-center justify-between">
-              <span>Safety & SOS</span>
+              <span>Mutual Aid</span>
               <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
             <span className="text-[11px] text-[#637062] dark:text-[#A8BDA5]">
-              Emergency alerts
+              Exchange & requests
             </span>
           </div>
         </button>

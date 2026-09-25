@@ -15,6 +15,18 @@ export type TransactionStatus = 'pending' | 'active' | 'completed';
 
 export type ConnectionState = 'direct' | 'relayed' | 'store_forward';
 
+export type PrimarySection = 'now' | 'explore' | 'connect' | 'exchange' | 'more';
+
+export type Screen = 
+  | 'home'
+  | 'map'
+  | 'messages'
+  | 'resources'
+  | 'journal'
+  | 'profile'
+  | 'settings'
+  | 'diagnostics';
+
 export type NavTab = 
   | 'today'
   | 'home' 
@@ -274,18 +286,21 @@ export interface TrustEndorsement {
 }
 
 export interface CrisisAlert {
-  id: string;
+  // === Canonical Crisis Alert Model (Requirement 4) ===
+  id?: string;
+  type: 'Medical' | 'Power Outage' | 'Search & Rescue' | 'Flood' | 'Fire' | 'General' | 'Other' | 'medical' | 'power' | string;
+  severity: 'Critical' | 'Urgent' | 'Info' | 'High' | 'Moderate' | string;
+  message: string;
+  timestamp?: number;
+  location?: { lat: number; lng: number; name?: string } | string;
+  isResolved?: boolean;
   authorCallsign?: string;
   senderCallsign?: string;
-  alertType?: 'medical' | 'power_outage' | 'flood' | 'fire' | 'search_rescue' | 'general';
-  type?: 'Medical' | 'Power Outage' | 'Search & Rescue' | 'Flood' | 'Fire' | 'Other' | 'medical' | 'power' | 'shelter' | 'evacuation' | 'comms' | 'general';
-  severity?: 'Critical' | 'Urgent' | 'Info' | 'critical' | 'urgent' | 'warning' | 'Moderate' | 'High';
-  message: string;
-  timestamp: number;
-  locationName?: string;
-  location?: string;
   radioChannel?: string;
-  isResolved?: boolean;
+
+  // Compatibility getters/aliases
+  alertType?: string;
+  locationName?: string;
   resolved?: boolean;
 }
 
@@ -332,30 +347,31 @@ export interface MeshMessageEnvelope {
 }
 
 export interface MeshMessage {
+  // === Canonical Mesh Message Model (Requirement 4) ===
   id: string;
-  from: string; // callsign
-  to: string;   // callsign
-  content: string; // encrypted base64 envelope or payload
-  timestamp: number;
-  ttl: number;  // hops remaining
-  signature: string;
+  from: string;               // NodeId / Callsign (e.g. "TAL-01")
+  to: string;                 // NodeId / Callsign or "*" for broadcast
+  text?: string;              // Decrypted message text
+  timestamp: number;          // Creation epoch timestamp (ms)
+  status?: 'pending' | 'sent' | 'delivered' | 'read' | 'failed' | 'queued';
+  ttl?: number;               // Remaining hop budget
+  signature?: string;         // Ed25519 signature
 
-  // Modern dual-key E2EE envelope metadata
+  // E2EE Envelope
   envelope?: MeshMessageEnvelope;
   ephemeralPublicKey?: string;
   nonce?: string;
   senderIdentityKey?: string;
 
-  // Optional convenience fields for backwards compatibility and local UI display
+  // Compatibility getters/aliases
+  content?: string;
+  decryptedText?: string;
   senderId?: string;
   senderCallsign?: string;
-  recipientId?: string; // 'broadcast' or node id
+  recipientId?: string;
   recipientCallsign?: string;
-  text?: string; // decrypted or plaintext content for UI display
-  decryptedText?: string;
   rssi?: number;
   hopCount?: number;
-  status?: 'pending' | 'delivered' | 'failed' | 'queued';
   isCrisisAlert?: boolean;
   isRead?: boolean;
   isIncoming?: boolean;
@@ -441,6 +457,64 @@ export interface DaoProposal {
   crdtHash?: string;
   executionProof?: string;
   executedAt?: number;
+}
+
+// Canonical Wire & Storage Packet Model (Requirement 3)
+export type PacketId = string;
+export type NodeId = string;
+export type Broadcast = '*';
+
+export interface PacketFlags {
+  isEncrypted?: boolean;
+  isPriority?: boolean;
+  ackRequested?: boolean;
+  isCompressed?: boolean;
+}
+
+export type PacketType =
+  | 'MESSAGE'
+  | 'CRDT_SYNC'
+  | 'PEER_ANNOUNCE'
+  | 'SOS'
+  | 'PING'
+  | 'PONG'
+  | 'ACK'
+  | 'ROUTING_UPDATE';
+
+export interface MeshPacket<T = any> {
+  id: PacketId;
+  origin: NodeId;
+  destination: NodeId | Broadcast;
+  sequence: number;
+
+  createdAt: number;
+  expiresAt: number;
+
+  ttl: number;
+  hop: number;
+
+  type: PacketType;
+  flags: PacketFlags;
+
+  payload: T;
+  signature: Uint8Array | string;
+
+  // Physical bearer / diagnostic metadata
+  transportMeta?: {
+    originTransport?: string;
+    rssi?: number;
+    snr?: number;
+    frequencyMhz?: number;
+  };
+
+  // Boundary compatibility aliases
+  packetId?: PacketId;
+  originId?: NodeId;
+  destinationId?: NodeId | Broadcast;
+  senderId?: NodeId;
+  senderCallsign?: string;
+  targetId?: NodeId | Broadcast;
+  targetCallsign?: string;
 }
 
 // Network Diagnostics Telemetry Types

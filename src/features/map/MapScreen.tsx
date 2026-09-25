@@ -103,7 +103,8 @@ export const MapScreen: React.FC<MapScreenProps> = ({
   const [engineState, setEngineState] = useState<MapEngineState>(controller.getState());
   const [showMetricsPanel, setShowMetricsPanel] = useState(false);
   const [currentZoom, setCurrentZoom] = useState<number>(13.5);
-  const [mapDisplayMode, setMapDisplayMode] = useState<'d3_resources' | 'mesh_topology' | 'coverage_placement' | 'vector'>('d3_resources');
+  // Canonical MapLibre + PMTiles Vector Cartography is default (Requirement 9 & 10)
+  const [mapDisplayMode, setMapDisplayMode] = useState<'d3_resources' | 'mesh_topology' | 'coverage_placement' | 'vector'>('vector');
   const [activeLayers, setActiveLayers] = useState<ActiveLayerStates>({
     peers: true,
     resources: true,

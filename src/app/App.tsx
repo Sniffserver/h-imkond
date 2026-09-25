@@ -24,6 +24,8 @@ import { useHighTrustProximityNotifier } from '../hooks/useHighTrustProximityNot
 import { soundFeedback } from '../services/utils/soundFeedback';
 import { stringResource, R } from '../utils/stringResource';
 import { getSafeLocalStorage, setSafeLocalStorage, setSecureLocalStorage } from '../utils/localStorageValidator';
+import { AppOverlay } from '../types/overlay';
+import { PersistentSosTrigger } from '../components/PersistentSosTrigger';
 import { Plus } from 'lucide-react';
 
 export function AppContent() {
@@ -51,20 +53,48 @@ export function AppContent() {
   const [activeTab, setActiveTab] = useState<NavTab>('today');
   const [filterOnlyNewMap, setFilterOnlyNewMap] = useState(false);
 
-  // Modals Visibility & Floating States
-  const [isWishlistOpen, setIsWishlistOpen] = useState(false);
-  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+  // Unified Modal Overlay Router State (Requirement 7)
+  const [overlay, setOverlay] = useState<AppOverlay>({ type: 'none' });
+
+  // Modals Visibility & Floating States (Backwards-compatible convenience bindings)
+  const isWishlistOpen = overlay.type === 'wishlist';
+  const setIsWishlistOpen = (open: boolean) => setOverlay(open ? { type: 'wishlist' } : { type: 'none' });
+
+  const isQuickAddOpen = overlay.type === 'quick-add';
+  const setIsQuickAddOpen = (open: boolean) => setOverlay(open ? { type: 'quick-add' } : { type: 'none' });
+
   const [isToolsModalOpen, setIsToolsModalOpen] = useState(false);
-  const [isDaoModalOpen, setIsDaoModalOpen] = useState(false);
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [isSkillsOpen, setIsSkillsOpen] = useState(false);
-  const [isTrustOpen, setIsTrustOpen] = useState(false);
-  const [isManualOpen, setIsManualOpen] = useState(false);
-  const [isSecurityKeysOpen, setIsSecurityKeysOpen] = useState(false);
-  const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
-  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
-  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
-  const [isBackupPromptOpen, setIsBackupPromptOpen] = useState(false);
+
+  const isDaoModalOpen = overlay.type === 'dao';
+  const setIsDaoModalOpen = (open: boolean) => setOverlay(open ? { type: 'dao' } : { type: 'none' });
+
+  const isCalendarOpen = overlay.type === 'calendar';
+  const setIsCalendarOpen = (open: boolean) => setOverlay(open ? { type: 'calendar' } : { type: 'none' });
+
+  const isSkillsOpen = overlay.type === 'skills';
+  const setIsSkillsOpen = (open: boolean) => setOverlay(open ? { type: 'skills' } : { type: 'none' });
+
+  const isTrustOpen = overlay.type === 'trust';
+  const setIsTrustOpen = (open: boolean) => setOverlay(open ? { type: 'trust' } : { type: 'none' });
+
+  const isManualOpen = overlay.type === 'manual';
+  const setIsManualOpen = (open: boolean) => setOverlay(open ? { type: 'manual' } : { type: 'none' });
+
+  const isSecurityKeysOpen = overlay.type === 'settings';
+  const setIsSecurityKeysOpen = (open: boolean) => setOverlay(open ? { type: 'settings' } : { type: 'none' });
+
+  const isDiagnosticsOpen = overlay.type === 'diagnostics';
+  const setIsDiagnosticsOpen = (open: boolean) => setOverlay(open ? { type: 'diagnostics' } : { type: 'none' });
+
+  const isCommandPaletteOpen = overlay.type === 'command-palette';
+  const setIsCommandPaletteOpen = (open: boolean) => setOverlay(open ? { type: 'command-palette' } : { type: 'none' });
+
+  const isShortcutsOpen = overlay.type === 'shortcuts';
+  const setIsShortcutsOpen = (open: boolean) => setOverlay(open ? { type: 'shortcuts' } : { type: 'none' });
+
+  const isBackupPromptOpen = overlay.type === 'backup';
+  const setIsBackupPromptOpen = (open: boolean) => setOverlay(open ? { type: 'backup' } : { type: 'none' });
+
   const [isFabRippling, setIsFabRippling] = useState(false);
 
   // Solarpunk Landing Page View State
@@ -136,6 +166,7 @@ export function AppContent() {
     lastSeenMatchesCount,
     activeWishlistMatches,
     activeWishlistMatchesCount,
+    domainCommands,
     handleExportLocalDataJSON,
     handleAddCalendarEvent,
     handleToggleRsvp,
@@ -269,22 +300,13 @@ export function AppContent() {
 
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        setIsCommandPaletteOpen((prev) => !prev);
+        setOverlay((prev) => (prev.type === 'command-palette' ? { type: 'none' } : { type: 'command-palette' }));
         return;
       }
 
       if (e.key === 'Escape') {
-        setIsCommandPaletteOpen(false);
-        setIsShortcutsOpen(false);
+        setOverlay({ type: 'none' });
         setIsOnboardingOpen(false);
-        setIsBackupPromptOpen(false);
-        setIsQuickAddOpen(false);
-        setIsWishlistOpen(false);
-        setIsDaoModalOpen(false);
-        setIsCalendarOpen(false);
-        setIsSkillsOpen(false);
-        setIsTrustOpen(false);
-        setIsManualOpen(false);
         setSelectedPeerForDetail(null);
         setSelectedResourceForDetail(null);
         setReflectionResource(null);
@@ -295,7 +317,7 @@ export function AppContent() {
 
       if (e.key === '?') {
         e.preventDefault();
-        setIsShortcutsOpen((prev) => !prev);
+        setOverlay((prev) => (prev.type === 'shortcuts' ? { type: 'none' } : { type: 'shortcuts' }));
         return;
       }
 
@@ -570,6 +592,16 @@ export function AppContent() {
         )}
       </button>
 
+      {/* Persistent Floating SOS Emergency Trigger (Hold 2s to broadcast) */}
+      <PersistentSosTrigger
+        userLat={(user as any).location?.lat}
+        userLng={(user as any).location?.lng}
+        onSosTriggered={(reason) => {
+          handleTriggerSos();
+        }}
+        isNightMode={isNightMode}
+      />
+
       {/* Persistent Bottom Navigation Bar */}
       <BottomNavBar
         activeTab={activeTab}
@@ -579,6 +611,8 @@ export function AppContent() {
 
       {/* Modals, Drawers & Sheets Container */}
       <AppModalsContainer
+        overlay={overlay}
+        setOverlay={setOverlay}
         isNightMode={isNightMode}
         isFocusMode={isFocusMode}
         isGloveMode={isGloveMode}
@@ -648,6 +682,7 @@ export function AppContent() {
         chatActivePeer={chatActivePeer}
         activeAchievementCelebration={activeAchievementCelebration}
         setActiveAchievementCelebration={setActiveAchievementCelebration}
+        domainCommands={domainCommands}
         handleQuickAddResource={handleQuickAddResource}
         handleAddWishlistItem={handleAddWishlistItem}
         handleRemoveWishlistItem={handleRemoveWishlistItem}

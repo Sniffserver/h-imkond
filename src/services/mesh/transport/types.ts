@@ -25,34 +25,46 @@ export type MeshPacketType =
   | 'PING'
   | 'PONG';
 
-export interface MeshPacket<T = any> {
-  // === Canonical Mesh Routing Protocol Headers ===
-  packetId?: string;          // Unique packet identifier for deduplication
-  originId?: string;          // Originator node identity / callsign
-  destinationId?: string;     // Target node ID / callsign, or "broadcast" / "*"
-  ttl: number;                // Remaining Time-To-Live hop budget
-  sequence?: number;          // Monotonically increasing sequence number from origin
-  createdAt?: number;         // Epoch timestamp (ms) when packet was generated
-  expiresAt?: number;         // Epoch timestamp (ms) when packet becomes invalid / dropped
-  routeId?: string;           // Path trace hash or route identifier
-  hopCount: number;           // Number of network hops traversed
-  payload: T;                 // Typed packet payload (CRDT, message, SOS, beacon, etc.)
-  signature?: string;         // Cryptographic Ed25519 signature over headers + payload
+export interface MeshPacketFlags {
+  isEncrypted?: boolean;
+  isPriority?: boolean;
+  ackRequested?: boolean;
+}
 
-  // === Compatibility Aliases & Transport Metadata ===
-  id?: string;                // Alias for packetId
-  type?: MeshPacketType;      // Packet type indicator
-  senderId?: string;          // Alias / immediate hop sender ID
-  senderCallsign?: string;    // Alias / immediate hop sender callsign
-  targetId?: string;          // Alias for destinationId
-  targetCallsign?: string;    // Alias for destinationId
-  timestamp?: number;         // Alias for createdAt
+export interface MeshPacket<T = any> {
+  // === Canonical Mesh Wire & Storage Packet Model (Requirement 3) ===
+  id?: string;                 // Unique packet identifier for deduplication
+  origin?: string;             // Originator node ID / callsign (e.g. "TAL-01")
+  destination?: string;        // Target node ID / callsign, or "*" for broadcast
+  sequence?: number;           // Monotonically increasing sequence number from origin
+  createdAt?: number;          // Epoch timestamp (ms) when packet was generated
+  expiresAt?: number;          // Epoch timestamp (ms) when packet becomes invalid / dropped
+  ttl: number;                // Remaining Time-To-Live hop budget
+  hop?: number;               // Number of network hops traversed
+  type?: MeshPacketType;       // Typed packet category
+  flags?: MeshPacketFlags;    // Bitmask packet flags
+  payload: T;                 // Typed packet payload
+  signature?: string;         // Cryptographic Ed25519 signature (hex)
+
+  // Physical bearer metadata
   transportMeta?: {
     originTransport?: TransportType;
     rssi?: number;
     snr?: number;
     frequencyMhz?: number;
   };
+
+  // Boundary compatibility getters/aliases
+  packetId?: string;
+  originId?: string;
+  destinationId?: string;
+  senderId?: string;
+  senderCallsign?: string;
+  targetId?: string;
+  targetCallsign?: string;
+  routeId?: string;
+  hopCount?: number;
+  timestamp?: number;
 }
 
 export interface SendResult {

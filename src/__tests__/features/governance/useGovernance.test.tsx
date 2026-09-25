@@ -5,10 +5,12 @@ import {
   calculateQuadraticVoteCost,
   canAffordQuadraticVote,
 } from '../../../features/governance/useGovernance';
+import { crdtEventLogEngine } from '../../../services/mesh/crdt/signedEventLog';
 
 describe('useGovernance & Quadratic Voting Engine', () => {
   beforeEach(() => {
     localStorage.clear();
+    crdtEventLogEngine.clearMemoryLog();
   });
 
   describe('Quadratic Voting Governing Formula: cost = (number of votes)^2', () => {

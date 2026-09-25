@@ -130,14 +130,12 @@ async function broadcastPacketToRadioAndChannel(packet: SOSPacket) {
   }
 
   // 4. Direct LoRa Radio Gateway flood via Pi Zero 2 W Bridge if reachable
-  try {
-    await executeBridgeCommand('broadcast', {
-      type: 'sos',
-      payload: packet,
-    });
-  } catch {
+  executeBridgeCommand('broadcast', {
+    type: 'sos',
+    payload: packet,
+  }).catch(() => {
     // Pi Bridge offline / disconnected fallback
-  }
+  });
 }
 
 /**

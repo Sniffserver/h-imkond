@@ -10,6 +10,8 @@
 
 import { PeerIdentity, TrustState } from './types';
 import { INITIAL_PEERS } from '../../data/initialData';
+import { canonicalPeerRegistry } from '../../core/identity/peer';
+import { canonicalTrustStore } from '../../core/identity/trust';
 
 const DB_NAME = 'hoimu_peer_identities_db';
 const DB_VERSION = 1;
@@ -92,6 +94,22 @@ export class PeerIdentityStore {
     };
 
     this.memoryPeers.set(normalized.nodeId, normalized);
+
+    // Sync to Canonical Identity Core (Single source of truth)
+    try {
+      canonicalPeerRegistry.upsertPeer({
+        id: normalized.nodeId,
+        signingPublicKey: normalized.signingPublicKey,
+        encryptionPublicKey: normalized.encryptionPublicKey,
+        trustLevel: normalized.trustState === 'verified' ? 'verified' : normalized.trustState === 'blocked' ? 'blocked' : 'unverified',
+        lastSeenAt: normalized.lastSeenAt,
+      });
+      canonicalTrustStore.setTrustLevel(
+        normalized.nodeId,
+        normalized.signingPublicKey,
+        normalized.trustState === 'verified' ? 'verified' : normalized.trustState === 'blocked' ? 'blocked' : 'unverified'
+      );
+    } catch {}
 
     if (this.db) {
       try {

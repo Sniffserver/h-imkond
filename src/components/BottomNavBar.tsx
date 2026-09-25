@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Compass, MessageSquare, ShieldAlert, Grid } from 'lucide-react';
-import { NavTab } from '../types';
+import { Flame, Compass, Sparkles, HeartHandshake, Grid } from 'lucide-react';
+import { NavTab, PrimarySection } from '../types';
 import { pathfinderScanner } from '../services/scanner/pathfinderScanner';
 import { soundFeedback } from '../services/utils/soundFeedback';
 
@@ -9,6 +9,17 @@ interface BottomNavBarProps {
   onTabChange: (tab: NavTab) => void;
   unreadCount?: number;
   isNightMode?: boolean;
+}
+
+export interface PrimaryTabItem {
+  id: NavTab;
+  section: PrimarySection;
+  targetTab: NavTab;
+  label: string;
+  sublabel: string;
+  icon: any;
+  hasUnread?: boolean;
+  badge?: boolean;
 }
 
 export const BottomNavBar: React.FC<BottomNavBarProps> = ({
@@ -26,49 +37,58 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
     return unsub;
   }, []);
 
-  const tabs = [
+  const tabs: PrimaryTabItem[] = [
     {
-      id: 'today' as NavTab, // Today / Home
-      label: 'Today',
-      sublabel: 'What matters now',
-      icon: Home,
+      id: 'today',
+      section: 'now',
+      targetTab: 'today',
+      label: 'Campfire',
+      sublabel: 'You & Sparks',
+      icon: Flame,
     },
     {
-      id: 'map' as NavTab, // Explore / Nearby
-      label: 'Explore',
-      sublabel: 'Map & Nearby',
+      id: 'map',
+      section: 'explore',
+      targetTab: 'map',
+      label: 'Landscape',
+      sublabel: 'Around the fire',
       icon: Compass,
       badge: isWalkActive,
     },
     {
-      id: 'messages' as NavTab, // Connect / Messages
+      id: 'messages',
+      section: 'connect',
+      targetTab: 'messages',
       label: 'Connect',
-      sublabel: 'Encrypted Chat',
-      icon: MessageSquare,
+      sublabel: 'Carried sparks',
+      icon: Sparkles,
       hasUnread: unreadCount > 0,
     },
     {
-      id: 'sos' as NavTab, // Safety / SOS
-      label: 'Safety',
-      sublabel: 'Emergency & Hub',
-      icon: ShieldAlert,
+      id: 'exchange',
+      section: 'exchange',
+      targetTab: 'exchange',
+      label: 'Exchange',
+      sublabel: 'Mutual aid',
+      icon: HeartHandshake,
     },
     {
-      id: 'more' as NavTab, // More / Tools & Community
-      label: 'More',
-      sublabel: 'Exchange & Tools',
+      id: 'more',
+      section: 'more',
+      targetTab: 'more',
+      label: 'Lab',
+      sublabel: 'Tools & radio',
       icon: Grid,
     },
   ];
 
-  // Helper to determine active tab section
-  const isTabActive = (tabId: NavTab) => {
-    if (tabId === 'today') return activeTab === 'today' || activeTab === 'mesh' || activeTab === 'home';
-    if (tabId === 'map') return activeTab === 'map' || activeTab === 'nearby' || activeTab === 'pathfinder';
-    if (tabId === 'messages') return activeTab === 'messages' || activeTab === 'connect';
-    if (tabId === 'sos') return activeTab === 'sos' || activeTab === 'help';
-    if (tabId === 'more') return activeTab === 'more' || activeTab === 'exchange' || activeTab === 'journal' || activeTab === 'profile';
-    return activeTab === tabId;
+  const isSectionActive = (section: PrimarySection) => {
+    if (section === 'now') return activeTab === 'today' || activeTab === 'mesh' || activeTab === 'home';
+    if (section === 'explore') return activeTab === 'map' || activeTab === 'nearby' || activeTab === 'pathfinder';
+    if (section === 'connect') return activeTab === 'messages' || activeTab === 'connect';
+    if (section === 'exchange') return activeTab === 'exchange';
+    if (section === 'more') return activeTab === 'more' || activeTab === 'journal' || activeTab === 'profile';
+    return false;
   };
 
   return (
@@ -88,20 +108,20 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
       >
         {tabs.map((tab) => {
           const Icon = tab.icon;
-          const isActive = isTabActive(tab.id);
+          const isActive = isSectionActive(tab.section);
 
           return (
             <button
-              key={tab.id}
-              id={`nav-btn-${tab.id}`}
+              key={tab.section}
+              id={`nav-btn-${tab.section}`}
               role="tab"
               aria-selected={isActive}
               aria-label={`${tab.label} tab - ${tab.sublabel}${
-                tab.id === 'messages' && unreadCount > 0 ? `, ${unreadCount} unread messages` : ''
+                tab.section === 'connect' && unreadCount > 0 ? `, ${unreadCount} unread messages` : ''
               }`}
               onClick={() => {
                 soundFeedback.playClick();
-                onTabChange(tab.id);
+                onTabChange(tab.targetTab);
               }}
               className={`relative flex flex-col items-center justify-center min-w-[56px] min-h-[48px] py-1 px-2.5 rounded-2xl transition-all duration-200 active:scale-95 cursor-pointer ${
                 isActive

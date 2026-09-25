@@ -11,7 +11,7 @@
 import { DaoProposal } from '../../types';
 import { getIdentityProvider } from '../../core/identity';
 import { canonicalize, canonicalizeToBytes } from '../../protocol/canonical';
-import { signBytes } from '../../core/crypto/ed25519';
+import { signBytes, verifySignature } from '../../core/crypto/ed25519';
 import { crdtEventLogEngine, CRDTEvent } from '../mesh/crdt/signedEventLog';
 
 export type VoteChoice = 'yes' | 'no' | 'abstain';
@@ -147,8 +147,12 @@ export async function verifyVoteEvent(vote: DaoVoteEvent): Promise<boolean> {
     nonce: vote.nonce,
   };
 
-  const identityProvider = getIdentityProvider();
-  return await identityProvider.verifyPayload(payloadToVerify, vote.signature, vote.voterPublicKey);
+  try {
+    const bytes = canonicalizeToBytes(payloadToVerify);
+    return await verifySignature(vote.voterPublicKey, bytes, vote.signature);
+  } catch {
+    return false;
+  }
 }
 
 /**

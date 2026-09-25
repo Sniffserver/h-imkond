@@ -18,6 +18,8 @@ import {
   NavTab,
 } from '../types';
 import { Achievement } from '../services/game/achievementService';
+import { AppOverlay } from '../types/overlay';
+import { DomainCommands } from '../core/commands/domainCommands';
 
 import { QuickAddResourceModal } from './QuickAddResourceModal';
 import { WishlistAlertModal } from './WishlistAlertModal';
@@ -76,37 +78,41 @@ export interface AppModalsContainerProps {
   onSelectTab: (tab: NavTab) => void;
   activeWishlistMatchesCount: number;
 
-  // Modal visibility & selection states
-  isQuickAddOpen: boolean;
-  setIsQuickAddOpen: (open: boolean) => void;
-  isWishlistOpen: boolean;
-  setIsWishlistOpen: (open: boolean) => void;
-  isDaoModalOpen: boolean;
-  setIsDaoModalOpen: (open: boolean) => void;
-  isCalendarOpen: boolean;
-  setIsCalendarOpen: (open: boolean) => void;
-  isSkillsOpen: boolean;
-  setIsSkillsOpen: (open: boolean) => void;
-  isToolsModalOpen: boolean;
-  setIsToolsModalOpen: (open: boolean) => void;
-  isTrustOpen: boolean;
-  setIsTrustOpen: (open: boolean) => void;
-  isManualOpen: boolean;
-  setIsManualOpen: (open: boolean) => void;
-  isBackupPromptOpen: boolean;
-  setIsBackupPromptOpen: (open: boolean) => void;
-  isChatOpen: boolean;
-  setIsChatOpen: (open: boolean) => void;
-  isSecurityKeysOpen: boolean;
-  setIsSecurityKeysOpen: (open: boolean) => void;
-  isDiagnosticsOpen: boolean;
-  setIsDiagnosticsOpen: (open: boolean) => void;
-  isOnboardingOpen: boolean;
-  isCommandPaletteOpen: boolean;
-  setIsCommandPaletteOpen: (open: boolean) => void;
-  isShortcutsOpen: boolean;
-  setIsShortcutsOpen: (open: boolean) => void;
-  setIsLandingPageView: (open: boolean) => void;
+  // Unified Overlay Router State (Requirement 7)
+  overlay?: AppOverlay;
+  setOverlay?: (overlay: AppOverlay) => void;
+
+  // Modal visibility & selection states (backwards-compatible)
+  isQuickAddOpen?: boolean;
+  setIsQuickAddOpen?: (open: boolean) => void;
+  isWishlistOpen?: boolean;
+  setIsWishlistOpen?: (open: boolean) => void;
+  isDaoModalOpen?: boolean;
+  setIsDaoModalOpen?: (open: boolean) => void;
+  isCalendarOpen?: boolean;
+  setIsCalendarOpen?: (open: boolean) => void;
+  isSkillsOpen?: boolean;
+  setIsSkillsOpen?: (open: boolean) => void;
+  isToolsModalOpen?: boolean;
+  setIsToolsModalOpen?: (open: boolean) => void;
+  isTrustOpen?: boolean;
+  setIsTrustOpen?: (open: boolean) => void;
+  isManualOpen?: boolean;
+  setIsManualOpen?: (open: boolean) => void;
+  isBackupPromptOpen?: boolean;
+  setIsBackupPromptOpen?: (open: boolean) => void;
+  isChatOpen?: boolean;
+  setIsChatOpen?: (open: boolean) => void;
+  isSecurityKeysOpen?: boolean;
+  setIsSecurityKeysOpen?: (open: boolean) => void;
+  isDiagnosticsOpen?: boolean;
+  setIsDiagnosticsOpen?: (open: boolean) => void;
+  isOnboardingOpen?: boolean;
+  isCommandPaletteOpen?: boolean;
+  setIsCommandPaletteOpen?: (open: boolean) => void;
+  isShortcutsOpen?: boolean;
+  setIsShortcutsOpen?: (open: boolean) => void;
+  setIsLandingPageView?: (open: boolean) => void;
 
   selectedPeerForReputation: MeshNode | null;
   setSelectedPeerForReputation: (peer: MeshNode | null) => void;
@@ -121,6 +127,9 @@ export interface AppModalsContainerProps {
   chatActivePeer: MeshNode | null;
   activeAchievementCelebration: Achievement | null;
   setActiveAchievementCelebration: (achievement: Achievement | null) => void;
+
+  // Domain Commands (Requirement 8)
+  domainCommands?: DomainCommands;
 
   // Handlers
   handleQuickAddResource: (data: any) => void;
@@ -188,36 +197,40 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
   onSelectTab,
   activeWishlistMatchesCount,
 
-  isQuickAddOpen,
-  setIsQuickAddOpen,
-  isWishlistOpen,
-  setIsWishlistOpen,
-  isDaoModalOpen,
-  setIsDaoModalOpen,
-  isCalendarOpen,
-  setIsCalendarOpen,
-  isSkillsOpen,
-  setIsSkillsOpen,
-  isToolsModalOpen,
-  setIsToolsModalOpen,
-  isTrustOpen,
-  setIsTrustOpen,
-  isManualOpen,
-  setIsManualOpen,
-  isBackupPromptOpen,
-  setIsBackupPromptOpen,
-  isChatOpen,
-  setIsChatOpen,
-  isSecurityKeysOpen,
-  setIsSecurityKeysOpen,
-  isDiagnosticsOpen,
-  setIsDiagnosticsOpen,
+  // Unified Overlay Router State (Requirement 7)
+  overlay,
+  setOverlay,
+
+  isQuickAddOpen: propIsQuickAddOpen,
+  setIsQuickAddOpen: propSetIsQuickAddOpen,
+  isWishlistOpen: propIsWishlistOpen,
+  setIsWishlistOpen: propSetIsWishlistOpen,
+  isDaoModalOpen: propIsDaoModalOpen,
+  setIsDaoModalOpen: propSetIsDaoModalOpen,
+  isCalendarOpen: propIsCalendarOpen,
+  setIsCalendarOpen: propSetIsCalendarOpen,
+  isSkillsOpen: propIsSkillsOpen,
+  setIsSkillsOpen: propSetIsSkillsOpen,
+  isToolsModalOpen: propIsToolsModalOpen,
+  setIsToolsModalOpen: propSetIsToolsModalOpen,
+  isTrustOpen: propIsTrustOpen,
+  setIsTrustOpen: propSetIsTrustOpen,
+  isManualOpen: propIsManualOpen,
+  setIsManualOpen: propSetIsManualOpen,
+  isBackupPromptOpen: propIsBackupPromptOpen,
+  setIsBackupPromptOpen: propSetIsBackupPromptOpen,
+  isChatOpen: propIsChatOpen,
+  setIsChatOpen: propSetIsChatOpen,
+  isSecurityKeysOpen: propIsSecurityKeysOpen,
+  setIsSecurityKeysOpen: propSetIsSecurityKeysOpen,
+  isDiagnosticsOpen: propIsDiagnosticsOpen,
+  setIsDiagnosticsOpen: propSetIsDiagnosticsOpen,
   isOnboardingOpen,
-  isCommandPaletteOpen,
-  setIsCommandPaletteOpen,
-  isShortcutsOpen,
-  setIsShortcutsOpen,
-  setIsLandingPageView,
+  isCommandPaletteOpen: propIsCommandPaletteOpen,
+  setIsCommandPaletteOpen: propSetIsCommandPaletteOpen,
+  isShortcutsOpen: propIsShortcutsOpen,
+  setIsShortcutsOpen: propSetIsShortcutsOpen,
+  setIsLandingPageView: propSetIsLandingPageView,
 
   selectedPeerForReputation,
   setSelectedPeerForReputation,
@@ -233,6 +246,7 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
   activeAchievementCelebration,
   setActiveAchievementCelebration,
 
+  domainCommands,
   handleQuickAddResource,
   handleAddWishlistItem,
   handleRemoveWishlistItem,
@@ -260,6 +274,95 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
   toasts,
   handleDismissToast,
 }) => {
+  // Compute unified overlay-driven flags
+  const isQuickAddOpen = overlay?.type === 'quick-add' || Boolean(propIsQuickAddOpen);
+  const setIsQuickAddOpen = (open: boolean) => {
+    if (setOverlay) setOverlay(open ? { type: 'quick-add' } : { type: 'none' });
+    propSetIsQuickAddOpen?.(open);
+  };
+
+  const isWishlistOpen = overlay?.type === 'wishlist' || Boolean(propIsWishlistOpen);
+  const setIsWishlistOpen = (open: boolean) => {
+    if (setOverlay) setOverlay(open ? { type: 'wishlist' } : { type: 'none' });
+    propSetIsWishlistOpen?.(open);
+  };
+
+  const isDaoModalOpen = overlay?.type === 'dao' || Boolean(propIsDaoModalOpen);
+  const setIsDaoModalOpen = (open: boolean) => {
+    if (setOverlay) setOverlay(open ? { type: 'dao' } : { type: 'none' });
+    propSetIsDaoModalOpen?.(open);
+  };
+
+  const isCalendarOpen = overlay?.type === 'calendar' || Boolean(propIsCalendarOpen);
+  const setIsCalendarOpen = (open: boolean) => {
+    if (setOverlay) setOverlay(open ? { type: 'calendar' } : { type: 'none' });
+    propSetIsCalendarOpen?.(open);
+  };
+
+  const isSkillsOpen = overlay?.type === 'skills' || Boolean(propIsSkillsOpen);
+  const setIsSkillsOpen = (open: boolean) => {
+    if (setOverlay) setOverlay(open ? { type: 'skills' } : { type: 'none' });
+    propSetIsSkillsOpen?.(open);
+  };
+
+  const isToolsModalOpen = Boolean(propIsToolsModalOpen);
+  const setIsToolsModalOpen = (open: boolean) => {
+    propSetIsToolsModalOpen?.(open);
+  };
+
+  const isTrustOpen = overlay?.type === 'trust' || Boolean(propIsTrustOpen);
+  const setIsTrustOpen = (open: boolean) => {
+    if (setOverlay) setOverlay(open ? { type: 'trust' } : { type: 'none' });
+    propSetIsTrustOpen?.(open);
+  };
+
+  const isManualOpen = overlay?.type === 'manual' || Boolean(propIsManualOpen);
+  const setIsManualOpen = (open: boolean) => {
+    if (setOverlay) setOverlay(open ? { type: 'manual' } : { type: 'none' });
+    propSetIsManualOpen?.(open);
+  };
+
+  const isBackupPromptOpen = overlay?.type === 'backup' || Boolean(propIsBackupPromptOpen);
+  const setIsBackupPromptOpen = (open: boolean) => {
+    if (setOverlay) setOverlay(open ? { type: 'backup' } : { type: 'none' });
+    propSetIsBackupPromptOpen?.(open);
+  };
+
+  const isChatOpen = overlay?.type === 'chat' || Boolean(propIsChatOpen);
+  const setIsChatOpen = (open: boolean) => {
+    if (setOverlay) setOverlay(open ? { type: 'chat', peerId: '' } : { type: 'none' });
+    propSetIsChatOpen?.(open);
+  };
+
+  const isSecurityKeysOpen = overlay?.type === 'settings' || Boolean(propIsSecurityKeysOpen);
+  const setIsSecurityKeysOpen = (open: boolean) => {
+    if (setOverlay) setOverlay(open ? { type: 'settings' } : { type: 'none' });
+    propSetIsSecurityKeysOpen?.(open);
+  };
+
+  const isDiagnosticsOpen = overlay?.type === 'diagnostics' || Boolean(propIsDiagnosticsOpen);
+  const setIsDiagnosticsOpen = (open: boolean) => {
+    if (setOverlay) setOverlay(open ? { type: 'diagnostics' } : { type: 'none' });
+    propSetIsDiagnosticsOpen?.(open);
+  };
+
+  const isCommandPaletteOpen = overlay?.type === 'command-palette' || Boolean(propIsCommandPaletteOpen);
+  const setIsCommandPaletteOpen = (open: boolean) => {
+    if (setOverlay) setOverlay(open ? { type: 'command-palette' } : { type: 'none' });
+    propSetIsCommandPaletteOpen?.(open);
+  };
+
+  const isShortcutsOpen = overlay?.type === 'shortcuts' || Boolean(propIsShortcutsOpen);
+  const setIsShortcutsOpen = (open: boolean) => {
+    if (setOverlay) setOverlay(open ? { type: 'shortcuts' } : { type: 'none' });
+    propSetIsShortcutsOpen?.(open);
+  };
+
+  const setIsLandingPageView = (open: boolean) => {
+    if (setOverlay) setOverlay(open ? { type: 'landing' } : { type: 'none' });
+    propSetIsLandingPageView?.(open);
+  };
+
   return (
     <Suspense fallback={null}>
       {/* 0. Quick Add Resource FAB Modal */}

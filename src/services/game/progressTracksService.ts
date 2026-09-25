@@ -92,55 +92,14 @@ export interface ProgressTrackData {
 const STORAGE_KEY = 'hoimu_private_progress_tracks_v2';
 
 const DEFAULT_STATE: ProgressTrackData = {
-  preparednessLevel: 72,
-  connectionLevel: 58,
-  contributionLevel: 64,
+  preparednessLevel: 0,
+  connectionLevel: 0,
+  contributionLevel: 0,
   isPublicSharingOptIn: false,
-  gamificationEnabled: true,
-  celebrationAlertsEnabled: true,
+  gamificationEnabled: false,
+  celebrationAlertsEnabled: false,
   lastUpdated: Date.now(),
-  history: [
-    {
-      id: 'init_1',
-      track: 'preparedness',
-      title: 'Offline Map Region Cached',
-      explanation: 'Downloaded Tartu 50km vector map tiles with offline routing capability. Your navigation works 100% off-grid.',
-      deltaPercent: 18,
-      timestamp: Date.now() - 3600000 * 24 * 1,
-      actionLabel: 'View Map',
-      actionTarget: 'map',
-    },
-    {
-      id: 'init_2',
-      track: 'connection',
-      title: 'Encrypted Peer Key Linked',
-      explanation: 'Established an encrypted direct radio key exchange with node "Fern-Weaver" (LoRa 868MHz).',
-      deltaPercent: 14,
-      timestamp: Date.now() - 3600000 * 24 * 2,
-      actionLabel: 'View Mesh Peers',
-      actionTarget: 'mesh',
-    },
-    {
-      id: 'init_3',
-      track: 'contribution',
-      title: 'Solar Tool & Battery Shared',
-      explanation: 'Listed a portable 20W solar charger in the neighborhood mutual aid catalog for communal use.',
-      deltaPercent: 16,
-      timestamp: Date.now() - 3600000 * 24 * 4,
-      actionLabel: 'View Offerings',
-      actionTarget: 'exchange',
-    },
-    {
-      id: 'init_4',
-      track: 'preparedness',
-      title: 'Identity Keypair Backed Up',
-      explanation: 'Exported encrypted .hoimu-key backup file. Self-sovereign identity is protected against device loss.',
-      deltaPercent: 12,
-      timestamp: Date.now() - 3600000 * 24 * 5,
-      actionLabel: 'Security Settings',
-      actionTarget: 'profile',
-    },
-  ],
+  history: [],
 };
 
 type Listener = (state: ProgressTrackData) => void;
