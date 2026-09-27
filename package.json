@@ -46,7 +46,7 @@
     "crypto-js": "^4.2.0",
     "d3": "^7.9.0",
     "dotenv": "^17.2.3",
-    "express": "^4.21.2",
+    "express": "^4.22.3",
     "lucide-react": "^0.546.0",
     "maplibre-gl": "^6.11.2",
     "motion": "^12.23.24",
