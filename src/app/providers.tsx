@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, ReactNode } fr
 import { ToastMessage } from '../types';
 import { ToastContainer } from '../components/ToastContainer';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+import { LocationContextProvider } from '../services/location/LocationContext';
 
 interface ToastContextType {
   toasts: ToastMessage[];
@@ -49,10 +50,13 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
 
   return (
     <ErrorBoundary>
-      <ToastContext.Provider value={{ toasts, addToast, dismissToast }}>
-        {children}
-        <ToastContainer toasts={toasts} onDismiss={dismissToast} />
-      </ToastContext.Provider>
+      <LocationContextProvider>
+        <ToastContext.Provider value={{ toasts, addToast, dismissToast }}>
+          {children}
+          <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+        </ToastContext.Provider>
+      </LocationContextProvider>
     </ErrorBoundary>
   );
+
 };

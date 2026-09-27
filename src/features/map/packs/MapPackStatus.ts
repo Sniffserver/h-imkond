@@ -27,7 +27,7 @@ export interface MapPackStatusRecord {
   installedAt?: number;
   lastCheckedAt?: number;
   checksumVerified: boolean;
-  storageType: 'indexeddb' | 'cache_storage' | 'embedded';
+  storageType: 'indexeddb' | 'cache_storage' | 'embedded' | 'opfs_native';
   error?: string;
 }
 

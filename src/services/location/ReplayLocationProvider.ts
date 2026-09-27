@@ -56,9 +56,8 @@ export class ReplayLocationProvider implements LocationProvider {
     if (this.status === 'running') return;
     this.status = 'running';
 
-    this.timer = setInterval(() => {
+    const emitCurrent = () => {
       if (this.track.length === 0) return;
-
       const wp = this.track[this.currentIndex];
       const fix: GeoFix = {
         lat: wp.lat,
@@ -77,17 +76,24 @@ export class ReplayLocationProvider implements LocationProvider {
           console.error(e);
         }
       });
+    };
 
+    emitCurrent();
+
+    this.timer = setInterval(() => {
       this.currentIndex++;
       if (this.currentIndex >= this.track.length) {
         if (this.loop) {
           this.currentIndex = 0;
         } else {
           this.stop();
+          return;
         }
       }
+      emitCurrent();
     }, this.intervalMs);
   }
+
 
   public async stop(): Promise<void> {
     if (this.timer) {

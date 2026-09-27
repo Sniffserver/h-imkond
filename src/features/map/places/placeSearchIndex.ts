@@ -2,6 +2,7 @@ import { MapPlace, Street, GeoPoint } from '../../../types';
 import { haversineDistanceMeters } from '../../../geo/projection';
 
 export interface SearchHit {
+  entityId: string;
   type: 'place' | 'street';
   id: string;
   name: string;
@@ -12,7 +13,9 @@ export interface SearchHit {
   place?: MapPlace;
   street?: Street;
   distanceMeters?: number;
+  reason: string;
   matchReason?: string;
+  score: number;
   _rank: number;
 }
 
@@ -307,6 +310,7 @@ export class PlaceSearchIndex {
         const finalRank = info.score - distancePenalty;
 
         hits.push({
+          entityId: place.id,
           type: 'place',
           id: place.id,
           name: place.name,
@@ -316,7 +320,9 @@ export class PlaceSearchIndex {
           location: place.location,
           place,
           distanceMeters: userLocation ? distanceMeters : undefined,
+          reason: info.reason,
           matchReason: info.reason,
+          score: finalRank,
           _rank: finalRank,
         });
       } else {
@@ -341,6 +347,7 @@ export class PlaceSearchIndex {
         const finalRank = info.score - distancePenalty;
 
         hits.push({
+          entityId: street.id,
           type: 'street',
           id: street.id,
           name: street.name,
@@ -350,7 +357,9 @@ export class PlaceSearchIndex {
           location,
           street,
           distanceMeters: userLocation ? distanceMeters : undefined,
+          reason: info.reason,
           matchReason: info.reason,
+          score: finalRank,
           _rank: finalRank,
         });
       }

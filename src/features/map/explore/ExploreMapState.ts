@@ -6,6 +6,7 @@ import { useState, useCallback } from 'react';
 import { MapPlace, GeoPoint, Street } from '../../../types';
 import { RouteResult } from '../../../services/routing/routingEngine';
 import { TacticalMapTheme } from '../pmtiles';
+import { useLocation } from '../../../services/location/LocationContext';
 
 export interface ExploreMapFilterState {
   showPlaces: boolean;
@@ -18,11 +19,11 @@ export interface ExploreMapFilterState {
 }
 
 export function useExploreMapState() {
+  const { userLocation } = useLocation();
   const [theme, setTheme] = useState<TacticalMapTheme>('night');
   const [selectedPlace, setSelectedPlace] = useState<MapPlace | null>(null);
   const [selectedStreet, setSelectedStreet] = useState<Street | null>(null);
   const [activeRoute, setActiveRoute] = useState<RouteResult | null>(null);
-  const [userLocation, setUserLocation] = useState<GeoPoint>({ lat: 59.4370, lng: 24.7535 });
   
   const [filters, setFilters] = useState<ExploreMapFilterState>({
     showPlaces: true,
@@ -62,10 +63,10 @@ export function useExploreMapState() {
     activeRoute,
     setActiveRoute,
     userLocation,
-    setUserLocation,
     filters,
     toggleFilter,
     setCategoryFilter,
     clearSelection,
   };
 }
+

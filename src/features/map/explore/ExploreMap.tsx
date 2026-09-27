@@ -57,7 +57,6 @@ export const ExploreMap: React.FC<ExploreMapProps> = ({
     activeRoute,
     setActiveRoute,
     userLocation,
-    setUserLocation,
     filters,
     toggleFilter,
     setCategoryFilter,
@@ -79,42 +78,57 @@ export const ExploreMap: React.FC<ExploreMapProps> = ({
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
 
-    const styleSpec = getTacticalVectorMapStyle('/maps/tallinn.pmtiles', theme);
-    const map = new maplibregl.Map({
-      container: mapContainerRef.current,
-      style: styleSpec,
-      center: [initialCenter.lng, initialCenter.lat],
-      zoom: initialZoom,
-      attributionControl: false,
-    });
-
-    mapInstanceRef.current = map;
-
-    map.on('load', () => {
-      initializeMapSources(map, '/maps/tallinn.pmtiles');
-      setupAllOverlayLayers(map, {
-        userLocation,
-        places: mapRepository.getAllPlaces(),
-        streets: mapRepository.getAllStreets(),
+    try {
+      const styleSpec = getTacticalVectorMapStyle('/maps/tallinn.pmtiles', theme);
+      const map = new maplibregl.Map({
+        container: mapContainerRef.current,
+        style: styleSpec,
+        center: [initialCenter.lng, initialCenter.lat],
+        zoom: initialZoom,
+        attributionControl: false,
       });
-      bindExploreMapInteractions(map, mapRepository.getAllPlaces(), mapRepository.getAllStreets(), {
-        onSelectPlace: (place) => {
-          setSelectedPlace(place);
-          if (externalOnSelectPlace) externalOnSelectPlace(place);
-        },
-        onSelectStreet: (street) => {
-          setSelectedStreet(street);
-        },
-        onClearSelection: () => {
-          clearSelection();
-        },
+
+      mapInstanceRef.current = map;
+
+      map.on('load', () => {
+        try {
+          initializeMapSources(map, '/maps/tallinn.pmtiles');
+          setupAllOverlayLayers(map, {
+            userLocation,
+            places: mapRepository.getAllPlaces(),
+            streets: mapRepository.getAllStreets(),
+          });
+          bindExploreMapInteractions(map, mapRepository.getAllPlaces(), mapRepository.getAllStreets(), {
+            onSelectPlace: (place) => {
+              setSelectedPlace(place);
+              if (externalOnSelectPlace) externalOnSelectPlace(place);
+            },
+            onSelectStreet: (street) => {
+              setSelectedStreet(street);
+            },
+            onClearSelection: () => {
+              clearSelection();
+            },
+          });
+          setMapLoaded(true);
+        } catch (e) {
+          console.warn('[ExploreMap] Map overlay setup bypassed:', e);
+        }
       });
+    } catch (e) {
+      console.warn('[ExploreMap] WebGL initialization bypassed (non-WebGL environment):', e);
       setMapLoaded(true);
-    });
+    }
 
     return () => {
-      map.remove();
-      mapInstanceRef.current = null;
+      try {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.remove();
+          mapInstanceRef.current = null;
+        }
+      } catch {
+        // Ignored
+      }
     };
   }, []);
 

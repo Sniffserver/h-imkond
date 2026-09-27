@@ -5,3 +5,4 @@ export * from './GNSSSerialProvider';
 export * from './MeshLocationProvider';
 export * from './ReplayLocationProvider';
 export * from './LocationManager';
+export * from './LocationContext';

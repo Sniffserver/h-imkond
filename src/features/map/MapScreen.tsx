@@ -42,8 +42,11 @@ import { UnknownNearbySheet } from './discovery/UnknownNearbySheet';
 import { NeighborhoodIntelligenceSheet } from './discovery/NeighborhoodIntelligenceSheet';
 import { FieldQuestSheet } from './discovery/FieldQuestSheet';
 import { LocationProviderSelector } from './components/LocationProviderSelector';
+import { useLocation } from '../../services/location/LocationContext';
 
-// Lazy-loaded Map View Tab with automatic retry for resilience
+import { ExploreMap } from './explore/ExploreMap';
+
+// Lazy-loaded Legacy Map View Tab as deprecated fallback
 const MapViewTab = lazyWithRetry(() =>
   import('./MapViewTab').then((m) => ({ default: m.MapViewTab }))
 );
@@ -212,65 +215,20 @@ export const MapScreen: React.FC<MapScreenProps> = ({
     }
   }, [batteryStatus, controller]);
 
-  const [locationState, setLocationState] = useState<LocationState>({
-    status: 'unavailable',
-  });
+  const location = useLocation();
 
-  // Real Device GPS Watcher & Street Discovery Guard
-  useEffect(() => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      setLocationState({ status: 'unavailable' });
-      return;
+  const locationState: LocationState = useMemo(() => {
+    if (!location.currentFix) {
+      return { status: 'unavailable' };
     }
-
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        const fix = {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          accuracyMeters: pos.coords.accuracy,
-          timestamp: pos.timestamp || Date.now(),
-        };
-
-        setLocationState({
-          status: 'live',
-          position: { lat: fix.lat, lng: fix.lng },
-          accuracyMeters: fix.accuracyMeters,
-          timestamp: fix.timestamp,
-        });
-
-        // Strict GPS validation guardrail: only discover if accuracy is <= 35m
-        if (fix.accuracyMeters <= 35) {
-          const discovered = streetDiscoveryService.processGPSFix({
-            lat: fix.lat,
-            lng: fix.lng,
-            accuracyMeters: fix.accuracyMeters,
-            timestamp: fix.timestamp,
-          });
-          if (discovered.length > 0 && onAddToast) {
-            onAddToast(
-              '🌟 New Street Discovered!',
-              `Logged exploration segment on ${discovered[0].streetId.replace('_', ' ')}`,
-              'success'
-            );
-          }
-        }
-      },
-      (err) => {
-        console.warn('GPS Fix unavailable:', err.message);
-        setLocationState({ status: 'unavailable' });
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 10000,
-      }
-    );
-
-    return () => {
-      navigator.geolocation.clearWatch(watchId);
+    return {
+      status: location.status === 'live' || location.status === 'acquired' ? 'live' : 'unavailable',
+      position: { lat: location.currentFix.lat, lng: location.currentFix.lng },
+      accuracyMeters: location.currentFix.accuracyMeters,
+      timestamp: location.currentFix.timestamp,
     };
-  }, [onAddToast]);
+  }, [location.currentFix, location.status]);
+
 
   const userLocation: GeoPoint = useMemo(() => {
     if (locationState.status === 'live' || locationState.status === 'stale') {
@@ -623,26 +581,13 @@ export const MapScreen: React.FC<MapScreenProps> = ({
           isNightMode={isNightMode}
         >
           <Suspense fallback={<MapSkeleton isNightMode={isNightMode} />}>
-            <MapViewTab
-              peers={peers}
-              resources={resources}
-              user={user}
-              onUpdateUser={onUpdateUser}
-              onAddToast={onAddToast}
-              isNightMode={isNightMode}
-              themeMode={themeMode}
-              fieldDisplayMode={fieldDisplayMode}
-              onSetThemeMode={onSetThemeMode}
-              onSetFieldDisplayMode={onSetFieldDisplayMode}
-              filterOnlyNew={filterOnlyNew}
-              onViewResourceDetails={onViewResourceDetails}
-              onSelectPeer={onSelectPeer}
-              onOpenChatWithPeer={onOpenChatWithPeer}
-              onOpenReputation={onOpenReputation}
-              batteryStatus={batteryStatus}
-              activeLayers={activeLayers as any}
-              onToggleLayer={handleToggleLayer as any}
-              onZoomChange={setCurrentZoom}
+            <ExploreMap
+              initialCenter={{ lat: userLocation.lat, lng: userLocation.lng }}
+              initialZoom={currentZoom}
+              onSelectPlace={(pl) => {
+                setSelectedPlace(pl);
+              }}
+              className="w-full h-full"
             />
           </Suspense>
         </MapGestures>

@@ -19,10 +19,28 @@ export const TALLINN_BBOX: BoundingBox = {
   maxLat: 59.50,
 };
 
+export interface SourceMetadata {
+  provider: 'osm' | 'tallinn' | 'paasteamet' | 'ads';
+  mode: 'LIVE' | 'SNAPSHOT' | 'FIXTURE';
+  fetchedAt: string;
+  sourceUrl?: string;
+  recordCount: number;
+  checksum: string;
+  license: string;
+}
+
+export interface SourceAdapter<T> {
+  fetch(forceLive?: boolean): Promise<{
+    records: T[];
+    metadata: SourceMetadata;
+  }>;
+}
+
 export interface RawSourceMetadata {
   source: DataSource;
   name: string;
   url?: string;
+  mode?: 'LIVE' | 'SNAPSHOT' | 'FIXTURE';
   fetchedAt: string;
   checksum: string;
   snapshotId: string;

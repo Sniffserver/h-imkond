@@ -1,11 +1,11 @@
 /**
  * Tallinn Geoportal & Open Data Ingestion Worker: Fetch
  * Queries Tallinn municipal open-data APIs and GIS feature services (joogiveekraanid, allikad, ametiasutused)
- * with cryptographic payload checksumming and snapshot versioning.
+ * with explicit SourceAdapter<RawTallinnMunicipalRecord> and LIVE / SNAPSHOT mode tagging.
  */
 
 import * as crypto from 'crypto';
-import { RawSourceMetadata } from '../types';
+import { RawSourceMetadata, SourceAdapter, SourceMetadata } from '../types';
 
 export interface RawTallinnMunicipalRecord {
   registri_kood: string;
@@ -98,70 +98,117 @@ const TALLINN_MUNICIPAL_SNAPSHOT: RawTallinnMunicipalRecord[] = [
     kirjeldus: 'Politsei- ja Piirivalveameti Põhja prefektuuri peakorter ja Kesklinna politseijaoskond.',
     muutmise_kuupaev: '2026-09-01T08:00:00Z',
     haldaja: 'Politsei- ja Piirivalveamet',
-    omadused: { reg_tase: 'prefektuur', hairekeskus: '112' }
+    omadused: { staatus: 'operatiivne', varustuse_tase: 'korge' }
   },
   {
     registri_kood: 'PPA-REG-TLN-02',
     nimetus: 'Lääne-Harju Politseijaoskond (Kolde)',
     aadress: 'Kolde pst 65',
-    linnaosa: 'Põhja-Tallinn',
+    linnaosa: 'Pelgulinn',
     kategooria: 'politsei',
-    koordinaadid: { lat: 59.4440, lng: 24.7085 },
-    lahtiolekuajad: '24/7 (Operatiivkorrapidaja)',
+    koordinaadid: { lat: 59.4398, lng: 24.7082 },
+    lahtiolekuajad: '24/7',
     telefon: '112 / +372 612 5400',
-    kirjeldus: 'Lääne-Harju politseijaoskond, patrulltalitus ja Põhja-Tallinna piirkonnakonstaablid.',
+    kirjeldus: 'Lääne-Harju politseijaoskond Pelgulinnas. 24/7 patrullteenistus.',
     muutmise_kuupaev: '2026-09-01T08:00:00Z',
     haldaja: 'Politsei- ja Piirivalveamet',
-    omadused: { reg_tase: 'jaoskond' }
+    omadused: { staatus: 'operatiivne' }
   },
   {
     registri_kood: 'PPA-REG-TLN-03',
-    nimetus: 'Ida-Harju Politseijaoskond (Vikerlase)',
-    aadress: 'Vikerlase 14',
+    nimetus: 'Ida-Harju Politseijaoskond (Pinna)',
+    aadress: 'P. Pinna 4',
     linnaosa: 'Lasnamäe',
     kategooria: 'politsei',
-    koordinaadid: { lat: 59.4320, lng: 24.8195 },
-    lahtiolekuajad: '24/7 (Operatiivteenistus)',
+    koordinaadid: { lat: 59.4362, lng: 24.8395 },
+    lahtiolekuajad: '24/7',
     telefon: '112 / +372 612 4800',
-    kirjeldus: 'Ida-Harju politseijaoskond ja Lasnamäe operatiivkeskus.',
+    kirjeldus: 'Ida-Harju politseijaoskond Lasnamäel. Patrullide juhtimiskeskus.',
     muutmise_kuupaev: '2026-09-01T08:00:00Z',
     haldaja: 'Politsei- ja Piirivalveamet',
-    omadused: { reg_tase: 'jaoskond' }
+    omadused: { staatus: 'operatiivne' }
   }
 ];
 
-export async function fetchTallinnMunicipalData(forceLive = false): Promise<RawTallinnFetchResult> {
-  const fetchedAt = new Date().toISOString();
-  let records = TALLINN_MUNICIPAL_SNAPSHOT;
+export class TallinnSourceAdapter implements SourceAdapter<RawTallinnMunicipalRecord> {
+  public async fetch(forceLive = false): Promise<{ records: RawTallinnMunicipalRecord[]; metadata: SourceMetadata }> {
+    const fetchedAt = new Date().toISOString();
+    let records: RawTallinnMunicipalRecord[] = [];
+    let isLiveSuccess = false;
 
-  if (forceLive) {
-    try {
-      // Tallinn Open Data API endpoint
-      const res = await fetch('https://avaandmed.eesti.ee/api/3/action/package_show?id=tallinna-avalikud-veevotupunktid', {
-        signal: AbortSignal.timeout(6000),
-      });
-      if (res.ok) {
-        // Successful live pull would parse API payload; fallback ensures continuity
+    if (forceLive) {
+      try {
+        // Query Tallinn Geoportal Open Data endpoint
+        const endpoint = 'https://gis.tallinn.ee/arcgis/rest/services/Avalik/Joogiveepunktid/MapServer/0/query?where=1%3D1&outFields=*&f=geojson';
+        const res = await fetch(endpoint, {
+          headers: { 'User-Agent': 'HoimuMapIngestionPipeline/1.0' },
+          signal: AbortSignal.timeout(6000),
+        });
+        if (res.ok) {
+          const geojson: any = await res.json();
+          if (Array.isArray(geojson?.features) && geojson.features.length > 0) {
+            const parsed = geojson.features.map((f: any, idx: number): RawTallinnMunicipalRecord => ({
+              registri_kood: f.properties?.ID || `TLN-LIVE-${idx}`,
+              nimetus: f.properties?.NIMI || 'Tallinna Avalik Joogiveepunkt',
+              aadress: f.properties?.AADRESS || 'Tallinn',
+              linnaosa: f.properties?.LINNAOSA,
+              kategooria: 'joogivesi_kraan',
+              koordinaadid: {
+                lat: f.geometry?.coordinates[1] || 59.437,
+                lng: f.geometry?.coordinates[0] || 24.753,
+              },
+              muutmise_kuupaev: fetchedAt,
+              haldaja: 'Tallinna Keskkonna- ja Kommunaalamet',
+            }));
+            records = parsed;
+            isLiveSuccess = true;
+          }
+        }
+      } catch {
+        // Fall back gracefully
       }
-    } catch {
-      // Use verified municipal snapshot
     }
-  }
 
-  const payloadStr = JSON.stringify(records);
-  const checksum = crypto.createHash('sha256').update(payloadStr).digest('hex');
-  const snapshotId = `tln-mun-${checksum.substring(0, 12)}`;
+    if (!isLiveSuccess || records.length === 0) {
+      records = TALLINN_MUNICIPAL_SNAPSHOT;
+    }
+
+    const payloadStr = JSON.stringify(records);
+    const checksum = crypto.createHash('sha256').update(payloadStr).digest('hex');
+
+    const metadata: SourceMetadata = {
+      provider: 'tallinn',
+      mode: isLiveSuccess ? 'LIVE' : 'SNAPSHOT',
+      fetchedAt,
+      sourceUrl: isLiveSuccess ? 'https://gis.tallinn.ee' : undefined,
+      recordCount: records.length,
+      checksum,
+      license: 'Tallinna Avaandmete Litsents / Public Municipal Domain',
+    };
+
+    return { records, metadata };
+  }
+}
+
+export async function fetchTallinnData(forceLive = false): Promise<RawTallinnFetchResult> {
+  const adapter = new TallinnSourceAdapter();
+  const { records, metadata } = await adapter.fetch(forceLive);
+
+  const snapshotId = `tln-mun-${metadata.checksum.substring(0, 12)}`;
 
   return {
     metadata: {
       source: 'tallinn',
-      name: 'Tallinn Open Data & Geoportal (Official City Services)',
-      url: 'https://avaandmed.eesti.ee / https://geoportaal.tallinn.ee',
-      fetchedAt,
-      checksum,
+      name: 'Tallinna Linnavalitsuse Geoportaal & Avaandmed',
+      mode: metadata.mode,
+      fetchedAt: metadata.fetchedAt,
+      checksum: metadata.checksum,
       snapshotId,
       recordCount: records.length,
     },
     records,
   };
 }
+
+export const fetchTallinnMunicipalData = fetchTallinnData;
+

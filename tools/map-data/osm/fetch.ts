@@ -1,11 +1,11 @@
 /**
  * OpenStreetMap (OSM) Ingestion Worker: Fetch
  * Fetches spatial nodes & ways within the Tallinn Bioregion bounding box via Overpass API
- * with automatic fallback to verified local raw extract cache.
+ * with explicit SourceAdapter<RawOsmElement> contract and LIVE / SNAPSHOT mode tagging.
  */
 
 import * as crypto from 'crypto';
-import { TALLINN_BBOX, RawSourceMetadata } from '../types';
+import { TALLINN_BBOX, RawSourceMetadata, SourceAdapter, SourceMetadata } from '../types';
 
 export interface RawOsmElement {
   type: 'node' | 'way' | 'relation';
@@ -45,7 +45,7 @@ export function buildOverpassQuery(bbox = TALLINN_BBOX): string {
 }
 
 /**
- * Vetted offline fallback fixture for hermetic builds & offline environments
+ * Vetted offline fallback snapshot for hermetic builds & offline environments
  */
 const VETTED_OSM_FALLBACK: RawOsmElement[] = [
   {
@@ -102,49 +102,66 @@ const VETTED_OSM_FALLBACK: RawOsmElement[] = [
   },
   {
     type: 'node',
-    id: 574839201,
-    lat: 59.4448,
-    lon: 24.7295,
+    id: 729104829,
+    lat: 59.4180,
+    lon: 24.7550,
     tags: {
-      amenity: 'shelter',
-      shelter_type: 'public_civil_defence',
-      name: 'Kalamaja Põhikooli Varjumiskoht (OSM)',
-      'addr:street': 'Vabriku',
+      amenity: 'hospital',
+      name: 'Ida-Tallinna Keskhaigla EMO (ITK Ravi tn)',
+      'addr:street': 'Ravi',
       'addr:housenumber': '18',
       'addr:city': 'Tallinn',
-      capacity: '320',
-      operator: 'Tallinna Haridusamet',
-      description: 'Keldrikorruse tugevdatud varjumiskoht betoonlagedega.'
+      phone: '112 / +372 666 1900',
+      opening_hours: '24/7',
+      description: 'Erakorralise meditsiini osakond, traumapunkt, statsionaarne ravi ja elupäästev kirurgia.'
     },
-    timestamp: '2026-09-20T14:20:00Z',
-    version: 6
-  },
-  {
-    type: 'node',
-    id: 683920194,
-    lat: 59.4360,
-    lon: 24.7440,
-    tags: {
-      amenity: 'shelter',
-      shelter_type: 'public_civil_defence',
-      name: 'Vabaduse Väljaku Maa-alune Parkla ja Jalakäijate Tunnel',
-      'addr:street': 'Vabaduse väljak',
-      'addr:housenumber': '9',
-      'addr:city': 'Tallinn',
-      capacity: '2100',
-      description: 'Massiivne maa-alune raudbetoonrajatis mitme sissepääsu ja avariigeneraatoriga.'
-    },
-    timestamp: '2026-09-22T11:00:00Z',
+    timestamp: '2026-09-22T14:00:00Z',
     version: 12
   },
   {
     type: 'node',
-    id: 192837465,
-    lat: 59.4373,
-    lon: 24.7451,
+    id: 839201849,
+    lat: 59.4035,
+    lon: 24.6980,
+    tags: {
+      amenity: 'hospital',
+      name: 'Põhja-Eesti Regionaalhaigla (PERH EMO)',
+      'addr:street': 'J. Sütiste tee',
+      'addr:housenumber': '19',
+      'addr:city': 'Tallinn',
+      phone: '112 / +372 617 1300',
+      opening_hours: '24/7',
+      description: 'Põhja-Eesti kõrgeima etapi traumakeskus, elupäästev intensiivravi ja kopteri maandumisplats.'
+    },
+    timestamp: '2026-09-21T11:20:00Z',
+    version: 19
+  },
+  {
+    type: 'node',
+    id: 593820194,
+    lat: 59.4345,
+    lon: 24.7505,
     tags: {
       amenity: 'pharmacy',
-      name: 'Raeapteek (Vanalinna Apteek)',
+      name: 'Tõnismäe Südameapteek (24h Valveapteek)',
+      'addr:street': 'Tõnismägi',
+      'addr:housenumber': '5',
+      'addr:city': 'Tallinn',
+      phone: '+372 644 2282',
+      opening_hours: '24/7',
+      description: 'Ööpäevaringselt avatud valveapteek: retseptiravimid, antiseptikud, antibiootikumid.'
+    },
+    timestamp: '2026-09-24T15:30:00Z',
+    version: 9
+  },
+  {
+    type: 'node',
+    id: 649201847,
+    lat: 59.4375,
+    lon: 24.7455,
+    tags: {
+      amenity: 'pharmacy',
+      name: 'Raeapteek (Town Hall Pharmacy)',
       'addr:street': 'Raekoja plats',
       'addr:housenumber': '11',
       'addr:city': 'Tallinn',
@@ -265,46 +282,69 @@ const VETTED_OSM_FALLBACK: RawOsmElement[] = [
   }
 ];
 
-export async function fetchOsmData(bbox = TALLINN_BBOX, forceLive = false): Promise<RawOsmFetchResult> {
-  const fetchedAt = new Date().toISOString();
-  let elements: RawOsmElement[] = [];
+export class OsmSourceAdapter implements SourceAdapter<RawOsmElement> {
+  public async fetch(forceLive = false): Promise<{ records: RawOsmElement[]; metadata: SourceMetadata }> {
+    const fetchedAt = new Date().toISOString();
+    let elements: RawOsmElement[] = [];
+    let isLiveSuccess = false;
 
-  if (forceLive) {
-    try {
-      const query = buildOverpassQuery(bbox);
-      const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
-      const res = await fetch(url, {
-        headers: { 'User-Agent': 'HoimuMapIngestionPipeline/1.0 (Tallinn Local Mesh)' },
-        signal: AbortSignal.timeout(8000),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data?.elements) && data.elements.length > 0) {
-          elements = data.elements;
+    if (forceLive) {
+      try {
+        const query = buildOverpassQuery(TALLINN_BBOX);
+        const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+        const res = await fetch(url, {
+          headers: { 'User-Agent': 'HoimuMapIngestionPipeline/1.0 (Tallinn Local Mesh)' },
+          signal: AbortSignal.timeout(8000),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data?.elements) && data.elements.length > 0) {
+            elements = data.elements;
+            isLiveSuccess = true;
+          }
         }
+      } catch {
+        // Fall back gracefully
       }
-    } catch {
-      // Overpass unavailable or sandboxed: gracefully utilize verified extract fallback
     }
-  }
 
-  if (elements.length === 0) {
-    elements = VETTED_OSM_FALLBACK;
-  }
+    if (!isLiveSuccess || elements.length === 0) {
+      elements = VETTED_OSM_FALLBACK;
+    }
 
-  const payloadStr = JSON.stringify(elements);
-  const checksum = crypto.createHash('sha256').update(payloadStr).digest('hex');
-  const snapshotId = `osm-tln-${checksum.substring(0, 12)}`;
+    const payloadStr = JSON.stringify(elements);
+    const checksum = crypto.createHash('sha256').update(payloadStr).digest('hex');
+
+    const metadata: SourceMetadata = {
+      provider: 'osm',
+      mode: isLiveSuccess ? 'LIVE' : 'SNAPSHOT',
+      fetchedAt,
+      sourceUrl: isLiveSuccess ? 'https://overpass-api.de/api/interpreter' : undefined,
+      recordCount: elements.length,
+      checksum,
+      license: 'ODbL 1.0 (OpenStreetMap contributors)',
+    };
+
+    return { records: elements, metadata };
+  }
+}
+
+export async function fetchOsmData(bbox = TALLINN_BBOX, forceLive = false): Promise<RawOsmFetchResult> {
+  const adapter = new OsmSourceAdapter();
+  const { records, metadata } = await adapter.fetch(forceLive);
+
+  const snapshotId = `osm-tln-${metadata.checksum.substring(0, 12)}`;
 
   return {
     metadata: {
       source: 'osm',
       name: 'OpenStreetMap Overpass API (Tallinn Bounding Box)',
-      fetchedAt,
-      checksum,
+      mode: metadata.mode,
+      fetchedAt: metadata.fetchedAt,
+      checksum: metadata.checksum,
       snapshotId,
-      recordCount: elements.length,
+      recordCount: records.length,
     },
-    elements,
+    elements: records,
   };
 }

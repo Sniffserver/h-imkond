@@ -2,7 +2,7 @@
   "id": "tallinn",
   "region": "tallinn",
   "version": "2026.09.26",
-  "generatedAt": "2026-09-27T00:15:33.612Z",
+  "generatedAt": "2026-09-27T08:44:42.989Z",
   "sources": [
     {
       "provider": "osm",
@@ -36,7 +36,7 @@
       "sha256": "ab4e72e147d8cf8cc8df7294ddfd93031ac74fb58b538a1e2475ac4dff1aa196",
       "sizeBytes": 929,
       "index": "tallinn-poi.index",
-      "count": 24
+      "count": 29
     },
     "routing": {
       "path": "routing.graph",
@@ -62,7 +62,7 @@
     "index": "tallinn-poi.index",
     "sha256": "ab4e72e147d8cf8cc8df7294ddfd93031ac74fb58b538a1e2475ac4dff1aa196",
     "sizeBytes": 929,
-    "count": 24
+    "count": 29
   },
   "routing": {
     "filename": "routing.graph",

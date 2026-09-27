@@ -12,12 +12,15 @@ const PRODUCTION_DIRS = [
   path.resolve(process.cwd(), 'src/services'),
   path.resolve(process.cwd(), 'src/core'),
   path.resolve(process.cwd(), 'src/geo'),
+  path.resolve(process.cwd(), 'src/data/generated'),
+  path.resolve(process.cwd(), 'public/maps'),
+  path.resolve(process.cwd(), 'tools/map-data'),
 ];
 
 const FORBIDDEN_PATTERNS = [
-  { pattern: /from\s+['"].*data\/fixtures.*['"]/g, message: 'Forbidden import of test fixtures in production code' },
-  { pattern: /source:\s*['"]fixture['"]/g, message: 'Hardcoded fixture source in production domain code' },
-  { pattern: /\[FIXTURE\]/g, message: 'Hardcoded [FIXTURE] label in production code' },
+  { pattern: /from\s+['"].*data\/fixtures.*['"]/, message: 'Forbidden import of test fixtures in production code' },
+  { pattern: /source:\s*['"]fixture['"]/, message: 'Hardcoded fixture source in production domain code' },
+  { pattern: /\[FIXTURE\]/, message: 'Hardcoded [FIXTURE] label in production code' },
 ];
 
 let errorsFound = 0;
@@ -35,10 +38,17 @@ function scanDirectory(dir: string): void {
         continue; // Tests and fixtures are exempted
       }
       scanDirectory(fullPath);
-    } else if (entry.isFile() && (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx'))) {
+    } else if (
+      entry.isFile() &&
+      (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx') || entry.name.endsWith('.json'))
+    ) {
       const content = fs.readFileSync(fullPath, 'utf8');
 
       FORBIDDEN_PATTERNS.forEach(({ pattern, message }) => {
+        // Reset lastIndex if global regex was supplied
+        if ('lastIndex' in pattern) {
+          (pattern as any).lastIndex = 0;
+        }
         if (pattern.test(content)) {
           console.error(`[SYNTHETIC DATA LEAK] ${fullPath}: ${message}`);
           errorsFound++;
