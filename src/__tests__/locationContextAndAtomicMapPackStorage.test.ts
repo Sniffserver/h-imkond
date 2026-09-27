@@ -81,6 +81,7 @@ describe('Unified LocationContext Stream & Atomic Map Pack Storage Engine', () =
     mockPmtilesBytes[4] = 0x6c; // l
     mockPmtilesBytes[5] = 0x65; // e
     mockPmtilesBytes[6] = 0x73; // s
+    mockPmtilesBytes[7] = 0x03; // PMTiles v3 specVersion
 
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,

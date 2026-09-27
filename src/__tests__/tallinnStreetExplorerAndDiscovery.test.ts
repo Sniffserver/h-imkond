@@ -108,10 +108,21 @@ describe('Tallinn Street Explorer, Discovery & Field Walk Engine', () => {
       expect(walk.fieldObjectives.visitPlacesCount).toBeGreaterThanOrEqual(1);
       expect(walk.fieldObjectives.observeMeshSignal).toBe(true);
 
-      // Verify Field Report
+      // Verify Field Report (accurately reflects true counted observations, no fake values)
       expect(walk.fieldReport).toBeDefined();
       expect(walk.fieldReport?.streetsDiscoveredCount).toBeGreaterThanOrEqual(1);
-      expect(walk.fieldReport?.radioObservationsCount).toBe(12);
+      expect(walk.fieldReport?.radioObservationsCount).toBe(0);
+
+      // Verify passing actual observations count or array (radioObservationsCount: actualObservations.length)
+      const walkWithObservations = generateFieldWalkRoute({ lat: 59.4370, lng: 24.7535 }, undefined, 7);
+      expect(walkWithObservations.fieldReport?.radioObservationsCount).toBe(7);
+
+      const mockObs = [
+        { id: 'obs-1', peerId: 'node-1', medium: 'lora' as const, rssi: -68, position: { lat: 59.438, lng: 24.754 }, timestamp: Date.now() },
+        { id: 'obs-2', peerId: 'node-2', medium: 'ble' as const, rssi: -82, position: { lat: 59.439, lng: 24.755 }, timestamp: Date.now() },
+      ];
+      const walkWithObsArray = generateFieldWalkRoute({ lat: 59.4370, lng: 24.7535 }, undefined, mockObs);
+      expect(walkWithObsArray.fieldReport?.radioObservationsCount).toBe(2);
 
       expect(walk.fieldcraftRewards.streetsToDiscover).toBeGreaterThanOrEqual(1);
       expect(walk.fieldcraftRewards.placesToFind).toBeGreaterThanOrEqual(1);

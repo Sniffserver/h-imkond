@@ -35,17 +35,13 @@ describe('HÕIMU PMTiles Map Pack & Zero-Scraping Offline Vector Architecture', 
   describe('Map Pack Service (Single-File PMTiles)', () => {
     it('provides metadata for primary Estonian bioregions', async () => {
       const packs = await mapPackService.getMapPackList();
-      expect(packs.length).toBeGreaterThanOrEqual(4);
-
+      expect(packs.length).toBeGreaterThanOrEqual(1);
       const tallinn = packs.find((p) => p.cityId === 'tallinn');
       expect(tallinn).toBeDefined();
       expect(tallinn?.fileName).toBe('tallinn.pmtiles');
       expect(tallinn?.sizeBytes).toBeGreaterThan(0);
       expect(tallinn?.features.some((f) => f.includes('name:et'))).toBe(true);
-
-      const tartu = packs.find((p) => p.cityId === 'tartu');
-      expect(tartu).toBeDefined();
-      expect(tartu?.cityName).toBe('Tartu');
+      expect(tallinn?.sha256).toBe('e2bf5b73d6bb3a61c695c885d5595c1ff59a512dd32b832e178932ea28c8f988');
     });
 
     it('installs a single-file map pack with progress tracking and zero raster scraping', async () => {
@@ -68,8 +64,8 @@ describe('HÕIMU PMTiles Map Pack & Zero-Scraping Offline Vector Architecture', 
         return new Response('Not Found', { status: 404, statusText: 'Not Found' });
       });
 
-      await expect(mapPackService.installMapPack('tartu')).rejects.toThrow('Map pack download failed');
-      const isInstalled = await mapPackService.isMapPackInstalled('tartu');
+      await expect(mapPackService.installMapPack('tallinn')).rejects.toThrow('Map pack download failed');
+      const isInstalled = await mapPackService.isMapPackInstalled('tallinn');
       expect(isInstalled).toBe(false);
     });
 
@@ -79,8 +75,8 @@ describe('HÕIMU PMTiles Map Pack & Zero-Scraping Offline Vector Architecture', 
         return new Response(invalidData.buffer, { status: 200 });
       });
 
-      await expect(mapPackService.installMapPack('tartu')).rejects.toThrow('Map pack verification error');
-      const isInstalled = await mapPackService.isMapPackInstalled('tartu');
+      await expect(mapPackService.installMapPack('tallinn')).rejects.toThrow('Map pack verification error');
+      const isInstalled = await mapPackService.isMapPackInstalled('tallinn');
       expect(isInstalled).toBe(false);
     });
 

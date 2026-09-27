@@ -10,23 +10,30 @@
  */
 
 import type * as maplibregl from 'maplibre-gl';
-import { GeoPoint, SignalObservation } from '../../../../types';
+import { SignalObservation } from '../../../../types';
 
 export const SIGNAL_TRAIL_SOURCE_ID = 'hoimu-signaltrail-source';
 export const SIGNAL_TRAIL_LINE_LAYER = 'signal-trail-line';
 export const SIGNAL_TRAIL_POINTS_LAYER = 'signal-trail-points';
 
+/**
+ * Architectural Invariant:
+ * GPS track ≠ RSSI measurement ≠ mesh topology ≠ RF coverage model.
+ * SignalTrailPoint is strictly an RF SignalObservation (never a raw GPS breadcrumb).
+ */
+export type SignalTrailPoint = SignalObservation;
+
 export function getRssiColor(rssi: number): string {
-  if (rssi > -70) return '#2A9D8F'; // Green
-  if (rssi > -85) return '#E9C46A'; // Yellow
-  if (rssi > -100) return '#F4A261'; // Orange
-  return '#E76F51'; // Red
+  if (rssi > -70) return '#2A9D8F'; // Green: strong link
+  if (rssi > -85) return '#E9C46A'; // Yellow: reliable link
+  if (rssi > -100) return '#F4A261'; // Orange: marginal
+  return '#E76F51'; // Red: edge / near dead zone
 }
 
 export function convertTrailToGeoJson(
-  observationsOrPoints: (SignalObservation | GeoPoint)[]
+  observations: SignalTrailPoint[]
 ): GeoJSON.FeatureCollection {
-  if (observationsOrPoints.length === 0) {
+  if (observations.length === 0) {
     return {
       type: 'FeatureCollection',
       features: [],
@@ -34,17 +41,10 @@ export function convertTrailToGeoJson(
   }
 
   const features: GeoJSON.Feature[] = [];
-
-  // 1. Convert to Point Features with RSSI color metadata
   const pointCoords: [number, number][] = [];
 
-  observationsOrPoints.forEach((item, index) => {
-    const isObs = 'rssi' in item;
-    const pos = isObs ? item.position : item;
-    const rssi = isObs ? item.rssi : -75;
-    const peerId = isObs ? item.peerId : 'Self GPS';
-    const medium = isObs ? item.medium : 'lora';
-
+  observations.forEach((obs, index) => {
+    const pos = obs.position;
     pointCoords.push([pos.lng, pos.lat]);
 
     features.push({
@@ -55,16 +55,16 @@ export function convertTrailToGeoJson(
       },
       properties: {
         id: `sig_obs_${index}`,
-        rssi,
-        peerId,
-        medium,
-        color: getRssiColor(rssi),
-        timestamp: isObs ? item.timestamp : Date.now(),
+        rssi: obs.rssi,
+        peerId: obs.peerId,
+        medium: obs.medium,
+        color: getRssiColor(obs.rssi),
+        timestamp: obs.timestamp,
       },
     });
   });
 
-  // 2. Convert to LineString Trail feature if >= 2 points
+  // Signal propagation path if >= 2 consecutive observations
   if (pointCoords.length >= 2) {
     features.unshift({
       type: 'Feature',
@@ -84,9 +84,9 @@ export function convertTrailToGeoJson(
 
 export function setupSignalTrailLayer(
   map: maplibregl.Map,
-  observationsOrPoints: (SignalObservation | GeoPoint)[]
+  observations: SignalTrailPoint[]
 ): void {
-  const geojson = convertTrailToGeoJson(observationsOrPoints);
+  const geojson = convertTrailToGeoJson(observations);
 
   if (map.getSource(SIGNAL_TRAIL_SOURCE_ID)) {
     const src = map.getSource(SIGNAL_TRAIL_SOURCE_ID) as maplibregl.GeoJSONSource;
@@ -107,13 +107,13 @@ export function setupSignalTrailLayer(
     filter: ['==', ['get', 'type'], 'trail_line'],
     paint: {
       'line-color': '#2A9D8F',
-      'line-width': 3,
+      'line-width': 2.5,
       'line-opacity': 0.6,
       'line-dasharray': [2, 1],
     },
   });
 
-  // Signal Geography Point observations layer
+  // Signal Geography Point observations layer (strictly genuine RSSI values)
   map.addLayer({
     id: SIGNAL_TRAIL_POINTS_LAYER,
     type: 'circle',
@@ -138,10 +138,10 @@ export function setupSignalTrailLayer(
 
 export function updateSignalTrailData(
   map: maplibregl.Map,
-  observationsOrPoints: (SignalObservation | GeoPoint)[]
+  observations: SignalTrailPoint[]
 ): void {
   const src = map.getSource(SIGNAL_TRAIL_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
   if (src) {
-    src.setData(convertTrailToGeoJson(observationsOrPoints));
+    src.setData(convertTrailToGeoJson(observations));
   }
 }

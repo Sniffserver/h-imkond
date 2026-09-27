@@ -3,6 +3,7 @@
 
 import { GeoPoint, GeoFix, WifiSpot, BluetoothSpot, LoraNode, WalkSession } from '../../types';
 import { Geolocation } from '@capacitor/geolocation';
+import { locationManager } from '../location/LocationManager';
 import { CapacitorBridge } from '../comms/capacitorBridge';
 import {
   recordWifiSpot,
@@ -321,59 +322,30 @@ class PathfinderScannerService {
     }
   }
 
+  private locationUnsubscribe: (() => void) | null = null;
+
   private async startWatchPosition() {
     if (typeof window === 'undefined') return;
     this.stopWatchPosition();
 
-    try {
-      this.capacitorWatchId = await Geolocation.watchPosition(
-        { enableHighAccuracy: true },
-        (pos, err) => {
-          if (err || !pos) return;
-          if (!this.state.isRecording || this.state.isPaused) return;
-          this.addGpsBreadcrumb({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-            altitudeMeters: pos.coords.altitude || undefined,
-            accuracyMeters: pos.coords.accuracy || 5,
-            timestamp: pos.timestamp || Date.now(),
-          });
-        }
-      );
-    } catch (e) {
-      if (navigator.geolocation) {
-        this.geoWatchId = navigator.geolocation.watchPosition(
-          (pos) => {
-            if (!this.state.isRecording || this.state.isPaused) return;
-            this.addGpsBreadcrumb({
-              lat: pos.coords.latitude,
-              lng: pos.coords.longitude,
-              altitudeMeters: pos.coords.altitude || undefined,
-              accuracyMeters: pos.coords.accuracy || 5,
-              timestamp: pos.timestamp || Date.now(),
-            });
-          },
-          (err) => {
-            console.warn('[Pathfinder] Geolocation watch notice:', err);
-          },
-          {
-            enableHighAccuracy: true,
-            maximumAge: 3000,
-            timeout: 10000,
-          }
-        );
-      }
-    }
+    this.locationUnsubscribe = locationManager.subscribe((fix) => {
+      if (!this.state.isRecording || this.state.isPaused) return;
+      this.addGpsBreadcrumb({
+        lat: fix.lat,
+        lng: fix.lng,
+        altitudeMeters: fix.altitudeMeters,
+        accuracyMeters: fix.accuracyMeters,
+        timestamp: fix.timestamp,
+      });
+    });
+
+    locationManager.start().catch(() => {});
   }
 
   private stopWatchPosition() {
-    if (this.capacitorWatchId !== null) {
-      Geolocation.clearWatch({ id: this.capacitorWatchId }).catch(() => {});
-      this.capacitorWatchId = null;
-    }
-    if (this.geoWatchId !== null && typeof window !== 'undefined' && navigator.geolocation) {
-      navigator.geolocation.clearWatch(this.geoWatchId);
-      this.geoWatchId = null;
+    if (this.locationUnsubscribe) {
+      this.locationUnsubscribe();
+      this.locationUnsubscribe = null;
     }
   }
 

@@ -3,11 +3,10 @@
  * Generates actionable, loop-based field exploration routes based on nearby unexplored streets and useful POIs.
  */
 
-import { GeoPoint, Street, MapPlace, FieldObjectives, FieldReport } from '../../../types';
+import { GeoPoint, Street, MapPlace, FieldObjectives, FieldReport, SignalObservation } from '../../../types';
 import { mapRepository } from '../data/repository';
 import { haversineDistanceMeters } from '../../../geo/projection';
-import { planOfflineRoute } from '../../../utils/offlineRouter';
-import { RAW_TALLINN_STREETS } from './streetData';
+import { routingRepository } from '../../../services/routing/routingRepository';
 
 export interface FieldWalkStop {
   id: string;
@@ -97,8 +96,15 @@ export function getNearestPointOnStreetGeometry(
  */
 export function generateFieldWalkRoute(
   startLoc: GeoPoint = { lat: 59.4370, lng: 24.7535 },
-  categoryFilter?: string
+  categoryFilter?: string,
+  actualObservations: SignalObservation[] | number = []
 ): FieldWalkRoute {
+  const radioObservationsCount = Array.isArray(actualObservations)
+    ? actualObservations.length
+    : typeof actualObservations === 'number'
+    ? actualObservations
+    : 0;
+
   const allStreets = mapRepository.getAllStreets();
   const sLat = startLoc.lat;
   const sLng = startLoc.lng;
@@ -178,14 +184,7 @@ export function generateFieldWalkRoute(
     actionInstruction: 'Return to origin, confirm objectives & sync mesh logs',
   });
 
-  // 4. Calculate actual pedestrian graph path using planOfflineRoute between consecutive stops
-  const vectorStreets = RAW_TALLINN_STREETS.map((s) => ({
-    name: s.name,
-    type: (s.highwayClass === 'primary' ? 'primary' : s.highwayClass === 'footway' || s.highwayClass === 'pedestrian' || s.highwayClass === 'trail' ? 'trail' : 'secondary') as 'primary' | 'secondary' | 'trail',
-    width: 2,
-    points: s.coordinates as [number, number][],
-  }));
-
+  // 4. Calculate actual pedestrian graph path using routingRepository between consecutive stops
   let fullRoutePath: [number, number][] = [];
   let totalDistanceMeters = 0;
 
@@ -193,20 +192,15 @@ export function generateFieldWalkRoute(
     const from = stops[i].location;
     const to = stops[i + 1].location;
 
-    const offlineRoute = planOfflineRoute(
-      vectorStreets,
-      { x: from.lng, y: from.lat },
-      { x: to.lng, y: to.lat },
-      { profile: 'walking' }
-    );
+    const route = routingRepository.planRoute(from, to, { profile: 'walking' });
 
-    if (offlineRoute && offlineRoute.path.length > 0) {
+    if (route && route.path.length > 0) {
       if (fullRoutePath.length > 0) {
-        fullRoutePath = fullRoutePath.concat(offlineRoute.path.slice(1));
+        fullRoutePath = fullRoutePath.concat(route.path.slice(1));
       } else {
-        fullRoutePath = offlineRoute.path;
+        fullRoutePath = route.path;
       }
-      totalDistanceMeters += offlineRoute.totalDistanceMeters;
+      totalDistanceMeters += route.totalDistanceMeters;
     } else {
       totalDistanceMeters += haversineDistanceMeters(from.lat, from.lng, to.lat, to.lng);
       fullRoutePath.push([from.lng, from.lat], [to.lng, to.lat]);
@@ -236,7 +230,9 @@ export function generateFieldWalkRoute(
     streetsDiscoveredCount: rawSelectedStreets.length,
     placesConfirmedCount: selectedPlaces.length,
     distanceKm: Math.max(1.2, totalDistanceKm),
-    radioObservationsCount: 12,
+    radioObservationsCount: Array.isArray(actualObservations)
+      ? actualObservations.length
+      : radioObservationsCount,
     neighborhoodsVisited,
     durationMinutes: estimatedTimeMinutes,
   };

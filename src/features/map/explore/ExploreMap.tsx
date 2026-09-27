@@ -14,18 +14,25 @@ import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useExploreMapState } from './ExploreMapState';
 import { initializeMapSources } from './ExploreMapSources';
-import { setupAllOverlayLayers, applyCategoryFilterToPlaces, updateUserLocationData } from './ExploreMapLayers';
+import {
+  setupAllOverlayLayers,
+  applyCategoryFilterToPlaces,
+  updateUserLocationData,
+} from './ExploreMapLayers';
+import { updatePeopleLayerData, PeerMapMarker } from './overlays/PeopleLayer';
+import { updateResourcesLayerData, ResourceItem } from './overlays/ResourcesLayer';
+import { updateMeshLinksLayerData, MeshLink } from './overlays/MeshLinksLayer';
+import { updateSignalTrailData } from './overlays/SignalTrailLayer';
+import { updateDiscoveryLayerData } from './overlays/DiscoveryLayer';
+import { updatePlacesLayerData } from './overlays/PlacesLayer';
+import { updateRouteLayerData } from './overlays/RouteLayer';
 import { bindExploreMapInteractions } from './ExploreMapSelection';
 import { flyToPoint, fitToGeoJsonBounds, resetMapNorth } from './ExploreMapGestures';
 import { searchExploreMap, SearchMatch } from './ExploreMapSearch';
-import { updatePlacesLayerData } from './overlays/PlacesLayer';
-import { updateDiscoveryLayerData } from './overlays/DiscoveryLayer';
-import { updateRouteLayerData } from './overlays/RouteLayer';
 import { applyMapTheme, getTacticalVectorMapStyle, TacticalMapTheme } from '../pmtiles';
 import { mapRepository } from '../data/repository';
-import { MapPlace, Street, GeoPoint } from '../../../types';
-import { planOfflineRoute } from '../../../utils/offlineRouter';
-import { RAW_TALLINN_STREETS } from '../streets/streetData';
+import { MapPlace, Street, GeoPoint, SignalObservation } from '../../../types';
+import { routingRepository } from '../../../services/routing/routingRepository';
 import { generateFieldWalkRoute } from '../streets/streetWalkGenerator';
 
 export interface ExploreMapProps {
@@ -33,6 +40,12 @@ export interface ExploreMapProps {
   initialZoom?: number;
   onSelectPlace?: (place: MapPlace) => void;
   className?: string;
+  peers?: PeerMapMarker[];
+  resources?: ResourceItem[];
+  meshLinks?: MeshLink[];
+  signalTrail?: SignalObservation[];
+  streets?: Street[];
+  places?: MapPlace[];
 }
 
 export const ExploreMap: React.FC<ExploreMapProps> = ({
@@ -40,6 +53,12 @@ export const ExploreMap: React.FC<ExploreMapProps> = ({
   initialZoom = 13,
   onSelectPlace: externalOnSelectPlace,
   className = '',
+  peers = [],
+  resources = [],
+  meshLinks = [],
+  signalTrail = [],
+  streets: propStreets,
+  places: propPlaces,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<maplibregl.Map | null>(null);
@@ -66,13 +85,24 @@ export const ExploreMap: React.FC<ExploreMapProps> = ({
   const [places, setPlaces] = useState<MapPlace[]>([]);
   const [streets, setStreets] = useState<Street[]>([]);
 
-  // Load initial dataset from repository
+  // Load initial dataset & routing graph repository
   useEffect(() => {
-    const loadedPlaces = mapRepository.getAllPlaces();
-    const loadedStreets = mapRepository.getAllStreets();
-    setPlaces(loadedPlaces);
-    setStreets(loadedStreets);
-  }, []);
+    if (propPlaces && propPlaces.length > 0) {
+      setPlaces(propPlaces);
+    } else {
+      const loadedPlaces = mapRepository.getAllPlaces();
+      setPlaces(loadedPlaces);
+    }
+
+    if (propStreets && propStreets.length > 0) {
+      setStreets(propStreets);
+    } else {
+      const loadedStreets = mapRepository.getAllStreets();
+      setStreets(loadedStreets);
+    }
+
+    routingRepository.initialize('/routing/tallinn.graph').catch(() => {});
+  }, [propPlaces, propStreets]);
 
   // Initialize MapLibre GL
   useEffect(() => {
@@ -95,8 +125,12 @@ export const ExploreMap: React.FC<ExploreMapProps> = ({
           initializeMapSources(map, '/maps/tallinn.pmtiles');
           setupAllOverlayLayers(map, {
             userLocation,
-            places: mapRepository.getAllPlaces(),
-            streets: mapRepository.getAllStreets(),
+            places: propPlaces && propPlaces.length > 0 ? propPlaces : mapRepository.getAllPlaces(),
+            streets: propStreets && propStreets.length > 0 ? propStreets : mapRepository.getAllStreets(),
+            peers,
+            resources,
+            meshLinks,
+            signalTrail,
           });
           bindExploreMapInteractions(map, mapRepository.getAllPlaces(), mapRepository.getAllStreets(), {
             onSelectPlace: (place) => {
@@ -153,6 +187,48 @@ export const ExploreMap: React.FC<ExploreMapProps> = ({
     }
   }, [userLocation, mapLoaded]);
 
+  // Update peers layer in runtime
+  useEffect(() => {
+    if (mapInstanceRef.current && mapLoaded) {
+      updatePeopleLayerData(mapInstanceRef.current, peers);
+    }
+  }, [peers, mapLoaded]);
+
+  // Update resources layer in runtime
+  useEffect(() => {
+    if (mapInstanceRef.current && mapLoaded) {
+      updateResourcesLayerData(mapInstanceRef.current, resources);
+    }
+  }, [resources, mapLoaded]);
+
+  // Update mesh links layer in runtime
+  useEffect(() => {
+    if (mapInstanceRef.current && mapLoaded) {
+      updateMeshLinksLayerData(mapInstanceRef.current, meshLinks);
+    }
+  }, [meshLinks, mapLoaded]);
+
+  // Update signal trail / radio geography layer in runtime
+  useEffect(() => {
+    if (mapInstanceRef.current && mapLoaded) {
+      updateSignalTrailData(mapInstanceRef.current, signalTrail);
+    }
+  }, [signalTrail, mapLoaded]);
+
+  // Update street discovery layer in runtime
+  useEffect(() => {
+    if (mapInstanceRef.current && mapLoaded) {
+      updateDiscoveryLayerData(mapInstanceRef.current, streets);
+    }
+  }, [streets, mapLoaded]);
+
+  // Update places layer in runtime
+  useEffect(() => {
+    if (mapInstanceRef.current && mapLoaded) {
+      updatePlacesLayerData(mapInstanceRef.current, places);
+    }
+  }, [places, mapLoaded]);
+
   // Update active route line
   useEffect(() => {
     if (mapInstanceRef.current && mapLoaded) {
@@ -173,32 +249,20 @@ export const ExploreMap: React.FC<ExploreMapProps> = ({
     }
   }, [searchQuery, userLocation, places, streets]);
 
-  // A* Routing Trigger to a Place
+  // A* Routing Trigger to a Place using authoritative RoutingRepository
   const handleRouteToPlace = (place: MapPlace) => {
-    const vectorStreets = RAW_TALLINN_STREETS.map((s) => ({
-      name: s.name,
-      type: (s.highwayClass === 'primary' ? 'primary' : s.highwayClass === 'footway' || s.highwayClass === 'pedestrian' || s.highwayClass === 'trail' ? 'trail' : 'secondary') as 'primary' | 'secondary' | 'trail',
-      width: 2,
-      points: s.coordinates as [number, number][],
-    }));
-
-    const offlineRoute = planOfflineRoute(
-      vectorStreets,
-      { x: userLocation.lng, y: userLocation.lat },
-      { x: place.location.lng, y: place.location.lat },
-      { profile: 'walking' }
-    );
+    const route = routingRepository.planRoute(userLocation, place.location, { profile: 'walking' });
 
     setActiveRoute({
-      path: offlineRoute.path,
-      totalDistanceMeters: offlineRoute.totalDistanceMeters,
-      estimatedMinutes: offlineRoute.estimatedWalkMinutes,
-      steps: offlineRoute.steps.map((s) => ({
+      path: route.path,
+      totalDistanceMeters: route.totalDistanceMeters,
+      estimatedMinutes: route.estimatedMinutes,
+      steps: route.steps.map((s) => ({
         instruction: s.instruction,
         streetName: s.streetName,
         distanceMeters: s.distanceMeters,
       })),
-      profileUsed: offlineRoute.profileUsed || 'walking',
+      profileUsed: route.profileUsed || 'walking',
     });
   };
 

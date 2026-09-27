@@ -5,13 +5,13 @@
 
 import type * as maplibregl from 'maplibre-gl';
 import { setupUserLocationLayer, updateUserLocationData } from './overlays/UserLocationLayer';
-import { setupPlacesLayer, PLACES_UNCLUSTERED_POINT_LAYER } from './overlays/PlacesLayer';
-import { setupPeopleLayer } from './overlays/PeopleLayer';
-import { setupResourcesLayer } from './overlays/ResourcesLayer';
-import { setupMeshLinksLayer } from './overlays/MeshLinksLayer';
-import { setupSignalTrailLayer } from './overlays/SignalTrailLayer';
-import { setupDiscoveryLayer } from './overlays/DiscoveryLayer';
-import { setupRouteLayer } from './overlays/RouteLayer';
+import { setupPlacesLayer, updatePlacesLayerData, PLACES_UNCLUSTERED_POINT_LAYER } from './overlays/PlacesLayer';
+import { setupPeopleLayer, updatePeopleLayerData } from './overlays/PeopleLayer';
+import { setupResourcesLayer, updateResourcesLayerData } from './overlays/ResourcesLayer';
+import { setupMeshLinksLayer, updateMeshLinksLayerData } from './overlays/MeshLinksLayer';
+import { setupSignalTrailLayer, updateSignalTrailData } from './overlays/SignalTrailLayer';
+import { setupDiscoveryLayer, updateDiscoveryLayerData } from './overlays/DiscoveryLayer';
+import { setupRouteLayer, updateRouteLayerData } from './overlays/RouteLayer';
 import { MapPlace, Street, GeoPoint, SignalObservation } from '../../../types';
 import { RouteResult } from '../../../services/routing/routingEngine';
 import { PeerMapMarker } from './overlays/PeopleLayer';
@@ -25,7 +25,7 @@ export interface OverlayData {
   peers?: PeerMapMarker[];
   resources?: ResourceItem[];
   meshLinks?: MeshLink[];
-  signalTrail?: (SignalObservation | GeoPoint)[];
+  signalTrail?: SignalObservation[];
   route?: RouteResult | null;
 }
 
@@ -71,6 +71,17 @@ export function setupAllOverlayLayers(map: maplibregl.Map, data: OverlayData): v
 }
 
 export { updateUserLocationData };
+
+export function updateAllOverlayLayers(map: maplibregl.Map, data: Partial<OverlayData>): void {
+  if (data.places) updatePlacesLayerData(map, data.places);
+  if (data.streets) updateDiscoveryLayerData(map, data.streets);
+  if (data.peers) updatePeopleLayerData(map, data.peers);
+  if (data.resources) updateResourcesLayerData(map, data.resources);
+  if (data.meshLinks) updateMeshLinksLayerData(map, data.meshLinks);
+  if (data.signalTrail) updateSignalTrailData(map, data.signalTrail);
+  if (data.userLocation) updateUserLocationData(map, data.userLocation);
+  if (data.route !== undefined) updateRouteLayerData(map, data.route);
+}
 
 export function applyCategoryFilterToPlaces(map: maplibregl.Map, categoryFilter: string | null): void {
   if (!map || !map.getLayer(PLACES_UNCLUSTERED_POINT_LAYER)) return;

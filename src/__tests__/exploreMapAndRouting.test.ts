@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { getNearestPointOnStreetGeometry, generateFieldWalkRoute } from '../features/map/streets/streetWalkGenerator';
 import { planOfflineRoute } from '../utils/offlineRouter';
-import { RAW_TALLINN_STREETS } from '../features/map/streets/streetData';
+import { mapRepository } from '../features/map/data/repository';
 import { convertPlacesToGeoJson } from '../features/map/explore/overlays/PlacesLayer';
 import { MapPlace, Street } from '../types';
 
@@ -81,11 +81,11 @@ describe('Unified ExploreMap Architecture, POI Clustering & A* Routing', () => {
 
   describe('Requirement #21: A* Graph Routing Engine', () => {
     it('calculates a valid WGS84 GeoJSON walking route between two points on the Tallinn street graph', () => {
-      const vectorStreets = RAW_TALLINN_STREETS.map((s) => ({
+      const vectorStreets = mapRepository.getAllStreets().map((s) => ({
         name: s.name,
         type: (s.highwayClass === 'primary' ? 'primary' : s.highwayClass === 'footway' || s.highwayClass === 'pedestrian' || s.highwayClass === 'trail' ? 'trail' : 'secondary') as 'primary' | 'secondary' | 'trail',
         width: 2,
-        points: s.coordinates as [number, number][],
+        points: (s.geometry?.coordinates || []) as [number, number][],
       }));
 
       // Route from Viru väljak (59.4360, 24.7440) to Raua tänava päästekomando (59.4358, 24.7670)

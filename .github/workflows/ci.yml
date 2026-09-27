@@ -20,7 +20,7 @@ jobs:
       - name: Setup Node.js Environment
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: 'npm'
 
       - name: Install Node Dependencies
@@ -59,20 +59,20 @@ jobs:
       - name: 11. Production Applet Build (Blocking)
         run: npm run build
 
-      - name: 9. Bundle Size Visualization (Non-blocking)
+      - name: 12. Security Audit & Hardening Gate (Blocking)
+        run: npm run audit:security:details && npm audit --audit-level=high
+
+      - name: 13. Bundle Size Visualization (Non-blocking)
         continue-on-error: true
         run: npx vite-bundle-visualizer --output stats.html || true
 
-      - name: 10. Experimental Benchmark (Non-blocking)
+      - name: 14. Experimental Benchmark (Non-blocking)
         continue-on-error: true
         run: echo "Running experimental performance benchmark..." || true
 
-      - name: 11. Long RF Simulation (Non-blocking)
+      - name: 15. Long RF Simulation (Non-blocking)
         continue-on-error: true
         run: echo "Running long RF pathloss simulation..." || true
-
-      - name: 12. Security Audit
-        run: npm audit --audit-level=high || true
 
   # -------------------------------------------------------------
   # Job 2: Raspberry Pi Python Gateway Gate (Strict Blocking)

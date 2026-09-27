@@ -18,6 +18,7 @@ import {
   BatteryManagerStatus,
 } from '../../types';
 import { offlineMapService } from '../../services/map/offlineMapService';
+import { locationManager } from '../../services/location/LocationManager';
 import { pathfinderScanner, PathfinderActiveState } from '../../services/scanner/pathfinderScanner';
 import { initPathfinderDB, getLoadedPathfinderData } from '../../utils/pathfinderStorage';
 import { CITY_MAPS } from '../../data/cityMaps';
@@ -778,71 +779,51 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
 
   // Sync auto-follow to GPS
   useEffect(() => {
+    let unsubscribe: (() => void) | null = null;
+
     if (autoFollowUser) {
-      if (!navigator.geolocation) {
-        setGpsStatusMessage('Geolocation not supported in browser');
-        setAutoFollowUser(false);
-        return;
-      }
       setIsLocatingGps(true);
       setGpsStatusMessage('Acquiring satellite GPS fix (Auto-follow)...');
-      
-      autoFollowWatchIdRef.current = navigator.geolocation.watchPosition(
-        (pos) => {
-          setIsLocatingGps(false);
-          const { latitude, longitude, accuracy } = pos.coords;
-          
-          const activeCenter = parseCenterCoords(activeCity.centerCoordsText);
-          const cityLat = activeCity.centerCoords?.[0] || activeCenter.lat;
-          const cityLng = activeCity.centerCoords?.[1] || activeCenter.lng;
 
-          const latDiffKm = (latitude - cityLat) * 110.574;
-          const lngDiffKm = (longitude - cityLng) * (111.32 * Math.cos((cityLat * Math.PI) / 180));
+      unsubscribe = locationManager.subscribe((fix) => {
+        setIsLocatingGps(false);
+        const { lat: latitude, lng: longitude, accuracyMeters: accuracy = 5 } = fix;
 
-          const worldX = Math.round(lngDiffKm * 100);
-          const worldY = Math.round(-latDiffKm * 100);
+        const activeCenter = parseCenterCoords(activeCity.centerCoordsText);
+        const cityLat = activeCity.centerCoords?.[0] || activeCenter.lat;
+        const cityLng = activeCity.centerCoords?.[1] || activeCenter.lng;
 
-          setStoreGps({
-            lat: latitude,
-            lng: longitude,
-            accuracy: Math.round(accuracy),
-            timestamp: Date.now(),
-          });
+        const latDiffKm = (latitude - cityLat) * 110.574;
+        const lngDiffKm = (longitude - cityLng) * (111.32 * Math.cos((cityLat * Math.PI) / 180));
 
-          // Lock viewport to location
-          setTransform((prev) => ({
-            ...prev,
-            offsetX: -worldX * prev.scale,
-            offsetY: -worldY * prev.scale,
-          }));
+        const worldX = Math.round(lngDiffKm * 100);
+        const worldY = Math.round(-latDiffKm * 100);
 
-          setGpsStatusMessage(`Auto-following GPS: ±${Math.round(accuracy)}m`);
-        },
-        (err) => {
-          console.warn('GPS location error:', err);
-          setIsLocatingGps(false);
-          // Auto-follow simulated user pos
-          setTransform((prev) => ({
-            ...prev,
-            offsetX: -simulatedUserPosRef.current.x * prev.scale,
-            offsetY: -simulatedUserPosRef.current.y * prev.scale,
-          }));
-        },
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
-      );
+        setStoreGps({
+          lat: latitude,
+          lng: longitude,
+          accuracy: Math.round(accuracy),
+          timestamp: Date.now(),
+        });
+
+        setTransform((prev) => ({
+          ...prev,
+          offsetX: -worldX * prev.scale,
+          offsetY: -worldY * prev.scale,
+        }));
+
+        setGpsStatusMessage(`Auto-following GPS: ±${Math.round(accuracy)}m`);
+      });
+
+      locationManager.start().catch(() => {});
     } else {
-      if (autoFollowWatchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(autoFollowWatchIdRef.current);
-        autoFollowWatchIdRef.current = null;
-      }
       setIsLocatingGps(false);
       setGpsStatusMessage(null);
     }
 
     return () => {
-      if (autoFollowWatchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(autoFollowWatchIdRef.current);
-        autoFollowWatchIdRef.current = null;
+      if (unsubscribe) {
+        unsubscribe();
       }
     };
   }, [autoFollowUser, activeCity]);

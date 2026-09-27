@@ -65,11 +65,18 @@ export async function calculateSha256(buffer: ArrayBuffer | Uint8Array): Promise
   return CryptoJS.SHA256(wordArray).toString(CryptoJS.enc.Hex);
 }
 
+export interface MultiArtifactBundle {
+  basemap: ArrayBuffer;
+  poi?: ArrayBuffer;
+  routing?: ArrayBuffer;
+  streetIndex?: ArrayBuffer;
+}
+
 export class MapPackService {
   private activeCityId: string = 'tallinn';
   private dbPromise: Promise<IDBDatabase | null> | null = null;
   private installedPacksCache: Set<string> = new Set();
-  private memoryPacks: Map<string, { buffer: ArrayBuffer; metadata: any; sha256: string }> = new Map();
+  private memoryPacks: Map<string, { artifacts: MultiArtifactBundle; metadata: any; sha256: string }> = new Map();
 
   constructor() {
     this.checkInitialPacks();
@@ -370,14 +377,19 @@ export class MapPackService {
     return true;
   }
 
-  public async saveMapPackBlob(
+  public async saveMapPackBundle(
     cityId: string,
-    buffer: ArrayBuffer,
+    artifacts: MultiArtifactBundle,
     metadata: MapPackManifest,
     sha256Hash: string
   ): Promise<void> {
+    const totalSize = (artifacts.basemap?.byteLength || 0) +
+      (artifacts.poi?.byteLength || 0) +
+      (artifacts.routing?.byteLength || 0) +
+      (artifacts.streetIndex?.byteLength || 0);
+
     this.memoryPacks.set(cityId, {
-      buffer,
+      artifacts,
       metadata,
       sha256: sha256Hash,
     });
@@ -397,10 +409,11 @@ export class MapPackService {
             installedAt: Date.now(),
             isInstalled: true,
             sha256Hash,
-            sizeBytes: buffer.byteLength,
-            sizeFormatted: `${(buffer.byteLength / (1024 * 1024)).toFixed(1)} MB`,
+            sizeBytes: totalSize,
+            sizeFormatted: `${(totalSize / (1024 * 1024)).toFixed(1)} MB`,
           },
-          data: buffer,
+          data: artifacts.basemap,
+          artifacts,
         };
         const req = store.put(record);
         tx.oncomplete = () => resolve();
@@ -411,27 +424,26 @@ export class MapPackService {
     });
   }
 
-  public async getMapPackData(cityId: string): Promise<ArrayBuffer | null> {
-    if (this.memoryPacks.has(cityId)) {
-      return this.memoryPacks.get(cityId)!.buffer;
+  public async saveMapPackBlob(
+    cityId: string,
+    buffer: ArrayBuffer,
+    metadata: MapPackManifest,
+    sha256Hash: string
+  ): Promise<void> {
+    return this.saveMapPackBundle(cityId, { basemap: buffer }, metadata, sha256Hash);
+  }
+
+  public async getMapPackArtifact(
+    cityId: string,
+    artifactType: keyof MultiArtifactBundle = 'basemap'
+  ): Promise<ArrayBuffer | null> {
+    const mem = this.memoryPacks.get(cityId);
+    if (mem && mem.artifacts && mem.artifacts[artifactType]) {
+      return mem.artifacts[artifactType]!;
     }
 
     const db = await this.initDB();
-    if (!db) {
-      if (typeof window !== 'undefined' && 'caches' in window) {
-        try {
-          const cache = await caches.open(CACHE_NAME);
-          const pack = MAP_PACK_MANIFESTS[cityId];
-          if (pack) {
-            const match = await cache.match(pack.remoteUrl);
-            if (match) {
-              return await match.arrayBuffer();
-            }
-          }
-        } catch {}
-      }
-      return null;
-    }
+    if (!db) return mem?.artifacts?.[artifactType] || null;
 
     return new Promise((resolve) => {
       try {
@@ -439,19 +451,23 @@ export class MapPackService {
         const store = tx.objectStore(STORE_NAME);
         const req = store.get(cityId);
         req.onsuccess = () => {
-          if (req.result && req.result.data) {
+          if (req.result && req.result.artifacts && req.result.artifacts[artifactType]) {
+            resolve(req.result.artifacts[artifactType]);
+          } else if (req.result && req.result.data && artifactType === 'basemap') {
             resolve(req.result.data);
-          } else if (this.memoryPacks.has(cityId)) {
-            resolve(this.memoryPacks.get(cityId)!.buffer);
           } else {
-            resolve(null);
+            resolve(this.memoryPacks.get(cityId)?.artifacts?.[artifactType] || null);
           }
         };
-        req.onerror = () => resolve(this.memoryPacks.get(cityId)?.buffer || null);
+        req.onerror = () => resolve(this.memoryPacks.get(cityId)?.artifacts?.[artifactType] || null);
       } catch {
-        resolve(this.memoryPacks.get(cityId)?.buffer || null);
+        resolve(this.memoryPacks.get(cityId)?.artifacts?.[artifactType] || null);
       }
     });
+  }
+
+  public async getMapPackData(cityId: string): Promise<ArrayBuffer | null> {
+    return this.getMapPackArtifact(cityId, 'basemap');
   }
 
   public async deleteMapPack(cityId: string): Promise<boolean> {

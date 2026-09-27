@@ -118,7 +118,13 @@ export async function runIngestionPipeline(options?: { forceLive?: boolean }): P
     outputPath: poiPmtilesOutput,
     name: 'Tallinn Civilian Resilience POI Layer',
     description: 'Civilian shelters, water points, police, hospitals, and repair hubs',
-    layers: ['places', 'shelters', 'water', 'police', 'tools'],
+    layers: [
+      { id: 'places' },
+      { id: 'shelters' },
+      { id: 'water' },
+      { id: 'police' },
+      { id: 'tools' },
+    ],
   });
   fs.copyFileSync(poiPmtilesOutput, poiPmtilesGenerated);
 

@@ -348,6 +348,8 @@ export interface SourceRecord {
   sourceUpdatedAt?: number;
   license?: string;
   checksum?: string;
+  signature?: string;
+  signerPublicKey?: string;
   observedAddress?: string;
   observedCoordinates?: { lat: number; lng: number };
 }
@@ -422,6 +424,7 @@ export interface MapPlace {
     | 'fixture'
     | 'simulated'
     | 'unknown';
+  isFixture?: boolean;
   observedByNodes?: number;
   lastConfirmed?: string;
   snapshotDate?: string;

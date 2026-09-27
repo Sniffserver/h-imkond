@@ -23,6 +23,10 @@ export interface HoimuCommunityObservation {
   tags?: Record<string, string>;
   sourceUpdatedAt?: string;
   snapshotId?: string;
+  isFixture?: boolean;
+  signature?: string;
+  signerPublicKey?: string;
+  signatureVerified?: boolean;
 }
 
 export const HOIMU_COMMUNITY_FIXTURES: HoimuCommunityObservation[] = [
@@ -38,9 +42,13 @@ export const HOIMU_COMMUNITY_FIXTURES: HoimuCommunityObservation[] = [
     observedByNodes: 3,
     lastConfirmed: '2026-09-24 (Yesterday)',
     description: 'Community-maintained open tool chest: angle grinders, torque wrenches, multimeter, wire strippers, bolt cutters, and socket sets.',
-    tags: { community_governed: 'true', access: 'public_mesh_auth' },
+    tags: { community_governed: 'true', access: 'public_mesh_auth', mode: 'fixture' },
     sourceUpdatedAt: '2026-09-24T18:00:00Z',
     snapshotId: 'mesh-obs-tln-01',
+    isFixture: true,
+    signerPublicKey: 'pub_ed25519_node_tln_tel_01',
+    signature: 'SIG_ED25519_TEL_01_7c41b899a19d',
+    signatureVerified: true,
   },
   {
     id: 'hoimu_give_box_kopli',
@@ -54,9 +62,13 @@ export const HOIMU_COMMUNITY_FIXTURES: HoimuCommunityObservation[] = [
     observedByNodes: 2,
     lastConfirmed: '2026-09-25 (Today)',
     description: 'Free resource box: dry sealed oats, warm socks, matchboxes, spare 18650 batteries, and water purification tablets.',
-    tags: { freeshelf: 'true', weatherproof: 'true' },
+    tags: { freeshelf: 'true', weatherproof: 'true', mode: 'fixture' },
     sourceUpdatedAt: '2026-09-25T09:00:00Z',
     snapshotId: 'mesh-obs-tln-02',
+    isFixture: true,
+    signerPublicKey: 'pub_ed25519_node_tln_kop_02',
+    signature: 'SIG_ED25519_KOP_02_3b118da49c02',
+    signatureVerified: true,
   },
   {
     id: 'hoimu_repair_cafe_pelgu',
@@ -70,9 +82,13 @@ export const HOIMU_COMMUNITY_FIXTURES: HoimuCommunityObservation[] = [
     observedByNodes: 4,
     lastConfirmed: '2026-09-23',
     description: 'Weekly community repair space with soldering stations, 3D printer for spare gears, sewing machines, and bicycle truing stand.',
-    tags: { circular_economy: 'true' },
+    tags: { circular_economy: 'true', mode: 'fixture' },
     sourceUpdatedAt: '2026-09-23T17:00:00Z',
     snapshotId: 'mesh-obs-tln-03',
+    isFixture: true,
+    signerPublicKey: 'pub_ed25519_node_tln_pel_03',
+    signature: 'SIG_ED25519_PEL_03_9d28ba1207e4',
+    signatureVerified: true,
   },
   {
     id: 'hoimu_solar_hub_kadriorg',
@@ -86,15 +102,24 @@ export const HOIMU_COMMUNITY_FIXTURES: HoimuCommunityObservation[] = [
     observedByNodes: 2,
     lastConfirmed: '2026-09-25 (Today)',
     description: 'Off-grid autonomous solar and LoRa relay station with emergency device charging ports.',
-    tags: { energy_source: 'photovoltaic', off_grid: 'true' },
+    tags: { energy_source: 'photovoltaic', off_grid: 'true', mode: 'fixture' },
     sourceUpdatedAt: '2026-09-25T11:00:00Z',
     snapshotId: 'mesh-obs-tln-04',
+    isFixture: true,
+    signerPublicKey: 'pub_ed25519_node_tln_kad_04',
+    signature: 'SIG_ED25519_KAD_04_e5762a19fb66',
+    signatureVerified: true,
   }
 ];
 
+export interface SynthesizeCanonicalOptions {
+  allowFixtures?: boolean;
+}
+
 export function synthesizeCanonicalPlaces(
   dedupeResult: DedupeResult,
-  communityObservations: HoimuCommunityObservation[] = HOIMU_COMMUNITY_FIXTURES
+  communityObservations: HoimuCommunityObservation[] = HOIMU_COMMUNITY_FIXTURES,
+  options: SynthesizeCanonicalOptions = { allowFixtures: true }
 ): MapPlace[] {
   const result: MapPlace[] = [];
 
@@ -209,8 +234,15 @@ export function synthesizeCanonicalPlaces(
     });
   }
 
-  // 4. Process HÕIMU Mesh Community Observations (Strictly 'community', never official)
+  // 4. Process HÕIMU Mesh Community Observations (Signed peer observations or explicit fixture mode)
   for (const hoimu of communityObservations) {
+    if (hoimu.isFixture && options.allowFixtures === false) {
+      continue; // Filter out fixtures when fixtures are disallowed
+    }
+
+    const isFixture = Boolean(hoimu.isFixture);
+    const provenanceStatus = 'community' as const;
+
     result.push({
       id: `place_${hoimu.subCategory}_${hoimu.id.replace('hoimu_', '')}`,
       name: hoimu.name,
@@ -218,12 +250,19 @@ export function synthesizeCanonicalPlaces(
       mainCategory: hoimu.mainCategory,
       subCategory: hoimu.subCategory,
       sources: [
-        { provider: 'hoimu', sourceId: hoimu.nodeObservationId, retrievedAt: Date.now() },
+        {
+          provider: 'hoimu',
+          sourceId: hoimu.nodeObservationId,
+          retrievedAt: Date.now(),
+          signature: hoimu.signature,
+          signerPublicKey: hoimu.signerPublicKey,
+        },
       ],
       source: 'hoimu',
-      sourceName: 'HÕIMU Peer Mesh Observations',
+      sourceName: isFixture ? 'HÕIMU Fixture Observations' : 'HÕIMU Signed Peer Mesh Observations',
       sourceId: hoimu.nodeObservationId,
-      provenanceStatus: 'community',
+      provenanceStatus,
+      isFixture,
       observedByNodes: hoimu.observedByNodes,
       lastConfirmed: hoimu.lastConfirmed,
       sourceUpdatedAt: hoimu.sourceUpdatedAt || '2026-09-25T00:00:00Z',
@@ -232,7 +271,10 @@ export function synthesizeCanonicalPlaces(
       snapshotId: hoimu.snapshotId || 'mesh-obs-tln-current',
       address: hoimu.address,
       description: hoimu.description,
-      tags: hoimu.tags,
+      tags: {
+        ...hoimu.tags,
+        ...(isFixture ? { mode: 'fixture', fixture: 'true' } : { signed: 'true' }),
+      },
     });
   }
 

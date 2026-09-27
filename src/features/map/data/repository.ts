@@ -9,6 +9,7 @@ import { streetDiscoveryService } from '../streets/streetDiscoveryService';
 import { TALLINN_MAP_PLACES } from '../places/placeData';
 import { searchPlaces as performPlaceSearch } from '../places/placeSearch';
 import { calculateNearbyReport } from '../places/nearbyEngine';
+import generatedPlaces from '../../../data/generated/tallinn-places.json';
 
 export interface PlaceFilter {
   category?: PlaceMainCategory;
@@ -73,8 +74,12 @@ export class TallinnMapRepository implements MapRepository {
       // Fallback to base snapshot
     }
 
-    // Initialize with Tallinn places snapshot
-    TALLINN_MAP_PLACES.forEach((p) => this.placesCache.set(p.id, p));
+    // Initialize with canonical generated map-pack POI dataset
+    if (Array.isArray(generatedPlaces) && generatedPlaces.length > 0) {
+      (generatedPlaces as unknown as MapPlace[]).forEach((p) => this.placesCache.set(p.id, p));
+    } else {
+      TALLINN_MAP_PLACES.forEach((p) => this.placesCache.set(p.id, p));
+    }
   }
 
   private persistToStorage(): void {
@@ -124,7 +129,11 @@ export class TallinnMapRepository implements MapRepository {
 
   public resetToSnapshot(): void {
     this.placesCache.clear();
-    TALLINN_MAP_PLACES.forEach((p) => this.placesCache.set(p.id, p));
+    if (Array.isArray(generatedPlaces) && generatedPlaces.length > 0) {
+      (generatedPlaces as unknown as MapPlace[]).forEach((p) => this.placesCache.set(p.id, p));
+    } else {
+      TALLINN_MAP_PLACES.forEach((p) => this.placesCache.set(p.id, p));
+    }
     this.persistToStorage();
   }
 

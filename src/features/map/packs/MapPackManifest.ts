@@ -28,9 +28,11 @@ export interface MapPackManifest {
   isCustomUnverified?: boolean;
   pmtiles: string; // e.g. '/maps/tallinn.pmtiles'
   pmtilesUrl: string;
+  poiUrl?: string;
   remoteUrl: string;
   routing: string; // e.g. '/routing/tallinn.graph'
   routingUrl: string;
+  streetIndexUrl?: string;
   fileName: string;
   bounds: [number, number, number, number]; // [minLng, minLat, maxLng, maxLat]
   center: [number, number]; // [lat, lng]
@@ -61,21 +63,23 @@ export const MAP_PACK_MANIFESTS: Record<string, MapPackManifest> = {
     regionName: 'Harju Biopiirkond & Pealinn',
     version: '2026.09.26',
     routingSnapshotVersion: '2026.09.26',
-    sha256: '8e21ff8727d6c9dbd580bdb15e45c1d8f1dbefcb9feb9c85632222048969f8b9',
+    sha256: 'e2bf5b73d6bb3a61c695c885d5595c1ff59a512dd32b832e178932ea28c8f988',
     provenanceType: 'official_published',
     isCustomUnverified: false,
-    pmtiles: '/maps/tallinn.pmtiles',
-    pmtilesUrl: '/maps/tallinn.pmtiles',
-    remoteUrl: '/maps/tallinn.pmtiles',
+    pmtiles: '/maps/tallinn-basemap.pmtiles',
+    pmtilesUrl: '/maps/tallinn-basemap.pmtiles',
+    poiUrl: '/maps/tallinn-poi.pmtiles',
+    remoteUrl: '/maps/tallinn-basemap.pmtiles',
     routing: '/routing/tallinn.graph',
     routingUrl: '/routing/tallinn.graph',
+    streetIndexUrl: '/maps/street-index.bin',
     fileName: 'tallinn.pmtiles',
     center: [59.437, 24.7535],
     bounds: [24.50, 59.32, 25.00, 59.50],
     minZoom: 0,
     maxZoom: 15,
-    sizeBytes: 906,
-    sizeFormatted: '906 B',
+    sizeBytes: 14_200_000,
+    sizeFormatted: '14.2 MB',
     source: 'OpenStreetMap',
     license: 'ODbL',
     attribution: '© OpenStreetMap contributors',
@@ -87,175 +91,6 @@ export const MAP_PACK_MANIFESTS: Record<string, MapPackManifest> = {
       'Tallinna laht, Ülemiste järv, Pirita jõgi',
       'Elroni ja trammide rööbasteed',
       '6 taktikalist kaarditeemat (Day, Night, High-Contrast, Direct Sun, Eco, Crisis)',
-    ],
-    featureFlags: {
-      streetLabels: true,
-      buildings: true,
-      parks: true,
-      poi: true,
-      offline: true,
-      tacticalThemes: true,
-      routingGraph: true,
-    },
-  },
-  tartu: {
-    id: 'tartu',
-    name: 'Tartu',
-    cityName: 'Tartu',
-    cityId: 'tartu',
-    region: 'Emajõe Biopiirkond',
-    regionName: 'Emajõe Biopiirkond',
-    version: '2026.09.24',
-    routingSnapshotVersion: '2026.09.24',
-    sha256: '4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b',
-    pmtiles: '/maps/tartu.pmtiles',
-    pmtilesUrl: '/maps/tartu.pmtiles',
-    remoteUrl: '/maps/tartu.pmtiles',
-    routing: '/routing/tartu.graph',
-    routingUrl: '/routing/tartu.graph',
-    fileName: 'tartu.pmtiles',
-    center: [58.3780, 26.7290],
-    bounds: [26.60, 58.32, 26.85, 58.42],
-    minZoom: 0,
-    maxZoom: 15,
-    sizeBytes: 12_200_000,
-    sizeFormatted: '12.2 MB',
-    source: 'OpenStreetMap',
-    license: 'ODbL',
-    attribution: '© OpenStreetMap contributors',
-    releaseDate: '2026-09-24',
-    description: 'Emajõe oru, Supilinna, Karlova, Annelinna ja Tähtvere vektorbaaskaart ja jalgrattateede graaf.',
-    features: [
-      'Emajõe veetee ja sildade läbipääsud',
-      'Karlova ja Supilinna detailne tänavavõrk',
-      'Ülikoolilinnaku kriisivarude punktid',
-      'Eestikeelsed tänavanimed (name:et)',
-    ],
-    featureFlags: {
-      streetLabels: true,
-      buildings: true,
-      parks: true,
-      poi: true,
-      offline: true,
-      tacticalThemes: true,
-      routingGraph: true,
-    },
-  },
-  parnu: {
-    id: 'parnu',
-    name: 'Pärnu',
-    cityName: 'Pärnu',
-    cityId: 'parnu',
-    region: 'Liivi Lahe Biopiirkond',
-    regionName: 'Liivi Lahe Biopiirkond',
-    version: '2026.09.24',
-    routingSnapshotVersion: '2026.09.24',
-    sha256: '2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d',
-    pmtiles: '/maps/parnu.pmtiles',
-    pmtilesUrl: '/maps/parnu.pmtiles',
-    remoteUrl: '/maps/parnu.pmtiles',
-    routing: '/routing/parnu.graph',
-    routingUrl: '/routing/parnu.graph',
-    fileName: 'parnu.pmtiles',
-    center: [58.3859, 24.4971],
-    bounds: [24.40, 58.33, 24.60, 58.44],
-    minZoom: 0,
-    maxZoom: 15,
-    sizeBytes: 8_900_000,
-    sizeFormatted: '8.9 MB',
-    source: 'OpenStreetMap',
-    license: 'ODbL',
-    attribution: '© OpenStreetMap contributors',
-    releaseDate: '2026-09-24',
-    description: 'Pärnu jõe suudme, ranna-ala ja sildade vektorbaaskaart ja evakuatsioonikoridorid.',
-    features: [
-      'Pärnu jõe sillad ja evakuatsiooniteed',
-      'Rannajoone üleujutustsoonid',
-      'Eestikeelsed tänavanimed (name:et)',
-    ],
-    featureFlags: {
-      streetLabels: true,
-      buildings: true,
-      parks: true,
-      poi: true,
-      offline: true,
-      tacticalThemes: true,
-      routingGraph: true,
-    },
-  },
-  narva: {
-    id: 'narva',
-    name: 'Narva',
-    cityName: 'Narva',
-    cityId: 'narva',
-    region: 'Virumaa Piiriala',
-    regionName: 'Virumaa Piiriala',
-    version: '2026.09.24',
-    routingSnapshotVersion: '2026.09.24',
-    sha256: '9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a',
-    pmtiles: '/maps/narva.pmtiles',
-    pmtilesUrl: '/maps/narva.pmtiles',
-    remoteUrl: '/maps/narva.pmtiles',
-    routing: '/routing/narva.graph',
-    routingUrl: '/routing/narva.graph',
-    fileName: 'narva.pmtiles',
-    center: [59.3797, 28.1791],
-    bounds: [28.10, 59.33, 28.25, 59.42],
-    minZoom: 0,
-    maxZoom: 15,
-    sizeBytes: 8_400_000,
-    sizeFormatted: '8.4 MB',
-    source: 'OpenStreetMap',
-    license: 'ODbL',
-    attribution: '© OpenStreetMap contributors',
-    releaseDate: '2026-09-24',
-    description: 'Narva jõe ja Joaoru kindlustatud piirkonna vektorbaaskaart.',
-    features: [
-      'Narva jõe kaldajoon ja ülepääsud',
-      'Tööstus- ja elamurajoonide teedevõrk',
-      'Eestikeelsed tänavanimed (name:et)',
-    ],
-    featureFlags: {
-      streetLabels: true,
-      buildings: true,
-      parks: true,
-      poi: true,
-      offline: true,
-      tacticalThemes: true,
-      routingGraph: true,
-    },
-  },
-  saaremaa: {
-    id: 'saaremaa',
-    name: 'Saaremaa & Kuressaare',
-    cityName: 'Saaremaa',
-    cityId: 'saaremaa',
-    region: 'Lääne-Eesti Saarestik',
-    regionName: 'Lääne-Eesti Saarestik',
-    version: '2026.09.24',
-    routingSnapshotVersion: '2026.09.24',
-    sha256: '5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e',
-    pmtiles: '/maps/saaremaa.pmtiles',
-    pmtilesUrl: '/maps/saaremaa.pmtiles',
-    remoteUrl: '/maps/saaremaa.pmtiles',
-    routing: '/routing/saaremaa.graph',
-    routingUrl: '/routing/saaremaa.graph',
-    fileName: 'saaremaa.pmtiles',
-    center: [58.2534, 22.4894],
-    bounds: [21.80, 57.90, 23.30, 58.70],
-    minZoom: 0,
-    maxZoom: 14,
-    sizeBytes: 15_800_000,
-    sizeFormatted: '15.8 MB',
-    source: 'OpenStreetMap',
-    license: 'ODbL',
-    attribution: '© OpenStreetMap contributors',
-    releaseDate: '2026-09-24',
-    description: 'Saaremaa, Muhu ja Kuressaare saarelise autonoomia vektorbaaskaart.',
-    features: [
-      'Kuressaare lossi ja ranniku tänavavõrk',
-      'Saaremaa ja Muhu teedevõrgustik',
-      'Eestikeelsed tänavanimed (name:et)',
     ],
     featureFlags: {
       streetLabels: true,
@@ -282,7 +117,7 @@ export function validatePMTilesHeader(buffer: ArrayBuffer | Uint8Array): { valid
   }
 
   // PMTiles v3 magic: 'P' 'M' 'T' 'i' 'l' 'e' 's'
-  const isPMTilesV3 =
+  const isPMTilesV3Magic =
     bytes[0] === 0x50 &&
     bytes[1] === 0x4d &&
     bytes[2] === 0x54 &&
@@ -291,13 +126,19 @@ export function validatePMTilesHeader(buffer: ArrayBuffer | Uint8Array): { valid
     bytes[5] === 0x65 &&
     bytes[6] === 0x73;
 
-  // PMTiles v2 magic: 'P' 'M'
-  const isPMTilesV2 = bytes[0] === 0x50 && bytes[1] === 0x4d;
+  const specVersion = bytes[7];
 
-  if (!isPMTilesV3 && !isPMTilesV2) {
+  if (!isPMTilesV3Magic) {
     return {
       valid: false,
-      reason: 'Invalid PMTiles magic signature (expected "PMTiles" or "PM")',
+      reason: 'Invalid PMTiles v3 magic signature (expected "PMTiles")',
+    };
+  }
+
+  if (specVersion !== 3) {
+    return {
+      valid: false,
+      reason: `Unsupported PMTiles spec version ${specVersion} (strictly expected version 3)`,
     };
   }
 

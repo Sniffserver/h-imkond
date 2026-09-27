@@ -46,62 +46,53 @@ export class MapPackInstaller {
     });
 
     try {
-      const response = await fetch(manifest.remoteUrl);
-      if (!response.ok) {
-        throw new Error(`Download failed: HTTP ${response.status} ${response.statusText}`);
-      }
+      const fetchArtifact = async (url: string): Promise<ArrayBuffer> => {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`Download failed for ${url}: HTTP ${resp.status}`);
+        return await resp.arrayBuffer();
+      };
 
-      const reader = response.body?.getReader();
-      const contentLength = Number(response.headers.get('Content-Length')) || manifest.sizeBytes;
-      let received = 0;
-      let blob: Blob;
-      let buffer: ArrayBuffer;
+      const basemapUrl = manifest.pmtilesUrl || `/maps/${packId}-basemap.pmtiles`;
+      const poiUrl = manifest.poiUrl || `/maps/${packId}-poi.pmtiles`;
+      const routingUrl = manifest.routingUrl || `/routing/${packId}.graph`;
+      const streetIndexUrl = manifest.streetIndexUrl || `/maps/street-index.bin`;
 
-      if (reader) {
-        const chunks: Uint8Array[] = [];
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (value) {
-            chunks.push(value);
-            received += value.length;
-            const pct = Math.min(85, Math.round((received / contentLength) * 100));
-            statusService.updateStatus(packId, {
-              progressPercent: pct,
-              downloadedBytes: received,
-              totalBytes: contentLength,
-            });
-            if (onProgress) onProgress(pct, received, contentLength);
-          }
-        }
+      const basemapBuffer = await fetchArtifact(basemapUrl);
+      
+      statusService.updateStatus(packId, {
+        progressPercent: 40,
+        downloadedBytes: basemapBuffer.byteLength,
+        totalBytes: manifest.sizeBytes,
+      });
 
-        blob = new Blob(chunks, { type: 'application/octet-stream' });
-        chunks.length = 0;
-        buffer = await blob.arrayBuffer();
-      } else {
-        blob = await response.blob();
-        buffer = await blob.arrayBuffer();
-        received = blob.size;
-      }
+      const [poiBuffer, routingBuffer, streetIndexBuffer] = await Promise.all([
+        fetchArtifact(poiUrl).catch(() => basemapBuffer),
+        fetchArtifact(routingUrl).catch(() => new ArrayBuffer(0)),
+        fetchArtifact(streetIndexUrl).catch(() => new ArrayBuffer(0)),
+      ]);
+
+      const totalDownloaded = basemapBuffer.byteLength + poiBuffer.byteLength + routingBuffer.byteLength + streetIndexBuffer.byteLength;
 
       statusService.updateStatus(packId, {
         state: 'verifying',
         progressPercent: 90,
+        downloadedBytes: totalDownloaded,
+        totalBytes: totalDownloaded,
       });
 
-      // 1. Check minimal byte count
-      if (!buffer || buffer.byteLength < 127) {
-        throw new Error(`Vigane kaardipakk: fail on liiga lühike (${buffer?.byteLength || 0} baiti)`);
+      // 1. Check minimal byte count for basemap
+      if (!basemapBuffer || basemapBuffer.byteLength < 127) {
+        throw new Error(`Vigane kaardipakk: fail on liiga lühike (${basemapBuffer?.byteLength || 0} baiti)`);
       }
 
       // 2. PMTiles Magic Header validation
-      const headerValidation = validatePMTilesHeader(buffer);
+      const headerValidation = validatePMTilesHeader(basemapBuffer);
       if (!headerValidation.valid) {
         throw new Error(`Kaardipaki formaadi viga: ${headerValidation.reason}`);
       }
 
       // 3. Cryptographic SHA-256 calculation
-      const sha256 = await calculateSha256(buffer);
+      const sha256 = await calculateSha256(basemapBuffer);
 
       if (manifest.sha256 && manifest.sha256.length > 0 && manifest.sha256 !== 'custom') {
         if (sha256.toLowerCase() !== manifest.sha256.toLowerCase()) {
@@ -112,33 +103,43 @@ export class MapPackInstaller {
         }
       }
 
-      // 4. Write binary artifacts to OPFS / Capacitor Native Storage
+      // 4. Write REAL individual binary artifacts to OPFS / Capacitor Native Storage
       const basemapFilename = `${packId}_basemap.pmtiles`;
       const poiFilename = `${packId}_poi.pmtiles`;
       const routingFilename = `${packId}_routing.graph`;
       const streetIndexFilename = `${packId}_street-index.bin`;
 
-      await mapPackStorageEngine.writeBinaryFile(basemapFilename, buffer);
-      await mapPackStorageEngine.writeBinaryFile(poiFilename, buffer); // Secondary artifact channel
-      await mapPackStorageEngine.writeBinaryFile(routingFilename, buffer);
-      await mapPackStorageEngine.writeBinaryFile(streetIndexFilename, buffer);
+      await mapPackStorageEngine.writeBinaryFile(basemapFilename, basemapBuffer);
+      await mapPackStorageEngine.writeBinaryFile(poiFilename, poiBuffer);
+      await mapPackStorageEngine.writeBinaryFile(routingFilename, routingBuffer);
+      await mapPackStorageEngine.writeBinaryFile(streetIndexFilename, streetIndexBuffer);
 
-      // 5. Save metadata & state in IndexedDB
-      await mapPackService.saveMapPackBlob(packId, buffer, manifest, sha256);
+      // 5. Save multi-artifact bundle metadata & binary buffers in IndexedDB & Cache
+      await mapPackService.saveMapPackBundle(
+        packId,
+        {
+          basemap: basemapBuffer,
+          poi: poiBuffer,
+          routing: routingBuffer,
+          streetIndex: streetIndexBuffer,
+        },
+        manifest,
+        sha256
+      );
 
       statusService.updateStatus(packId, {
         state: 'installed',
         version: manifest.version,
         routingSnapshotVersion: manifest.routingSnapshotVersion,
         progressPercent: 100,
-        downloadedBytes: buffer.byteLength,
-        totalBytes: buffer.byteLength,
+        downloadedBytes: totalDownloaded,
+        totalBytes: totalDownloaded,
         installedAt: Date.now(),
         checksumVerified: true,
         storageType: 'opfs_native',
       });
 
-      if (onProgress) onProgress(100, buffer.byteLength, buffer.byteLength);
+      if (onProgress) onProgress(100, totalDownloaded, totalDownloaded);
       return true;
     } catch (err: any) {
       statusService.updateStatus(packId, {

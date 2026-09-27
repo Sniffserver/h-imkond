@@ -36,6 +36,8 @@ export interface RouteResult {
   profileUsed: RoutingProfileType;
 }
 
+export { routingRepository } from './routingRepository';
+
 /**
  * Calculates exact geodesic distance between two WGS84 coordinates in meters.
  */
