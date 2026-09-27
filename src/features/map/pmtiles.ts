@@ -22,6 +22,21 @@ export function initializePMTilesProtocol(): Protocol {
     globalProtocolInstance = new Protocol();
     const originalTile = globalProtocolInstance.tile.bind(globalProtocolInstance);
     maplibregl.addProtocol('pmtiles', (requestParameters, abortController) => {
+      let cleanUrl = requestParameters.url;
+      if (cleanUrl.startsWith('pmtiles:///')) {
+        const origin = typeof window !== 'undefined' && window.location?.origin
+          ? window.location.origin
+          : 'http://localhost:3000';
+        cleanUrl = `pmtiles://${origin}${cleanUrl.substring(10)}`;
+      } else if (cleanUrl.startsWith('pmtiles://') && !cleanUrl.startsWith('pmtiles://http') && !cleanUrl.startsWith('pmtiles://https')) {
+        const pathPart = cleanUrl.replace(/^pmtiles:\/*/, '/');
+        const origin = typeof window !== 'undefined' && window.location?.origin
+          ? window.location.origin
+          : 'http://localhost:3000';
+        cleanUrl = `pmtiles://${origin}${pathPart}`;
+      }
+      requestParameters.url = cleanUrl;
+
       return originalTile(requestParameters, abortController).catch((err: any) => {
         const errorMsg = err?.message || 'Tile fetch failure';
         if (errorMsg.includes('404') || errorMsg.includes('not found') || errorMsg.includes('ENOENT')) {

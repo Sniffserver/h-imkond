@@ -2,7 +2,7 @@
   "id": "tallinn",
   "region": "tallinn",
   "version": "2026.09.26",
-  "generatedAt": "2026-09-27T08:44:42.989Z",
+  "generatedAt": "2026-09-27T09:29:20.665Z",
   "sources": [
     {
       "provider": "osm",
@@ -28,13 +28,13 @@
   "artifacts": {
     "basemap": {
       "path": "tallinn-basemap.pmtiles",
-      "sha256": "8e21ff8727d6c9dbd580bdb15e45c1d8f1dbefcb9feb9c85632222048969f8b9",
-      "sizeBytes": 906
+      "sha256": "46883feef64e43248ab2a88a0ad263adef996f3a24e35af2be6cb4113c586377",
+      "sizeBytes": 6131
     },
     "poi": {
       "path": "tallinn-poi.pmtiles",
-      "sha256": "ab4e72e147d8cf8cc8df7294ddfd93031ac74fb58b538a1e2475ac4dff1aa196",
-      "sizeBytes": 929,
+      "sha256": "6792ff782260824442bed8acb15d861a6920b361a8580b74efbda337cdeaf5bc",
+      "sizeBytes": 2955,
       "index": "tallinn-poi.index",
       "count": 29
     },
@@ -54,14 +54,14 @@
   },
   "basemap": {
     "filename": "tallinn-basemap.pmtiles",
-    "sha256": "8e21ff8727d6c9dbd580bdb15e45c1d8f1dbefcb9feb9c85632222048969f8b9",
-    "sizeBytes": 906
+    "sha256": "46883feef64e43248ab2a88a0ad263adef996f3a24e35af2be6cb4113c586377",
+    "sizeBytes": 6131
   },
   "poi": {
     "filename": "tallinn-poi.pmtiles",
     "index": "tallinn-poi.index",
-    "sha256": "ab4e72e147d8cf8cc8df7294ddfd93031ac74fb58b538a1e2475ac4dff1aa196",
-    "sizeBytes": 929,
+    "sha256": "6792ff782260824442bed8acb15d861a6920b361a8580b74efbda337cdeaf5bc",
+    "sizeBytes": 2955,
     "count": 29
   },
   "routing": {
