@@ -123,10 +123,13 @@ export function AppContent() {
   });
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     const dismissed = localStorage.getItem('hoimu_backup_prompt_dismissed');
     if (!dismissed) {
       const timer = setTimeout(() => {
-        setIsBackupPromptOpen(true);
+        if (typeof window !== 'undefined') {
+          setIsBackupPromptOpen(true);
+        }
       }, 700);
       return () => clearTimeout(timer);
     }

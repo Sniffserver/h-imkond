@@ -559,7 +559,7 @@ export const BioregionalMapCanvas: React.FC<BioregionalMapCanvasProps> = React.m
 
     // Check mapRevealService with geocoordinates
     const geoPoint = localGridToGeoPoint(x, y, cityData.centerCoordsText);
-    if (mapRevealService.isPointRevealed(geoPoint.latitude, geoPoint.longitude)) {
+    if (mapRevealService.isPointRevealed(geoPoint.lat, geoPoint.lng)) {
       return true;
     }
 
@@ -582,9 +582,9 @@ export const BioregionalMapCanvas: React.FC<BioregionalMapCanvasProps> = React.m
     if (activeScale === undefined && isOverlay && mapInstance) {
       try {
         const centerGeo = localGridToGeoPoint(0, 0, cityData.centerCoordsText);
-        const centerPixel = mapInstance.project([centerGeo.longitude, centerGeo.latitude]);
+        const centerPixel = mapInstance.project([centerGeo.lng, centerGeo.lat]);
         const testGeo = localGridToGeoPoint(100, 0, cityData.centerCoordsText);
-        const testPixel = mapInstance.project([testGeo.longitude, testGeo.latitude]);
+        const testPixel = mapInstance.project([testGeo.lng, testGeo.lat]);
         scale = Math.hypot(testPixel.x - centerPixel.x, testPixel.y - centerPixel.y) / 100;
       } catch (e) {
         scale = Math.pow(2, mapInstance.getZoom() - 13);
@@ -622,9 +622,11 @@ export const BioregionalMapCanvas: React.FC<BioregionalMapCanvasProps> = React.m
           baseX = peerPos.x;
           baseY = peerPos.y;
         }
-      } else if (res.coordinates) {
-        baseX = res.coordinates.x;
-        baseY = res.coordinates.y;
+      } else if (res.location) {
+        const dLatKm = (res.location.lat - 59.4370) * 110.574;
+        const dLngKm = (res.location.lng - 24.7535) * (111.32 * Math.cos((59.4370 * Math.PI) / 180));
+        baseX = Math.round(dLngKm * 100);
+        baseY = Math.round(-dLatKm * 100);
       }
 
       const angleOffset = (idx * 65 * Math.PI) / 180;
@@ -745,7 +747,7 @@ export const BioregionalMapCanvas: React.FC<BioregionalMapCanvasProps> = React.m
       if (isOverlay && mapInstance) {
         try {
           const geo = localGridToGeoPoint(worldX, worldY, cityData.centerCoordsText);
-          const pos = mapInstance.project([geo.longitude, geo.latitude]);
+          const pos = mapInstance.project([geo.lng, geo.lat]);
           return { screenX: pos.x, screenY: pos.y };
         } catch (e) {
           // fallback
@@ -1375,10 +1377,10 @@ export const BioregionalMapCanvas: React.FC<BioregionalMapCanvasProps> = React.m
       if (isOverlay && mapInstance) {
         try {
           const centerGeo = localGridToGeoPoint(0, 0, cityData.centerCoordsText);
-          const centerPixel = mapInstance.project([centerGeo.longitude, centerGeo.latitude]);
+          const centerPixel = mapInstance.project([centerGeo.lng, centerGeo.lat]);
           
           const testGeo = localGridToGeoPoint(100, 0, cityData.centerCoordsText);
-          const testPixel = mapInstance.project([testGeo.longitude, testGeo.latitude]);
+          const testPixel = mapInstance.project([testGeo.lng, testGeo.lat]);
           
           const calcScale = Math.hypot(testPixel.x - centerPixel.x, testPixel.y - centerPixel.y) / 100;
           const bearingRad = -(mapInstance.getBearing() || 0) * Math.PI / 180;
@@ -3066,11 +3068,11 @@ export const BioregionalMapCanvas: React.FC<BioregionalMapCanvasProps> = React.m
             if (!session.track || session.track.length < 2) return;
 
             ctx.beginPath();
-            const startPt = latLonToWorld(session.track[0].latitude, session.track[0].longitude);
+            const startPt = latLonToWorld(session.track[0].lat, session.track[0].lng);
             ctx.moveTo(startPt.x, startPt.y);
 
             for (let i = 1; i < session.track.length; i++) {
-              const pt = latLonToWorld(session.track[i].latitude, session.track[i].longitude);
+              const pt = latLonToWorld(session.track[i].lat, session.track[i].lng);
               ctx.lineTo(pt.x, pt.y);
             }
 
@@ -3081,8 +3083,8 @@ export const BioregionalMapCanvas: React.FC<BioregionalMapCanvasProps> = React.m
 
             // Start & Finish points
             const endPt = latLonToWorld(
-              session.track[session.track.length - 1].latitude,
-              session.track[session.track.length - 1].longitude
+              session.track[session.track.length - 1].lat,
+              session.track[session.track.length - 1].lng
             );
             ctx.beginPath();
             ctx.arc(startPt.x, startPt.y, 3 / transform.scale, 0, Math.PI * 2);
@@ -3100,11 +3102,11 @@ export const BioregionalMapCanvas: React.FC<BioregionalMapCanvasProps> = React.m
 
           if (trk.length >= 2) {
             ctx.beginPath();
-            const p0 = latLonToWorld(trk[0].latitude, trk[0].longitude);
+            const p0 = latLonToWorld(trk[0].lat, trk[0].lng);
             ctx.moveTo(p0.x, p0.y);
 
             for (let i = 1; i < trk.length; i++) {
-              const pi = latLonToWorld(trk[i].latitude, trk[i].longitude);
+              const pi = latLonToWorld(trk[i].lat, trk[i].lng);
               ctx.lineTo(pi.x, pi.y);
             }
 
@@ -3118,7 +3120,7 @@ export const BioregionalMapCanvas: React.FC<BioregionalMapCanvasProps> = React.m
 
           // Active Walker Pulse at latest GPS breadcrumb
           const lastPt = trk[trk.length - 1];
-          const lastWorld = latLonToWorld(lastPt.latitude, lastPt.longitude);
+          const lastWorld = latLonToWorld(lastPt.lat, lastPt.lng);
 
           const walkerPulse = (6 + ((elapsed * 2.2) % 1) * 16) / transform.scale;
           ctx.beginPath();

@@ -24,6 +24,8 @@ export interface MapPackManifest {
   version: string;
   routingSnapshotVersion: string;
   sha256: string;
+  provenanceType?: 'official_published' | 'custom_unverified';
+  isCustomUnverified?: boolean;
   pmtiles: string; // e.g. '/maps/tallinn.pmtiles'
   pmtilesUrl: string;
   remoteUrl: string;
@@ -57,9 +59,11 @@ export const MAP_PACK_MANIFESTS: Record<string, MapPackManifest> = {
     cityId: 'tallinn',
     region: 'Harju Biopiirkond & Pealinn',
     regionName: 'Harju Biopiirkond & Pealinn',
-    version: '2026.09.24',
-    routingSnapshotVersion: '2026.09.24',
-    sha256: '8f9e1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a',
+    version: '2026.09.26',
+    routingSnapshotVersion: '2026.09.26',
+    sha256: '8e21ff8727d6c9dbd580bdb15e45c1d8f1dbefcb9feb9c85632222048969f8b9',
+    provenanceType: 'official_published',
+    isCustomUnverified: false,
     pmtiles: '/maps/tallinn.pmtiles',
     pmtilesUrl: '/maps/tallinn.pmtiles',
     remoteUrl: '/maps/tallinn.pmtiles',
@@ -70,12 +74,12 @@ export const MAP_PACK_MANIFESTS: Record<string, MapPackManifest> = {
     bounds: [24.50, 59.32, 25.00, 59.50],
     minZoom: 0,
     maxZoom: 15,
-    sizeBytes: 18_450_000,
-    sizeFormatted: '18.4 MB',
+    sizeBytes: 906,
+    sizeFormatted: '906 B',
     source: 'OpenStreetMap',
     license: 'ODbL',
     attribution: '© OpenStreetMap contributors',
-    releaseDate: '2026-09-24',
+    releaseDate: '2026-09-26',
     description: 'Täielik Tallinna ja Harju ranniku vektorbaaskaart (Kesklinn, Mustamäe, Lasnamäe, Pirita, Nõmme, Kalamaja ja tänavavõrk).',
     features: [
       'Täielikud eestikeelsed tänavanimed (name:et)',

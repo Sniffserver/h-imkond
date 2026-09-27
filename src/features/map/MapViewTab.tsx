@@ -600,7 +600,7 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
         // A street is fully discovered if ALL of its points are within some revealed area
         const allPointsRevealed = street.points.every(([px, py]) => {
           const gp = localGridToGeoPoint(px, py, activeCity.centerCoordsText);
-          return mapRevealService.isPointRevealed(gp.latitude, gp.longitude);
+          return mapRevealService.isPointRevealed(gp.lat, gp.lng);
         });
 
         if (allPointsRevealed) {
@@ -654,8 +654,8 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
         const diff = update.steps - lastRevealSteps;
         if (diff >= 100 || revealed) {
           addRevealedCircle({
-            lat: geoPoint.latitude,
-            lng: geoPoint.longitude,
+            lat: geoPoint.lat,
+            lng: geoPoint.lng,
             radius: 60,
           });
 
@@ -696,8 +696,8 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
     checkDailyWalkStreak(totalSteps);
 
     addRevealedCircle({
-      lat: geoPoint.latitude,
-      lng: geoPoint.longitude,
+      lat: geoPoint.lat,
+      lng: geoPoint.lng,
       radius: 60,
     });
 
@@ -712,7 +712,7 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
     setLastRevealSteps(0);
     setSimulatedUserPos({ x: 0, y: 0 });
     const centerGeo = localGridToGeoPoint(0, 0, activeCity.centerCoordsText);
-    setStoreRevealedCircles([{ lat: centerGeo.latitude, lng: centerGeo.longitude, radius: 65 }]);
+    setStoreRevealedCircles([{ lat: centerGeo.lat, lng: centerGeo.lng, radius: 65 }]);
   };
 
   useEffect(() => {
@@ -976,7 +976,7 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
 
   useEffect(() => {
     if (pathfinderState.isRecording && autoFollowWalk && pathfinderState.currentLocation) {
-      const { latitude, longitude } = pathfinderState.currentLocation;
+      const { lat: latitude, lng: longitude } = pathfinderState.currentLocation;
       const activeCenter = parseCenterCoords(activeCity.centerCoordsText);
       const cityLat = activeCity.centerCoords?.[0] || activeCenter.lat;
       const cityLng = activeCity.centerCoords?.[1] || activeCenter.lng;
@@ -1986,7 +1986,7 @@ export const MapViewTab: React.FC<MapViewTabProps> = React.memo(({
                   onClick={() => {
                     const userPos = gpsPosition ? { x: gpsPosition.x, y: gpsPosition.y } : simulatedUserPos;
                     const geoPoint = localGridToGeoPoint(userPos.x, userPos.y, activeCity.centerCoordsText);
-                    deadReckoningService.manualResetPosition(geoPoint.latitude, geoPoint.longitude, userPos.x, userPos.y);
+                    deadReckoningService.manualResetPosition(geoPoint.lat, geoPoint.lng, userPos.x, userPos.y);
                     if (onAddToast) {
                       onAddToast('📍 Asukoht Lähtestatud', 'Dead reckoning asukoht korrigeeritud ja triiv eemaldatud.', 'success');
                     }

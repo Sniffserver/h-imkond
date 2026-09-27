@@ -18,6 +18,7 @@ describe('Domain Commands Architecture (Requirement 8)', () => {
         title: 'Solar Inverter',
         description: '500W pure sine wave inverter',
         category: 'Energy' as const,
+        location: { lat: 59.4370, lng: 24.7535 },
         ownerId: 'PEER-1',
         ownerCallsign: 'P-1',
         distanceKm: 0.8,

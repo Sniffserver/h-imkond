@@ -9,6 +9,7 @@ import { getSecureLocalStorage, setSecureLocalStorage } from '../utils/localStor
 describe('E2E Smoke Scenarios (Vitest Suite)', () => {
   beforeEach(() => {
     localStorage.clear();
+    localStorage.setItem('hoimu_backup_prompt_dismissed', 'true');
     localStorage.setItem('VITE_TEST_MODE', 'true');
     vi.clearAllMocks();
     useMeshStore.setState({

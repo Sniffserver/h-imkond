@@ -130,10 +130,21 @@ export const MapPackModal: React.FC<MapPackModalProps> = ({
         <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-4">
           <div className="flex items-center justify-between pb-2 border-b border-[#87A878]/20 dark:border-[#364E30]">
             <div>
-              <h3 className="font-display font-bold text-2xl text-[#203A2A] dark:text-[#E5EBDD]">
-                {currentManifest.name}
-              </h3>
-              <p className="text-xs text-[#637062] dark:text-[#95A18F]">{currentManifest.region}</p>
+              <div className="flex items-center gap-2">
+                <h3 className="font-display font-bold text-2xl text-[#203A2A] dark:text-[#E5EBDD]">
+                  {currentManifest.name}
+                </h3>
+                {currentManifest.isCustomUnverified ? (
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/40">
+                    CUSTOM / UNVERIFIED
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/40">
+                    VERIFIED PUBLISHED
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-[#637062] dark:text-[#95A18F] mt-0.5">{currentManifest.region}</p>
             </div>
             <span
               className={`px-2.5 py-1 rounded-full text-xs font-mono font-bold flex items-center gap-1 ${
@@ -153,7 +164,7 @@ export const MapPackModal: React.FC<MapPackModalProps> = ({
                 : currentStatus.state === 'installed'
                 ? '● PAIGALDATUD'
                 : currentStatus.state === 'outdated'
-                ? '▲ UUUENDUS SAADAVAL'
+                ? '▲ UUENDUS SAADAVAL'
                 : currentStatus.state === 'corrupt'
                 ? '✖ SHA-256 VIGA (VIGANE)'
                 : '○ PUUDUB'}
@@ -163,7 +174,7 @@ export const MapPackModal: React.FC<MapPackModalProps> = ({
           {/* Feature Breakdown Checklist */}
           <div className="rounded-2xl bg-white dark:bg-[#172018] border border-[#87A878]/20 dark:border-[#334231] p-4 text-xs font-mono flex flex-col gap-2">
             <div className="flex justify-between py-1 border-b border-black/5 dark:border-white/5">
-              <span className="text-[#637062] dark:text-[#95A18F]">Map data</span>
+              <span className="text-[#637062] dark:text-[#95A18F]">Map data size</span>
               <span className="font-bold text-[#203A2A] dark:text-[#E5EBDD]">{currentManifest.sizeFormatted}</span>
             </div>
             <div className="flex justify-between py-1 border-b border-black/5 dark:border-white/5">
@@ -196,10 +207,19 @@ export const MapPackModal: React.FC<MapPackModalProps> = ({
             {currentManifest.description}
           </p>
 
-          {/* Attribution & Legal Notice */}
-          <div className="text-[11px] text-[#637062] dark:text-[#95A18F] flex items-center justify-between border-t border-[#87A878]/20 dark:border-[#364E30] pt-2">
-            <span>{currentManifest.attribution} ({currentManifest.license})</span>
-            <span className="font-mono text-[10px]">SHA256: {currentManifest.sha256.slice(0, 10)}...</span>
+          {/* Attribution & Legal Notice as Product Feature */}
+          <div className="rounded-2xl bg-[#588157]/10 dark:bg-[#8FA875]/10 border border-[#87A878]/30 dark:border-[#364E30] p-4 flex flex-col gap-2 text-xs text-[#203A2A] dark:text-[#E5EBDD]">
+            <div className="font-bold font-mono uppercase text-[11px] tracking-wider text-[#588157] dark:text-[#8FA875] flex items-center justify-between">
+              <span>Map Data & Legal Attribution</span>
+              <span className="font-mono text-[10px] opacity-75">SHA256: {currentManifest.sha256.slice(0, 12)}...</span>
+            </div>
+            <div className="space-y-1 text-[11px] leading-relaxed text-[#425041] dark:text-[#AAB6A3]">
+              <div><strong className="text-[#203A2A] dark:text-[#E5EBDD]">Map data:</strong> © OpenStreetMap contributors (Open Database License - ODbL)</div>
+              <div><strong className="text-[#203A2A] dark:text-[#E5EBDD]">Tallinn spatial data:</strong> © Tallinn Open Data / Geoportaal</div>
+              <div><strong className="text-[#203A2A] dark:text-[#E5EBDD]">Public shelters & rescue:</strong> © Päästeamet (Estonian Rescue Board)</div>
+              <div><strong className="text-[#203A2A] dark:text-[#E5EBDD]">State address system:</strong> © Maa- ja Ruumiamet (ADS Register)</div>
+              <div><strong className="text-[#203A2A] dark:text-[#E5EBDD]">Police & emergency:</strong> © Politsei- ja Piirivalveamet (PPA)</div>
+            </div>
           </div>
         </div>
 

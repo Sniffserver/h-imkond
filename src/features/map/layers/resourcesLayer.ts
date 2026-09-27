@@ -9,8 +9,8 @@ export function drawResourcesLayer(
   isDark: boolean
 ) {
   resources.forEach((res) => {
-    const lat = (res as any).lat ?? (59.437 + (res.coordinates?.y || 0) * 0.001);
-    const lng = (res as any).lng ?? (24.7535 + (res.coordinates?.x || 0) * 0.001);
+    const lat = res.location.lat;
+    const lng = res.location.lng;
     const pt = projectLatOption(lat, lng);
 
     ctx.beginPath();

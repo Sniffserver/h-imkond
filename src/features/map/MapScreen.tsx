@@ -20,6 +20,10 @@ import {
   Check,
   Loader2,
   Compass,
+  EyeOff,
+  Building2,
+  Satellite,
+  Target,
 } from 'lucide-react';
 import { soundFeedback } from '../../services/utils/soundFeedback';
 import { unifiedTileCache } from './UnifiedTileCache';
@@ -34,6 +38,10 @@ import { StreetExplorerSheet } from './streets/StreetExplorerSheet';
 import { NearbyPlacesSheet } from './places/NearbyPlacesSheet';
 import { PlaceDetailCard } from './places/PlaceDetailCard';
 import { mapRepository } from './data/repository';
+import { UnknownNearbySheet } from './discovery/UnknownNearbySheet';
+import { NeighborhoodIntelligenceSheet } from './discovery/NeighborhoodIntelligenceSheet';
+import { FieldQuestSheet } from './discovery/FieldQuestSheet';
+import { LocationProviderSelector } from './components/LocationProviderSelector';
 
 // Lazy-loaded Map View Tab with automatic retry for resilience
 const MapViewTab = lazyWithRetry(() =>
@@ -91,6 +99,10 @@ export const MapScreen: React.FC<MapScreenProps> = ({
   const [currentZoom, setCurrentZoom] = useState<number>(13.5);
   const [isStreetExplorerOpen, setIsStreetExplorerOpen] = useState(false);
   const [isNearbyOpen, setIsNearbyOpen] = useState(false);
+  const [isUnknownNearbyOpen, setIsUnknownNearbyOpen] = useState(false);
+  const [isNeighborhoodsOpen, setIsNeighborhoodsOpen] = useState(false);
+  const [isFieldQuestsOpen, setIsFieldQuestsOpen] = useState(false);
+  const [isLocationProviderOpen, setIsLocationProviderOpen] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState<MapPlace | null>(null);
 
   // Canonical Single Map Architecture: Overlays on top of MapLibre vector canvas
@@ -299,6 +311,9 @@ export const MapScreen: React.FC<MapScreenProps> = ({
             onClick={() => {
               setIsStreetExplorerOpen(!isStreetExplorerOpen);
               if (isNearbyOpen) setIsNearbyOpen(false);
+              if (isUnknownNearbyOpen) setIsUnknownNearbyOpen(false);
+              if (isNeighborhoodsOpen) setIsNeighborhoodsOpen(false);
+              if (isFieldQuestsOpen) setIsFieldQuestsOpen(false);
             }}
             className={`flex-1 flex items-center justify-between px-4 py-2.5 rounded-2xl border shadow-lg backdrop-blur-md transition-all cursor-pointer ${
               isNightMode
@@ -321,6 +336,9 @@ export const MapScreen: React.FC<MapScreenProps> = ({
             onClick={() => {
               setIsNearbyOpen(!isNearbyOpen);
               if (isStreetExplorerOpen) setIsStreetExplorerOpen(false);
+              if (isUnknownNearbyOpen) setIsUnknownNearbyOpen(false);
+              if (isNeighborhoodsOpen) setIsNeighborhoodsOpen(false);
+              if (isFieldQuestsOpen) setIsFieldQuestsOpen(false);
             }}
             className={`px-3 py-2.5 rounded-2xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-lg backdrop-blur-md border ${
               isNearbyOpen
@@ -332,6 +350,89 @@ export const MapScreen: React.FC<MapScreenProps> = ({
           >
             <Compass className="w-4 h-4 text-emerald-500" />
             <span className="hidden sm:inline">Nearby</span>
+          </button>
+
+          {/* "What have I not seen?" / Unknown Nearby Trigger */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsUnknownNearbyOpen(!isUnknownNearbyOpen);
+              if (isStreetExplorerOpen) setIsStreetExplorerOpen(false);
+              if (isNearbyOpen) setIsNearbyOpen(false);
+              if (isNeighborhoodsOpen) setIsNeighborhoodsOpen(false);
+              if (isFieldQuestsOpen) setIsFieldQuestsOpen(false);
+            }}
+            className={`px-3 py-2.5 rounded-2xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-lg backdrop-blur-md border ${
+              isUnknownNearbyOpen
+                ? 'bg-amber-600 text-white border-amber-500'
+                : isNightMode
+                ? 'bg-[#141F12]/90 text-amber-300 border-[#2A3B26] hover:bg-[#182315]'
+                : 'bg-white/95 text-amber-800 border-amber-700/30 hover:bg-[#FAF6EE]'
+            }`}
+            title="What Have I Not Seen? (Unexplored nearby)"
+          >
+            <EyeOff className="w-4 h-4 text-amber-500" />
+            <span className="hidden md:inline">Unseen</span>
+          </button>
+
+          {/* Neighborhood Intelligence Trigger */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsNeighborhoodsOpen(!isNeighborhoodsOpen);
+              if (isStreetExplorerOpen) setIsStreetExplorerOpen(false);
+              if (isNearbyOpen) setIsNearbyOpen(false);
+              if (isUnknownNearbyOpen) setIsUnknownNearbyOpen(false);
+              if (isFieldQuestsOpen) setIsFieldQuestsOpen(false);
+            }}
+            className={`px-3 py-2.5 rounded-2xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-lg backdrop-blur-md border ${
+              isNeighborhoodsOpen
+                ? 'bg-sky-600 text-white border-sky-500'
+                : isNightMode
+                ? 'bg-[#141F12]/90 text-sky-300 border-[#2A3B26] hover:bg-[#182315]'
+                : 'bg-white/95 text-sky-800 border-sky-700/30 hover:bg-[#FAF6EE]'
+            }`}
+            title="Neighborhood Intelligence"
+          >
+            <Building2 className="w-4 h-4 text-sky-500" />
+            <span className="hidden md:inline">Districts</span>
+          </button>
+
+          {/* Field Quests Trigger */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsFieldQuestsOpen(!isFieldQuestsOpen);
+              if (isStreetExplorerOpen) setIsStreetExplorerOpen(false);
+              if (isNearbyOpen) setIsNearbyOpen(false);
+              if (isUnknownNearbyOpen) setIsUnknownNearbyOpen(false);
+              if (isNeighborhoodsOpen) setIsNeighborhoodsOpen(false);
+            }}
+            className={`px-3 py-2.5 rounded-2xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-lg backdrop-blur-md border ${
+              isFieldQuestsOpen
+                ? 'bg-emerald-600 text-white border-emerald-500'
+                : isNightMode
+                ? 'bg-[#141F12]/90 text-[#F0F5EE] border-[#2A3B26] hover:bg-[#182315]'
+                : 'bg-white/95 text-[#203A2A] border-[#87A878]/40 hover:bg-[#FAF6EE]'
+            }`}
+            title="Field Quests"
+          >
+            <Target className="w-4 h-4 text-emerald-500" />
+            <span className="hidden md:inline">Quests</span>
+          </button>
+
+          {/* Location Mode Trigger */}
+          <button
+            type="button"
+            onClick={() => setIsLocationProviderOpen(true)}
+            className={`p-2.5 rounded-2xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-lg backdrop-blur-md border ${
+              isNightMode
+                ? 'bg-[#141F12]/90 text-stone-300 border-[#2A3B26] hover:bg-[#182315]'
+                : 'bg-white/95 text-stone-700 border-stone-300 hover:bg-[#FAF6EE]'
+            }`}
+            title="Location Mode & Sensor Backend"
+          >
+            <Satellite className="w-4 h-4 text-amber-500" />
           </button>
 
           {/* Manual Pin & Cache Viewport Locally */}
@@ -374,10 +475,6 @@ export const MapScreen: React.FC<MapScreenProps> = ({
                 setSelectedPlace(pl);
                 setIsStreetExplorerOpen(false);
               }}
-              onSelectPoi={(poi) => {
-                if (onAddToast) onAddToast(poi.name, `${poi.category.toUpperCase()} • ${poi.address || 'Tallinn'}`, 'info');
-                setIsStreetExplorerOpen(false);
-              }}
               onStartWalk={(route) => {
                 if (onAddToast) onAddToast('Field Walk Activated', `${route.totalDistanceKm} km exploration loop planned`, 'success');
               }}
@@ -404,6 +501,53 @@ export const MapScreen: React.FC<MapScreenProps> = ({
                 setIsNearbyOpen(false);
               }}
               onClose={() => setIsNearbyOpen(false)}
+            />
+          </div>
+        )}
+
+        {/* Unknown Nearby ("What have I not seen?") Sheet */}
+        {isUnknownNearbyOpen && (
+          <div className="w-full max-w-2xl pointer-events-auto">
+            <UnknownNearbySheet
+              userLocation={userLocation}
+              onClose={() => setIsUnknownNearbyOpen(false)}
+              onSelectStreet={(st) => {
+                if (onAddToast) onAddToast(`Exploring ${st.name}`, `${st.district} • Unwalked segment`, 'info');
+                setIsUnknownNearbyOpen(false);
+              }}
+              onSelectPlace={(pl) => {
+                setSelectedPlace(pl);
+                setIsUnknownNearbyOpen(false);
+              }}
+            />
+          </div>
+        )}
+
+        {/* Neighborhood Intelligence Sheet */}
+        {isNeighborhoodsOpen && (
+          <div className="w-full max-w-2xl pointer-events-auto">
+            <NeighborhoodIntelligenceSheet
+              onClose={() => setIsNeighborhoodsOpen(false)}
+            />
+          </div>
+        )}
+
+        {/* Field Quests Sheet */}
+        {isFieldQuestsOpen && (
+          <div className="w-full max-w-2xl pointer-events-auto">
+            <FieldQuestSheet
+              onClose={() => setIsFieldQuestsOpen(false)}
+              onAddToast={onAddToast}
+            />
+          </div>
+        )}
+
+        {/* Location Provider Selector Modal */}
+        {isLocationProviderOpen && (
+          <div className="w-full max-w-2xl pointer-events-auto">
+            <LocationProviderSelector
+              onClose={() => setIsLocationProviderOpen(false)}
+              onAddToast={onAddToast}
             />
           </div>
         )}

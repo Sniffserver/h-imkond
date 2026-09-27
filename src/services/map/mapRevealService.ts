@@ -118,8 +118,8 @@ class MapRevealService {
     
     if (stepsSinceLastReveal >= this.state.stepsPerReveal) {
       const newArea: RevealedArea = {
-        centerLat: userLocation.latitude,
-        centerLng: userLocation.longitude,
+        centerLat: userLocation.lat,
+        centerLng: userLocation.lng,
         radiusMeters: 50, // 50m raadius
         revealedAt: Date.now(),
       };

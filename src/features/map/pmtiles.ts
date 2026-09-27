@@ -22,9 +22,21 @@ export function initializePMTilesProtocol(): Protocol {
     globalProtocolInstance = new Protocol();
     const originalTile = globalProtocolInstance.tile.bind(globalProtocolInstance);
     maplibregl.addProtocol('pmtiles', (requestParameters, abortController) => {
-      return originalTile(requestParameters, abortController).catch(() => {
-        // Return empty ArrayBuffer when byte serving is unavailable or tile missing
-        return { data: new ArrayBuffer(0) };
+      return originalTile(requestParameters, abortController).catch((err: any) => {
+        const errorMsg = err?.message || 'Tile fetch failure';
+        if (errorMsg.includes('404') || errorMsg.includes('not found') || errorMsg.includes('ENOENT')) {
+          const packError = new Error(`MAP_PACK_MISSING: Tile not present in local PMTiles package: ${errorMsg}`);
+          (packError as any).status = 404;
+          throw packError;
+        } else if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          const offlineError = new Error(`MAP_OFFLINE: Offline storage missing requested vector tile: ${errorMsg}`);
+          (offlineError as any).status = 503;
+          throw offlineError;
+        } else {
+          const mapError = new Error(`MAP_ERROR: PMTiles raster/vector decode failed: ${errorMsg}`);
+          (mapError as any).status = 500;
+          throw mapError;
+        }
       });
     });
     pmtilesProtocolInitialized = true;

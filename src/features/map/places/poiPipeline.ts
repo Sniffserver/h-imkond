@@ -662,12 +662,30 @@ export function buildCanonicalMapPlaces(): MapPlace[] {
 
       const hasMismatch = discrepancies.length > 0;
 
+      const conflictData = hasMismatch
+        ? discrepancies.map((d, i) => ({
+            id: `conf_${i}_${auth.id}`,
+            field: d.field,
+            status: 'sources_disagree' as const,
+            summary: d.warningNote || 'Sources disagree on value',
+            claims: [
+              { provider: auth.source, value: d.valueA, sourceName: auth.sourceName },
+              { provider: 'osm' as const, value: d.valueB, sourceName: `OpenStreetMap (${osmMatch.osmId})` },
+            ],
+          }))
+        : undefined;
+
       result.push({
         id: `place_${auth.subCategory}_${auth.id.replace('auth_', '')}`,
         name: auth.name,
         location: { lat: auth.lat, lng: auth.lng },
         mainCategory: auth.mainCategory,
         subCategory: auth.subCategory,
+        sources: [
+          { provider: auth.source, sourceId: auth.sourceId, retrievedAt: Date.now() },
+          { provider: 'osm', sourceId: osmMatch.osmId, retrievedAt: Date.now() },
+        ],
+        conflicts: conflictData,
         source: auth.source,
         sourceName: auth.sourceName,
         sourceId: auth.sourceId,
@@ -695,6 +713,9 @@ export function buildCanonicalMapPlaces(): MapPlace[] {
         location: { lat: auth.lat, lng: auth.lng },
         mainCategory: auth.mainCategory,
         subCategory: auth.subCategory,
+        sources: [
+          { provider: auth.source, sourceId: auth.sourceId, retrievedAt: Date.now() },
+        ],
         source: auth.source,
         sourceName: auth.sourceName,
         sourceId: auth.sourceId,
@@ -719,6 +740,9 @@ export function buildCanonicalMapPlaces(): MapPlace[] {
       location: { lat: osm.lat, lng: osm.lng },
       mainCategory: osm.mainCategory,
       subCategory: osm.subCategory,
+      sources: [
+        { provider: 'osm', sourceId: osm.osmId, retrievedAt: Date.now() },
+      ],
       source: 'osm',
       sourceName: 'OpenStreetMap (OSM Vector Snapshot)',
       sourceId: osm.osmId,
@@ -742,6 +766,9 @@ export function buildCanonicalMapPlaces(): MapPlace[] {
       location: { lat: hoimu.lat, lng: hoimu.lng },
       mainCategory: hoimu.mainCategory,
       subCategory: hoimu.subCategory,
+      sources: [
+        { provider: 'hoimu', sourceId: hoimu.nodeObservationId, retrievedAt: Date.now() },
+      ],
       source: 'hoimu',
       sourceName: 'HÕIMU Peer Mesh Observations',
       sourceId: hoimu.nodeObservationId,

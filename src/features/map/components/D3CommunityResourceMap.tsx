@@ -172,6 +172,7 @@ export const D3CommunityResourceMap: React.FC<D3CommunityResourceMapProps> = ({
         title: `${userCallsign} • Sovereign Mesh Node`,
         description: user?.bio || 'Active sovereign node broadcasting off-grid telemetry.',
         category: 'Care' as ResourceCategory,
+        location: { lat: 59.4370, lng: 24.7535 },
         distanceKm: 0,
         createdAt: Date.now(),
         isActive: true,
@@ -187,8 +188,10 @@ export const D3CommunityResourceMap: React.FC<D3CommunityResourceMapProps> = ({
 
       // Determine angle / bearing
       let bearing = 0;
-      if (res.coordinates?.x !== undefined && res.coordinates?.y !== undefined) {
-        bearing = (Math.atan2(res.coordinates.y, res.coordinates.x) * 180) / Math.PI;
+      if (res.location) {
+        const dLat = res.location.lat - 59.4370;
+        const dLng = res.location.lng - 24.7535;
+        bearing = (Math.atan2(dLat, dLng) * 180) / Math.PI;
       } else if (ownerPeer && ownerPeer.angle !== undefined) {
         // Add subtle angular dispersion so multiple resources from same peer fan out
         const fanOffset = (index % 5) * 12 - 24;

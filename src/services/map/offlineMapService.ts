@@ -58,11 +58,7 @@ export const offlineMapService = {
 
     // Filter resources within radius
     const cachedResources = allResources.filter((res) => {
-      const rx = res.coordinates?.x ?? 0;
-      const ry = res.coordinates?.y ?? 0;
-      const dx = rx - center.x;
-      const dy = ry - center.y;
-      return Math.sqrt(dx * dx + dy * dy) <= worldRadius * 1.5 || res.distanceKm <= radiusKm * 1.2;
+      return res.distanceKm <= radiusKm * 1.5;
     });
 
     // Count street segments & POIs within bounds

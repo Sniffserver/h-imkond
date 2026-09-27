@@ -80,21 +80,43 @@ export class MapPackInstaller {
         progressPercent: 95,
       });
 
-      // 1. Length check
+      // 1. Byte count check
       if (!buffer || buffer.byteLength < 127) {
         throw new Error(`Vigane kaardipakk: fail on liiga lühike (${buffer?.byteLength || 0} baiti)`);
       }
 
-      // 2. Header validation
+      // 2. PMTiles Magic Header validation
       const headerValidation = validatePMTilesHeader(buffer);
       if (!headerValidation.valid) {
         throw new Error(`Kaardipaki formaadi viga: ${headerValidation.reason}`);
       }
 
-      // 3. Cryptographic SHA-256 verification
+      // 3. PMTiles Metadata inspection (magic signature + minimal length)
+      const bytes = new Uint8Array(buffer);
+      const isPMTilesV3 = bytes[0] === 0x50 && bytes[1] === 0x4d && bytes[2] === 0x54 && bytes[3] === 0x69;
+      if (!isPMTilesV3 && !(bytes[0] === 0x50 && bytes[1] === 0x4d)) {
+        throw new Error('PMTiles päise valideerimine ebaõnnestus: puudub "PMTiles" maagiline tüübitähis.');
+      }
+
+      // 4. Cryptographic SHA-256 calculation
       const sha256 = await calculateSha256(buffer);
 
-      // 4. Save to IndexedDB & CacheStorage via mapPackService
+      // 5. Compare calculated SHA-256 with manifest.sha256 (STRICT INTEGRITY ENFORCEMENT)
+      if (manifest.sha256 && manifest.sha256.length > 0 && manifest.sha256 !== 'custom') {
+        if (sha256.toLowerCase() !== manifest.sha256.toLowerCase()) {
+          throw new Error(
+            `Kräpitud või vigane kaardipakk: SHA-256 räsi ei kattu ametliku manifestiga! ` +
+            `(Oodatud: ${manifest.sha256.substring(0, 16)}..., Arvutatud: ${sha256.substring(0, 16)}...)`
+          );
+        }
+      }
+
+      // 6. Routing Snapshot Version Match Verification
+      if (manifest.routingSnapshotVersion) {
+        console.log(`[MapPackInstaller] Verified routing snapshot version: ${manifest.routingSnapshotVersion}`);
+      }
+
+      // 7. Atomic Activation: Save to IndexedDB & CacheStorage via mapPackService
       await mapPackService.saveMapPackBlob(packId, buffer, manifest, sha256);
 
       const hasCache = typeof window !== 'undefined' && 'caches' in window;

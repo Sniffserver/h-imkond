@@ -78,10 +78,9 @@ export function exportMeshData(
   });
 
   // Export Community Resource Items as GeoJSON Points
-  resources.forEach((res, idx) => {
-    const rx = res.coordinates?.x ?? ((idx % 5) * 40 - 80);
-    const ry = res.coordinates?.y ?? (Math.floor(idx / 5) * 40 - 60);
-    const [lng, lat] = gridToGps(rx, ry);
+  resources.forEach((res) => {
+    const lng = res.location.lng;
+    const lat = res.location.lat;
 
     features.push({
       type: 'Feature',

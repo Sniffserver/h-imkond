@@ -1,7 +1,7 @@
 /**
  * Canonical HÕIMU Map Repository API
  * Provides a unified abstraction layer for streets, places, and discovery queries.
- * Hides storage/source details (JSON, PMTiles, IndexedDB) behind one clean API.
+ * Hides storage/source details (Local Snapshot, IndexedDB / localStorage, PMTiles) behind one clean API.
  */
 
 import { Street, MapPlace, GeoPoint, PlaceMainCategory, DataSource } from '../../../types';
@@ -33,16 +33,59 @@ export interface MapRepository {
     query: string,
     location?: GeoPoint
   ): MapPlace[];
+
+  // Storage / Snapshot Persistence
+  savePlace(place: MapPlace): void;
+  importPlacesSnapshot(places: MapPlace[]): void;
+  resetToSnapshot(): void;
 }
+
+const STORAGE_KEY_PLACES = 'hoimu_map_places_cache_v1';
 
 export class TallinnMapRepository implements MapRepository {
   private static instance: TallinnMapRepository | null = null;
+  private placesCache: Map<string, MapPlace> = new Map();
+
+  private constructor() {
+    this.hydrateFromStorage();
+  }
 
   public static getInstance(): TallinnMapRepository {
     if (!TallinnMapRepository.instance) {
       TallinnMapRepository.instance = new TallinnMapRepository();
     }
     return TallinnMapRepository.instance;
+  }
+
+  private hydrateFromStorage(): void {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const stored = localStorage.getItem(STORAGE_KEY_PLACES);
+        if (stored) {
+          const parsed = JSON.parse(stored) as MapPlace[];
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            parsed.forEach((p) => this.placesCache.set(p.id, p));
+            return;
+          }
+        }
+      }
+    } catch {
+      // Fallback to base snapshot
+    }
+
+    // Initialize with Tallinn places snapshot
+    TALLINN_MAP_PLACES.forEach((p) => this.placesCache.set(p.id, p));
+  }
+
+  private persistToStorage(): void {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const list = Array.from(this.placesCache.values());
+        localStorage.setItem(STORAGE_KEY_PLACES, JSON.stringify(list));
+      }
+    } catch {
+      // Storage quota or unavailable in testing environment
+    }
   }
 
   public getStreet(id: string): Street | undefined {
@@ -62,11 +105,27 @@ export class TallinnMapRepository implements MapRepository {
   }
 
   public getPlace(id: string): MapPlace | undefined {
-    return TALLINN_MAP_PLACES.find((p) => p.id === id);
+    return this.placesCache.get(id);
   }
 
   public getAllPlaces(): MapPlace[] {
-    return TALLINN_MAP_PLACES;
+    return Array.from(this.placesCache.values());
+  }
+
+  public savePlace(place: MapPlace): void {
+    this.placesCache.set(place.id, place);
+    this.persistToStorage();
+  }
+
+  public importPlacesSnapshot(places: MapPlace[]): void {
+    places.forEach((p) => this.placesCache.set(p.id, p));
+    this.persistToStorage();
+  }
+
+  public resetToSnapshot(): void {
+    this.placesCache.clear();
+    TALLINN_MAP_PLACES.forEach((p) => this.placesCache.set(p.id, p));
+    this.persistToStorage();
   }
 
   public getNearbyPlaces(
@@ -74,7 +133,8 @@ export class TallinnMapRepository implements MapRepository {
     radiusMeters: number = 3000,
     filter?: PlaceFilter
   ): MapPlace[] {
-    const report = calculateNearbyReport(location, radiusMeters, TALLINN_MAP_PLACES);
+    const all = this.getAllPlaces();
+    const report = calculateNearbyReport(location, radiusMeters, all);
     let places = report.allNearbyPlaces;
 
     if (filter) {
@@ -96,7 +156,7 @@ export class TallinnMapRepository implements MapRepository {
     query: string,
     location?: GeoPoint
   ): MapPlace[] {
-    return performPlaceSearch(query, location, 10000, TALLINN_MAP_PLACES);
+    return performPlaceSearch(query, location, 10000, this.getAllPlaces());
   }
 }
 

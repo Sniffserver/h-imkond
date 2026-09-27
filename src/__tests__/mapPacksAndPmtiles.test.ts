@@ -91,6 +91,31 @@ describe('HÕIMU PMTiles Map Pack & Zero-Scraping Offline Vector Architecture', 
       await mapPackService.deleteMapPack('tallinn');
       expect(await mapPackService.isMapPackInstalled('tallinn')).toBe(false);
     });
+
+    it('passes maps:verify verification engine with zero defects', async () => {
+      const { runMapVerification } = await import('../../tools/map-data/verify-maps');
+      const verified = runMapVerification();
+      expect(verified).toBe(true);
+    });
+
+    it('validates Section 35 manifest schema structure with sources and artifacts', async () => {
+      const fs = await import('fs');
+      const path = await import('path');
+      const manifestPath = path.join(process.cwd(), 'src', 'data', 'generated', 'manifest.json');
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+
+      expect(manifest.id).toBe('tallinn');
+      expect(manifest.version).toBeDefined();
+      expect(manifest.generatedAt).toBeDefined();
+      expect(manifest.sources).toBeDefined();
+      expect(manifest.sources.length).toBeGreaterThanOrEqual(4);
+      expect(manifest.artifacts).toBeDefined();
+      expect(manifest.artifacts.basemap).toBeDefined();
+      expect(manifest.artifacts.poi).toBeDefined();
+      expect(manifest.artifacts.routing).toBeDefined();
+      expect(manifest.artifacts.streetIndex).toBeDefined();
+      expect(manifest.artifacts.basemap.sha256).toBeDefined();
+    });
   });
 
   describe('Tactical Vector Map Styles & Multi-Level Zoom Architecture', () => {

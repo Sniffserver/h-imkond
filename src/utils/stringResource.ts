@@ -21,7 +21,7 @@ export const STRING_RESOURCES = {
   nav_profile: 'Profiil',
 
   // Onboarding Step 1: Welcome & Solarpunk Philosophy
-  onboarding_welcome_badge: 'Samm 1 / 5 • Tere tulemast',
+  onboarding_welcome_badge: 'Samm 1 / 6 • Tere tulemast',
   onboarding_welcome_title: 'Võrguühenduseta Bioregionaalne Kogukonnavõrk',
   onboarding_welcome_subtitle: 'Päikesepunk side, hajutatud vastastikune abi ja kohalik autonoomia',
   onboarding_welcome_desc:
@@ -38,7 +38,7 @@ export const STRING_RESOURCES = {
     'Vaheta seemneid, päikeseenergiat, tööriistu ja oskusi ilma rahaliste vahendajateta.',
 
   // Onboarding Step 2: User Profile Creation
-  onboarding_profile_badge: 'Samm 2 / 5 • Loo Identiteet',
+  onboarding_profile_badge: 'Samm 2 / 6 • Loo Identiteet',
   onboarding_profile_title: 'Loo Oma Hõimu Raadioprofiil',
   onboarding_profile_subtitle: 'Kutsung, bioregionaalne tutvustus ja esmased oskused',
   onboarding_profile_desc:
@@ -72,7 +72,7 @@ export const STRING_RESOURCES = {
   skill_water_purification: 'Vee Puhastamine',
 
   // Onboarding Step 3: Mesh Networking & Privacy Deep Dive
-  onboarding_mesh_privacy_badge: 'Samm 3 / 5 • Võrgu Arhitektuur',
+  onboarding_mesh_privacy_badge: 'Samm 3 / 6 • Võrgu Arhitektuur',
   onboarding_mesh_privacy_title: 'Kuidas HÕIMU Võrk ja Privaatsus Töötavad?',
   onboarding_mesh_privacy_subtitle: 'Tsentraalivaba relee, hüppelt-hüppele levik ja turvalisus',
   onboarding_mesh_privacy_desc:
@@ -124,8 +124,22 @@ export const STRING_RESOURCES = {
   pref_sos_relay_desc:
     'Edasta automaatselt kriisi- ja hädaabisõnumeid ka siis, kui telefon on unerežiimis.',
 
-  // Onboarding Step 5: Review & Node Activation
-  onboarding_review_badge: 'Samm 5 / 5 • Valmis Tööks',
+  // Onboarding Step 4: Map & Discovery
+  onboarding_map_discovery_badge: 'Samm 4 / 6 • Kaart & Avastus',
+  onboarding_map_discovery_title: 'Tallinna Võrguühenduseta Kaart & Tänavaavastus',
+  onboarding_map_discovery_subtitle: 'Vektorandmed sinu telefonis ilma Google ja mobiilsideta',
+  onboarding_map_discovery_desc:
+    'Kogu Tallinna geograafia (teed, pargid, hooned) on salvestatud kohapealsesse PMTiles arhiivi. Jalutades avastad linnaosasid ning kaardistad kogukonna varjendeid, veeallikaid ja tööriistaraamatukogusid.',
+
+  // Onboarding Step 5: Navigation Guide
+  onboarding_nav_guide_badge: 'Samm 5 / 6 • Navigatsioon',
+  onboarding_nav_guide_title: 'Kuidas HÕIMU Rakenduses Orienteeruda?',
+  onboarding_nav_guide_subtitle: 'Neli peamist tegevusvälja ja kiirmenüü',
+  onboarding_nav_guide_desc:
+    'HÕIMU koondab neli peamist tööriista autonoomseks suhtluseks ja kohalikuks koostööks.',
+
+  // Onboarding Step 6: Review & Node Activation
+  onboarding_review_badge: 'Samm 6 / 6 • Valmis Tööks',
   onboarding_review_title: 'Kinnita ja Käivita Oma Hõimusõlm',
   onboarding_review_subtitle: 'Sinu kohalik identiteet on loodud ja krüptovõtmed genereeritud',
   onboarding_review_desc:

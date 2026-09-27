@@ -565,8 +565,8 @@ export const AsciiMap: React.FC<AsciiMapProps> = ({
 
     const resourceGridMap = new Map<string, { resource: ResourceItem; gx: number; gy: number }>();
     resources.forEach((r) => {
-      if (r.coordinates) {
-        const { gx, gy } = worldToGrid(r.coordinates.x, r.coordinates.y);
+      if (r.location) {
+        const { gx, gy } = worldToGrid((r.location.lng - cityCenterLng) * 10000, (r.location.lat - cityCenterLat) * 10000);
         resourceGridMap.set(`${gx},${gy}`, { resource: r, gx, gy });
       }
     });

@@ -5,7 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
-    "build": "tsc && vite build",
+    "build": "npm run build:map-data && tsc && vite build",
+    "build-map-data": "npm run build:map-data",
+    "build:map-data": "tsx tools/map-data/run-pipeline.ts",
+    "generate-map-pack": "tsx tools/map-data/run-pipeline.ts",
+    "maps:build": "npm run build:map-data",
+    "maps:verify": "tsx tools/map-data/verify-maps.ts",
+    "maps:check": "npm run build:map-data && npm run maps:verify",
+    "scan:synthetic": "tsx scripts/scan-production-integrity.ts",
+    "ci:gate": "npm run scan:synthetic && npm run maps:check && npm test && npm run build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "eslint . --max-warnings 0",
@@ -13,12 +21,12 @@
     "verify": "tsc --noEmit && vite build",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "test:pi": "bun run scripts/pi-smoke-test.ts",
+    "test:pi": "tsx scripts/pi-smoke-test.ts",
     "test:device-matrix": "node scripts/device-matrix-test.cjs",
     "audit:security": "node scripts/security-audit.cjs",
     "bundle-size-check": "node scripts/bundle-size-check.cjs",
     "performance-budget": "npm run build && node scripts/bundle-size-check.cjs",
-    "prepush": "bun run lint && bun run typecheck && bun run test && bun run build"
+    "prepush": "npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {
     "@capacitor-community/bluetooth-le": "^8.3.0",

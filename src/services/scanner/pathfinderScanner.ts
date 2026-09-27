@@ -1,7 +1,7 @@
 // HÕIMU Pathfinder Mode: Real-time Field Scanner, GPS Tracker & Wardriving Engine
 // Handles live walk recording, step updates, RF signal detection, deduplication, and sound feedback
 
-import { GeoPoint, WifiSpot, BluetoothSpot, LoraNode, WalkSession } from '../../types';
+import { GeoPoint, GeoFix, WifiSpot, BluetoothSpot, LoraNode, WalkSession } from '../../types';
 import { Geolocation } from '@capacitor/geolocation';
 import { CapacitorBridge } from '../comms/capacitorBridge';
 import {
@@ -84,7 +84,6 @@ class PathfinderScannerService {
     currentLocation: {
       lat: ESTONIA_CITY_DEFAULTS.tallinn.lat,
       lng: ESTONIA_CITY_DEFAULTS.tallinn.lng,
-      timestamp: Date.now(),
     },
     totalDistanceMeters: 0,
     elapsedSeconds: 0,
@@ -113,7 +112,6 @@ class PathfinderScannerService {
           this.state.currentLocation = {
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
-            timestamp: pos.timestamp || Date.now(),
           };
           this.notify();
         })
@@ -122,11 +120,8 @@ class PathfinderScannerService {
             navigator.geolocation.getCurrentPosition(
               (pos) => {
                 this.state.currentLocation = {
-                  latitude: pos.coords.latitude,
-                  longitude: pos.coords.longitude,
-                  altitude: pos.coords.altitude || undefined,
-                  accuracy: pos.coords.accuracy || undefined,
-                  timestamp: pos.timestamp || Date.now(),
+                  lat: pos.coords.latitude,
+                  lng: pos.coords.longitude,
                 };
                 this.notify();
               },
@@ -209,9 +204,10 @@ class PathfinderScannerService {
    */
   public startWalkSession(customTitle?: string): WalkSession {
     const sessionId = `walk_${Date.now()}`;
-    const startLoc = this.state.currentLocation || {
-      latitude: ESTONIA_CITY_DEFAULTS.tallinn.lat,
-      longitude: ESTONIA_CITY_DEFAULTS.tallinn.lng,
+    const startLoc: GeoFix = {
+      lat: this.state.currentLocation?.lat ?? ESTONIA_CITY_DEFAULTS.tallinn.lat,
+      lng: this.state.currentLocation?.lng ?? ESTONIA_CITY_DEFAULTS.tallinn.lng,
+      accuracyMeters: 10,
       timestamp: Date.now(),
     };
 
@@ -336,10 +332,10 @@ class PathfinderScannerService {
           if (err || !pos) return;
           if (!this.state.isRecording || this.state.isPaused) return;
           this.addGpsBreadcrumb({
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-            altitude: pos.coords.altitude || undefined,
-            accuracy: pos.coords.accuracy || undefined,
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            altitudeMeters: pos.coords.altitude || undefined,
+            accuracyMeters: pos.coords.accuracy || 5,
             timestamp: pos.timestamp || Date.now(),
           });
         }
@@ -350,10 +346,10 @@ class PathfinderScannerService {
           (pos) => {
             if (!this.state.isRecording || this.state.isPaused) return;
             this.addGpsBreadcrumb({
-              latitude: pos.coords.latitude,
-              longitude: pos.coords.longitude,
-              altitude: pos.coords.altitude || undefined,
-              accuracy: pos.coords.accuracy || undefined,
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              altitudeMeters: pos.coords.altitude || undefined,
+              accuracyMeters: pos.coords.accuracy || 5,
               timestamp: pos.timestamp || Date.now(),
             });
           },
@@ -384,8 +380,8 @@ class PathfinderScannerService {
   /**
    * Add a GPS position to the active track and check distance
    */
-  public addGpsBreadcrumb(point: GeoPoint) {
-    this.state.currentLocation = point;
+  public addGpsBreadcrumb(point: GeoFix) {
+    this.state.currentLocation = { lat: point.lat, lng: point.lng };
 
     if (this.state.activeSession && this.state.isRecording && !this.state.isPaused) {
       const track = [...this.state.activeSession.track];
@@ -447,9 +443,11 @@ class PathfinderScannerService {
       const nextLat = curr.lat + Math.cos(angle) * speed;
       const nextLon = curr.lng + (Math.sin(angle) * speed) / Math.cos((curr.lat * Math.PI) / 180);
 
-      const nextPoint: GeoPoint = {
+      const nextPoint: GeoFix = {
         lat: nextLat,
         lng: nextLon,
+        accuracyMeters: 5,
+        timestamp: Date.now(),
       };
 
       this.addGpsBreadcrumb(nextPoint);
@@ -535,8 +533,8 @@ class PathfinderScannerService {
         bssid,
         rssi: net.rssi || -75,
         security: net.capabilities && net.capabilities.toLowerCase().includes('wpa') ? 'wpa2' : 'open',
-        latitude: loc.latitude,
-        longitude: loc.longitude,
+        lat: loc.lat,
+        lng: loc.lng,
         walkSessionId: activeSessionId || 'scan',
         channel: net.frequency ? Math.floor((net.frequency - 2407) / 5) : 6,
       },
@@ -580,8 +578,8 @@ class PathfinderScannerService {
         address,
         rssi: dev.rssi || -80,
         deviceClass: dev.name && dev.name.toLowerCase().includes('sensor') ? 'sensor' : 'beacon',
-        latitude: loc.latitude,
-        longitude: loc.longitude,
+        lat: loc.lat,
+        lng: loc.lng,
         walkSessionId: activeSessionId || 'scan',
         txPower: -4,
         isMeshNode: dev.name && dev.name.toLowerCase().includes('hoimu'),
@@ -662,8 +660,8 @@ class PathfinderScannerService {
         bssid,
         rssi,
         security: pick.sec,
-        latitude: loc.latitude + offsetLat,
-        longitude: loc.longitude + offsetLon,
+        lat: loc.lat + offsetLat,
+        lng: loc.lng + offsetLon,
         walkSessionId: activeSessionId || 'scan',
         channel: Math.floor(Math.random() * 11) + 1,
       },
@@ -733,8 +731,8 @@ class PathfinderScannerService {
         address: mac,
         rssi,
         deviceClass: pick.dclass,
-        latitude: loc.latitude + offsetLat,
-        longitude: loc.longitude + offsetLon,
+        lat: loc.lat + offsetLat,
+        lng: loc.lng + offsetLon,
         walkSessionId: activeSessionId || 'scan',
         txPower: -4,
         isMeshNode: pick.name.includes('HOIMU'),
@@ -805,8 +803,8 @@ class PathfinderScannerService {
         rssi,
         snr,
         frequency: pick.freq,
-        latitude: loc.latitude + offsetLat,
-        longitude: loc.longitude + offsetLon,
+        lat: loc.lat + offsetLat,
+        lng: loc.lng + offsetLon,
         walkSessionId: activeSessionId || 'scan',
         isRepeater: pick.rep,
         batteryPercent: Math.floor(75 + Math.random() * 25),
@@ -859,9 +857,8 @@ class PathfinderScannerService {
 
       if (device) {
         const loc = this.state.currentLocation || {
-          latitude: ESTONIA_CITY_DEFAULTS.tallinn.lat,
-          longitude: ESTONIA_CITY_DEFAULTS.tallinn.lng,
-          timestamp: Date.now(),
+          lat: ESTONIA_CITY_DEFAULTS.tallinn.lat,
+          lng: ESTONIA_CITY_DEFAULTS.tallinn.lng,
         };
 
         const mac = device.id.slice(0, 17) || `BT:${Math.random().toString(16).substr(2, 6).toUpperCase()}`;
@@ -873,8 +870,8 @@ class PathfinderScannerService {
             address: mac,
             rssi: -55,
             deviceClass: 'beacon',
-            latitude: loc.latitude,
-            longitude: loc.longitude,
+            lat: loc.lat,
+            lng: loc.lng,
             walkSessionId: this.state.activeSession?.id || 'web_bluetooth',
             isMeshNode: false,
           },
@@ -924,9 +921,8 @@ class PathfinderScannerService {
     data: any
   ): Promise<boolean> {
     const loc = this.state.currentLocation || {
-      latitude: ESTONIA_CITY_DEFAULTS.tallinn.lat,
-      longitude: ESTONIA_CITY_DEFAULTS.tallinn.lng,
-      timestamp: Date.now(),
+      lat: ESTONIA_CITY_DEFAULTS.tallinn.lat,
+      lng: ESTONIA_CITY_DEFAULTS.tallinn.lng,
     };
     const activeSessionId = this.state.activeSession?.id;
 
@@ -937,8 +933,8 @@ class PathfinderScannerService {
           bssid: data.bssid || `MAN:${Math.random().toString(16).substr(2, 6).toUpperCase()}`,
           rssi: data.rssi || -65,
           security: data.security || 'open',
-          latitude: data.latitude || loc.latitude,
-          longitude: data.longitude || loc.longitude,
+          lat: data.lat || loc.lat,
+          lng: data.lng || loc.lng,
           walkSessionId: activeSessionId || 'manual',
           notes: data.notes,
         },
@@ -966,8 +962,8 @@ class PathfinderScannerService {
           address: data.address || `TAG:${Math.random().toString(16).substr(2, 6).toUpperCase()}`,
           rssi: data.rssi || -60,
           deviceClass: data.deviceClass || 'survivor_tag',
-          latitude: data.latitude || loc.latitude,
-          longitude: data.longitude || loc.longitude,
+          lat: data.lat || loc.lat,
+          lng: data.lng || loc.lng,
           walkSessionId: activeSessionId || 'manual',
         },
         activeSessionId
@@ -995,8 +991,8 @@ class PathfinderScannerService {
           rssi: data.rssi || -70,
           snr: data.snr || 8,
           frequency: data.frequency || 868.1,
-          latitude: data.latitude || loc.latitude,
-          longitude: data.longitude || loc.longitude,
+          lat: data.lat || loc.lat,
+          lng: data.lng || loc.lng,
           walkSessionId: activeSessionId || 'manual',
           isRepeater: data.isRepeater ?? true,
         },

@@ -88,7 +88,7 @@ describe('Tallinn Street Explorer, Discovery & Field Walk Engine', () => {
   });
 
   describe('3. Tallinn Field Walk Loop & Street Hunt Generator', () => {
-    it('generates a complete field exploration loop with stops and fieldcraft metrics', () => {
+    it('generates a complete field exploration loop with stops, pedestrian graph path, Field Objectives and Field Report', () => {
       const walk = generateFieldWalkRoute({ lat: 59.4370, lng: 24.7535 });
 
       expect(walk).toBeDefined();
@@ -98,13 +98,53 @@ describe('Tallinn Street Explorer, Discovery & Field Walk Engine', () => {
       expect(walk.totalDistanceKm).toBeGreaterThan(0.5);
       expect(walk.estimatedTimeMinutes).toBeGreaterThan(5);
 
+      // Verify pedestrian graph path polyline coordinates
+      expect(walk.routePath).toBeDefined();
+      expect(walk.routePath.length).toBeGreaterThanOrEqual(2);
+
+      // Verify Field Objectives
+      expect(walk.fieldObjectives).toBeDefined();
+      expect(walk.fieldObjectives.discoverStreetSegments).toBeGreaterThanOrEqual(1);
+      expect(walk.fieldObjectives.visitPlacesCount).toBeGreaterThanOrEqual(1);
+      expect(walk.fieldObjectives.observeMeshSignal).toBe(true);
+
+      // Verify Field Report
+      expect(walk.fieldReport).toBeDefined();
+      expect(walk.fieldReport?.streetsDiscoveredCount).toBeGreaterThanOrEqual(1);
+      expect(walk.fieldReport?.radioObservationsCount).toBe(12);
+
       expect(walk.fieldcraftRewards.streetsToDiscover).toBeGreaterThanOrEqual(1);
       expect(walk.fieldcraftRewards.placesToFind).toBeGreaterThanOrEqual(1);
       expect(walk.fieldcraftRewards.distanceKm).toBeGreaterThan(0.5);
     });
   });
 
-  describe('4. Universal MapPlace Architecture & Multilingual Search', () => {
+  describe('4. Universal MapPlace Architecture, Multi-Source Truth & Multilingual Search', () => {
+    it('populates sources array on MapPlace for multi-source truth provenance', () => {
+      const places = mapRepository.getAllPlaces();
+      expect(places.length).toBeGreaterThan(0);
+      const firstPlace = places[0];
+      expect(firstPlace.sources).toBeDefined();
+      expect(firstPlace.sources!.length).toBeGreaterThanOrEqual(1);
+      expect(firstPlace.sources![0].provider).toBeDefined();
+    });
+
+    it('validates Signal Observation RSSI color mapping for signal geography', async () => {
+      const { getRssiColor, convertTrailToGeoJson } = await import('../features/map/explore/overlays/SignalTrailLayer');
+
+      expect(getRssiColor(-60)).toBe('#2A9D8F'); // Green (> -70)
+      expect(getRssiColor(-80)).toBe('#E9C46A'); // Yellow (-70 to -85)
+      expect(getRssiColor(-95)).toBe('#F4A261'); // Orange (-85 to -100)
+      expect(getRssiColor(-105)).toBe('#E76F51'); // Red (< -100)
+
+      const geojson = convertTrailToGeoJson([
+        { timestamp: Date.now(), position: { lat: 59.437, lng: 24.753 }, peerId: 'node_1', rssi: -65, medium: 'lora' },
+        { timestamp: Date.now(), position: { lat: 59.438, lng: 24.755 }, peerId: 'node_2', rssi: -90, medium: 'ble' },
+      ]);
+
+      expect(geojson.type).toBe('FeatureCollection');
+      expect(geojson.features.length).toBeGreaterThanOrEqual(2);
+    });
     it('normalizes colloquial Estonian and English search terms into canonical categories', async () => {
       const { searchTallinnPlaces, normalizeQuery } = await import('../features/map/places/placeSearch');
 
@@ -141,7 +181,28 @@ describe('Tallinn Street Explorer, Discovery & Field Walk Engine', () => {
 
       const toolPlace = TALLINN_MAP_PLACES.find((p) => p.mainCategory === 'tools');
       expect(toolPlace).toBeDefined();
-      expect(['osm', 'community', 'verified']).toContain(toolPlace?.source);
+      expect(['osm', 'community', 'verified', 'tallinn']).toContain(toolPlace?.source);
+    });
+
+    it('validates generalized conflicts array when sources disagree', async () => {
+      const { TALLINN_MAP_PLACES } = await import('../features/map/places/placeData');
+      const conflictPlace = TALLINN_MAP_PLACES.find((p) => p.hasMismatch || (p.conflicts && p.conflicts.length > 0));
+
+      expect(conflictPlace).toBeDefined();
+      if (conflictPlace?.conflicts && conflictPlace.conflicts.length > 0) {
+        const c = conflictPlace.conflicts[0];
+        expect(c.status).toBe('sources_disagree');
+        expect(c.claims.length).toBeGreaterThanOrEqual(2);
+      }
+    });
+
+    it('verifies test fixtures are isolated with source fixture and provenanceStatus fixture/simulated', async () => {
+      const { TEST_FIXTURE_POIS } = await import('../data/fixtures/test-pois');
+      expect(TEST_FIXTURE_POIS.length).toBeGreaterThan(0);
+      TEST_FIXTURE_POIS.forEach((fix) => {
+        expect(fix.source).toBe('fixture');
+        expect(['fixture', 'simulated']).toContain(fix.provenanceStatus);
+      });
     });
   });
 

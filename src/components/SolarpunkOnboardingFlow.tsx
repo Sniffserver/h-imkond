@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserProfile } from '../types';
+import { UserProfile, GeoPoint } from '../types';
 import { SolarpunkAvatarCanvas } from './SolarpunkAvatarCanvas';
 import { stringResource, R } from '../utils/stringResource';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -13,7 +13,6 @@ import {
   OutlinedButton,
   FilterChip,
   Switch,
-  Spacer,
   HorizontalDivider,
 } from './compose/ComposeUI';
 import {
@@ -23,7 +22,6 @@ import {
   Users,
   WifiOff,
   Sparkles,
-  Award,
   Compass,
   CheckCircle2,
   ChevronRight,
@@ -31,11 +29,16 @@ import {
   X,
   Dices,
   Lock,
-  Eye,
-  EyeOff,
   Plus,
   Signal,
   MapPin,
+  Map,
+  MessageSquare,
+  Repeat,
+  Layers,
+  Navigation,
+  Footprints,
+  Info,
 } from 'lucide-react';
 
 export interface SolarpunkOnboardingFlowProps {
@@ -89,9 +92,9 @@ export const SolarpunkOnboardingFlow: React.FC<SolarpunkOnboardingFlowProps> = (
   isNightMode = false,
 }) => {
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 5;
+  const totalSteps = 6;
 
-  // Step 2: Profile Creation State
+  // Profile Creation State
   const [callsign, setCallsign] = useState(currentUser?.callsign || 'Kullerkupp');
   const [bio, setBio] = useState(
     currentUser?.bio || 'Permakultuuri kasvataja ja kohalik päikeseenergia katsetaja.'
@@ -106,7 +109,7 @@ export const SolarpunkOnboardingFlow: React.FC<SolarpunkOnboardingFlowProps> = (
   const [isAddingCustomSkill, setIsAddingCustomSkill] = useState(false);
   const [callsignError, setCallsignError] = useState('');
 
-  // Step 4: Mesh Visibility Preferences State
+  // Mesh Visibility Preferences State
   const [visibilityPrefs, setVisibilityPrefs] = useState<MeshVisibilityPreferences>({
     visibilityMode: 'public',
     bleEnabled: true,
@@ -209,12 +212,14 @@ export const SolarpunkOnboardingFlow: React.FC<SolarpunkOnboardingFlowProps> = (
           <Row verticalAlignment="center" gap={3}>
             {/* Step Indicator Progress */}
             <div className="flex items-center gap-1.5">
-              {[1, 2, 3, 4, 5].map((stepNum) => (
-                <div
+              {[1, 2, 3, 4, 5, 6].map((stepNum) => (
+                <button
                   key={stepNum}
+                  type="button"
                   onClick={() => {
                     if (stepNum < currentStep) setCurrentStep(stepNum);
                   }}
+                  aria-label={`Mine sammu juurde ${stepNum}`}
                   className={`h-2 rounded-full transition-all duration-300 ${
                     stepNum === currentStep
                       ? 'w-6 bg-[#588157]'
@@ -240,7 +245,7 @@ export const SolarpunkOnboardingFlow: React.FC<SolarpunkOnboardingFlowProps> = (
         {/* Scrollable Step Body */}
         <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-5">
           {/* ========================================================
-              STEP 1: Welcome & Solarpunk Mesh Concepts
+              STEP 1: Welcome & Solarpunk Mesh Purpose
              ======================================================== */}
           {currentStep === 1 && (
             <Column gap={4} className="animate-in fade-in duration-200">
@@ -319,7 +324,7 @@ export const SolarpunkOnboardingFlow: React.FC<SolarpunkOnboardingFlowProps> = (
           )}
 
           {/* ========================================================
-              STEP 2: User Profile Creation
+              STEP 2: Solarpunk Avatar & Profile Creation
              ======================================================== */}
           {currentStep === 2 && (
             <Column gap={4} className="animate-in fade-in duration-200">
@@ -346,14 +351,14 @@ export const SolarpunkOnboardingFlow: React.FC<SolarpunkOnboardingFlowProps> = (
               {/* Avatar Preview & Callsign Input Row */}
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
                 <div className="sm:col-span-4 flex flex-col items-center justify-center p-4 bg-white/70 dark:bg-[#1F2C1D] rounded-2xl border border-[#87A878]/30 text-center space-y-2">
-                  <SolarpunkAvatarCanvas seed={avatarSeed || callsign} size={76} />
-                  <div className="text-[11px] font-mono text-[#588157] font-bold">
+                  <SolarpunkAvatarCanvas seed={avatarSeed || callsign} size={84} />
+                  <div className="text-[12px] font-mono text-[#588157] font-bold">
                     @{callsign || 'Tundmatu'}
                   </div>
                   <Button
                     variant="outlined"
                     onClick={() => setAvatarSeed(`node-${Math.random().toString(36).substring(2, 7)}`)}
-                    className="py-1 px-2.5 text-[10px] rounded-xl"
+                    className="py-1 px-2.5 text-[11px] rounded-xl"
                     leadingIcon={<Dices className="w-3.5 h-3.5" />}
                   >
                     {stringResource(R.string.btn_dice_avatar)}
@@ -433,7 +438,6 @@ export const SolarpunkOnboardingFlow: React.FC<SolarpunkOnboardingFlowProps> = (
                     );
                   })}
 
-                  {/* Custom Skills added by user */}
                   {selectedSkills
                     .filter((s) => !PRESET_SKILLS.some((ps) => ps.label === s))
                     .map((custom) => (
@@ -447,7 +451,6 @@ export const SolarpunkOnboardingFlow: React.FC<SolarpunkOnboardingFlowProps> = (
                     ))}
                 </div>
 
-                {/* Add Custom Skill Field */}
                 {isAddingCustomSkill ? (
                   <Row gap={2} verticalAlignment="center" className="pt-2">
                     <input
@@ -514,7 +517,37 @@ export const SolarpunkOnboardingFlow: React.FC<SolarpunkOnboardingFlowProps> = (
 
               <HorizontalDivider />
 
-              {/* 4 Architectural Privacy Concept Cards */}
+              {/* Visual Mesh Diagram */}
+              <div className="p-4 rounded-2xl bg-white/70 dark:bg-[#1E2B1C] border border-[#87A878]/30 flex flex-col items-center justify-center text-center space-y-3">
+                <div className="flex items-center justify-center gap-4 sm:gap-8 w-full max-w-md">
+                  <div className="flex flex-col items-center">
+                    <div className="w-12 h-12 rounded-2xl bg-[#588157]/20 flex items-center justify-center text-[#588157] shadow-sm">
+                      <Radio className="w-6 h-6 animate-pulse" />
+                    </div>
+                    <span className="text-[10px] font-mono font-bold mt-1">Sinu Sõlm</span>
+                  </div>
+
+                  <div className="flex-1 flex flex-col items-center">
+                    <span className="text-[9px] font-mono text-[#588157] uppercase tracking-wider mb-1">BLE / LoRa Hop</span>
+                    <div className="w-full h-1 bg-linear-to-r from-[#588157] via-[#2A9D8F] to-[#E9C46A] rounded-full relative">
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-[#E9C46A] animate-ping" />
+                    </div>
+                    <span className="text-[9px] font-mono text-zinc-400 mt-1">Store & Forward</span>
+                  </div>
+
+                  <div className="flex flex-col items-center">
+                    <div className="w-12 h-12 rounded-2xl bg-[#2A9D8F]/20 flex items-center justify-center text-[#2A9D8F] shadow-sm">
+                      <Users className="w-6 h-6" />
+                    </div>
+                    <span className="text-[10px] font-mono font-bold mt-1">Naabersõlm</span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-zinc-600 dark:text-zinc-300 max-w-sm">
+                  Paketid liiguvad seadmelt seadmele krüpteeritud ümbrikes. Sinu telefon salvestab ja edastab sõnumeid taustal ilma tsentraalsete tornideta.
+                </p>
+              </div>
+
+              {/* 4 Architectural Concept Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <Surface shape="rounded-2xl" className="p-4 bg-white/80 dark:bg-[#1E2B1C] space-y-2">
                   <Row verticalAlignment="center" gap={2}>
@@ -576,214 +609,179 @@ export const SolarpunkOnboardingFlow: React.FC<SolarpunkOnboardingFlowProps> = (
           )}
 
           {/* ========================================================
-              STEP 4: Initial Mesh Visibility Preferences
+              STEP 4: Offline PMTiles Map & Street Discovery
              ======================================================== */}
           {currentStep === 4 && (
             <Column gap={4} className="animate-in fade-in duration-200">
               <Row verticalAlignment="center" gap={2}>
                 <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#588157]/15 text-[#588157]">
-                  {stringResource(R.string.onboarding_visibility_badge)}
+                  {stringResource(R.string.onboarding_map_discovery_badge)}
                 </span>
               </Row>
 
               <Column gap={1}>
                 <Text style="headlineMedium" className="text-[#203A2A] dark:text-[#F0F5EE]">
-                  {stringResource(R.string.onboarding_visibility_title)}
+                  {stringResource(R.string.onboarding_map_discovery_title)}
                 </Text>
                 <Text style="titleSmall" className="text-[#588157] dark:text-[#87A878]">
-                  {stringResource(R.string.onboarding_visibility_subtitle)}
+                  {stringResource(R.string.onboarding_map_discovery_subtitle)}
                 </Text>
-                <Text style="bodySmall" className="text-[#637062] dark:text-[#A8BDA5]">
-                  {stringResource(R.string.onboarding_visibility_desc)}
+                <Text style="bodyMedium" className="text-[#637062] dark:text-[#A8BDA5] pt-1">
+                  {stringResource(R.string.onboarding_map_discovery_desc)}
                 </Text>
               </Column>
 
               <HorizontalDivider />
 
-              {/* Mode Selection 3 Options */}
-              <Column gap={2}>
-                <Text style="labelLarge">
-                  {stringResource(R.string.visibility_mode_label)}
-                </Text>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  {/* Public */}
-                  <div
-                    onClick={() =>
-                      setVisibilityPrefs({ ...visibilityPrefs, visibilityMode: 'public' })
-                    }
-                    className={`p-3 rounded-2xl border transition-all cursor-pointer space-y-1 ${
-                      visibilityPrefs.visibilityMode === 'public'
-                        ? 'bg-[#EBF7F5] dark:bg-[#16332E] border-[#2A9D8F] shadow-xs'
-                        : 'bg-white/80 dark:bg-[#1F2C1D] border-[#87A878]/30 hover:border-[#87A878]'
-                    }`}
-                  >
-                    <Row verticalAlignment="center" gap={2}>
-                      <Eye className="w-4 h-4 text-[#2A9D8F]" />
-                      <span className="text-xs font-bold text-[#203A2A] dark:text-[#F0F5EE]">
-                        Avalik Majakas
-                      </span>
-                    </Row>
-                    <p className="text-[11px] text-[#637062] dark:text-[#87A878] leading-tight">
-                      {stringResource(R.string.visibility_public_desc)}
-                    </p>
-                  </div>
-
-                  {/* Stealth */}
-                  <div
-                    onClick={() =>
-                      setVisibilityPrefs({ ...visibilityPrefs, visibilityMode: 'stealth' })
-                    }
-                    className={`p-3 rounded-2xl border transition-all cursor-pointer space-y-1 ${
-                      visibilityPrefs.visibilityMode === 'stealth'
-                        ? 'bg-[#FAF6EE] dark:bg-[#2B281A] border-[#E9C46A] shadow-xs'
-                        : 'bg-white/80 dark:bg-[#1F2C1D] border-[#87A878]/30 hover:border-[#87A878]'
-                    }`}
-                  >
-                    <Row verticalAlignment="center" gap={2}>
-                      <Zap className="w-4 h-4 text-[#E9C46A]" />
-                      <span className="text-xs font-bold text-[#203A2A] dark:text-[#F0F5EE]">
-                        Relee Režiim
-                      </span>
-                    </Row>
-                    <p className="text-[11px] text-[#637062] dark:text-[#87A878] leading-tight">
-                      {stringResource(R.string.visibility_stealth_desc)}
-                    </p>
-                  </div>
-
-                  {/* Listen Only */}
-                  <div
-                    onClick={() =>
-                      setVisibilityPrefs({ ...visibilityPrefs, visibilityMode: 'listen_only' })
-                    }
-                    className={`p-3 rounded-2xl border transition-all cursor-pointer space-y-1 ${
-                      visibilityPrefs.visibilityMode === 'listen_only'
-                        ? 'bg-[#FDF0EC] dark:bg-[#331C18] border-[#E76F51] shadow-xs'
-                        : 'bg-white/80 dark:bg-[#1F2C1D] border-[#87A878]/30 hover:border-[#87A878]'
-                    }`}
-                  >
-                    <Row verticalAlignment="center" gap={2}>
-                      <EyeOff className="w-4 h-4 text-[#E76F51]" />
-                      <span className="text-xs font-bold text-[#203A2A] dark:text-[#F0F5EE]">
-                        Ainult Kuulamine
-                      </span>
-                    </Row>
-                    <p className="text-[11px] text-[#637062] dark:text-[#87A878] leading-tight">
-                      {stringResource(R.string.visibility_listen_desc)}
-                    </p>
-                  </div>
-                </div>
-              </Column>
-
-              {/* Toggles: Radios & Privacy */}
-              <div className="space-y-3 pt-2">
-                {/* BLE Switch */}
-                <Row
-                  horizontalArrangement="space-between"
-                  verticalAlignment="center"
-                  className="p-3 bg-white/80 dark:bg-[#1F2C1D] rounded-2xl border border-[#87A878]/25"
-                >
-                  <div className="space-y-0.5 max-w-[80%]">
-                    <span className="text-xs font-bold text-[#203A2A] dark:text-[#F0F5EE] flex items-center gap-1.5">
-                      <Signal className="w-3.5 h-3.5 text-[#588157]" />
-                      {stringResource(R.string.pref_ble_title)}
+              {/* Map Discovery Visual Card */}
+              <div className="p-4 rounded-3xl bg-linear-to-br from-[#E8F0E6] to-[#D5E5D1] dark:from-[#1A2617] dark:to-[#22331E] border border-[#87A878]/35 shadow-sm space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-[#87A878]/25">
+                  <div className="flex items-center gap-2">
+                    <Map className="w-5 h-5 text-[#588157]" />
+                    <span className="font-bold text-sm text-[#203A2A] dark:text-[#F0F5EE]">
+                      Tallinna Välikaart (PMTiles)
                     </span>
-                    <p className="text-[11px] text-[#637062] dark:text-[#87A878]">
-                      {stringResource(R.string.pref_ble_desc)}
-                    </p>
                   </div>
-                  <Switch
-                    checked={visibilityPrefs.bleEnabled}
-                    onCheckedChange={(checked) =>
-                      setVisibilityPrefs({ ...visibilityPrefs, bleEnabled: checked })
-                    }
-                  />
-                </Row>
-
-                {/* Wi-Fi Direct Switch */}
-                <Row
-                  horizontalArrangement="space-between"
-                  verticalAlignment="center"
-                  className="p-3 bg-white/80 dark:bg-[#1F2C1D] rounded-2xl border border-[#87A878]/25"
-                >
-                  <div className="space-y-0.5 max-w-[80%]">
-                    <span className="text-xs font-bold text-[#203A2A] dark:text-[#F0F5EE] flex items-center gap-1.5">
-                      <Radio className="w-3.5 h-3.5 text-[#2A9D8F]" />
-                      {stringResource(R.string.pref_wifi_direct_title)}
-                    </span>
-                    <p className="text-[11px] text-[#637062] dark:text-[#87A878]">
-                      {stringResource(R.string.pref_wifi_direct_desc)}
-                    </p>
-                  </div>
-                  <Switch
-                    checked={visibilityPrefs.wifiDirectEnabled}
-                    onCheckedChange={(checked) =>
-                      setVisibilityPrefs({ ...visibilityPrefs, wifiDirectEnabled: checked })
-                    }
-                  />
-                </Row>
-
-                {/* Location Privacy Selection */}
-                <div className="p-3 bg-white/80 dark:bg-[#1F2C1D] rounded-2xl border border-[#87A878]/25 space-y-2">
-                  <span className="text-xs font-bold text-[#203A2A] dark:text-[#F0F5EE] flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-[#E76F51]" />
-                    {stringResource(R.string.pref_location_precision_label)}
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-[#588157] text-white font-bold">
+                    100% Offline
                   </span>
-                  <div className="flex flex-wrap gap-2">
-                    <FilterChip
-                      label={stringResource(R.string.pref_loc_obfuscated)}
-                      selected={visibilityPrefs.locationPrecision === 'obfuscated'}
-                      onClick={() =>
-                        setVisibilityPrefs({ ...visibilityPrefs, locationPrecision: 'obfuscated' })
-                      }
-                    />
-                    <FilterChip
-                      label={stringResource(R.string.pref_loc_exact)}
-                      selected={visibilityPrefs.locationPrecision === 'exact'}
-                      onClick={() =>
-                        setVisibilityPrefs({ ...visibilityPrefs, locationPrecision: 'exact' })
-                      }
-                    />
-                    <FilterChip
-                      label={stringResource(R.string.pref_loc_none)}
-                      selected={visibilityPrefs.locationPrecision === 'none'}
-                      onClick={() =>
-                        setVisibilityPrefs({ ...visibilityPrefs, locationPrecision: 'none' })
-                      }
-                    />
-                  </div>
                 </div>
 
-                {/* SOS Relay Switch */}
-                <Row
-                  horizontalArrangement="space-between"
-                  verticalAlignment="center"
-                  className="p-3 bg-white/80 dark:bg-[#1F2C1D] rounded-2xl border border-[#87A878]/25"
-                >
-                  <div className="space-y-0.5 max-w-[80%]">
-                    <span className="text-xs font-bold text-[#203A2A] dark:text-[#F0F5EE] flex items-center gap-1.5">
-                      <Zap className="w-3.5 h-3.5 text-[#E76F51]" />
-                      {stringResource(R.string.pref_sos_relay_title)}
-                    </span>
-                    <p className="text-[11px] text-[#637062] dark:text-[#87A878]">
-                      {stringResource(R.string.pref_sos_relay_desc)}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                  <div className="p-2.5 rounded-xl bg-white/80 dark:bg-black/30 border border-[#87A878]/25 space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-[#588157]">
+                      <Footprints className="w-3.5 h-3.5" />
+                      <span>Tänavaavastus</span>
+                    </div>
+                    <p className="text-[11px] text-zinc-600 dark:text-zinc-300">
+                      Jaluta reaalsete GPS-koordinaatidega, et avada udu all olevaid tänavaid ja teenida punkte.
                     </p>
                   </div>
-                  <Switch
-                    checked={visibilityPrefs.sosRelayEnabled}
-                    onCheckedChange={(checked) =>
-                      setVisibilityPrefs({ ...visibilityPrefs, sosRelayEnabled: checked })
-                    }
-                  />
-                </Row>
+
+                  <div className="p-2.5 rounded-xl bg-white/80 dark:bg-black/30 border border-[#87A878]/25 space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-[#2A9D8F]">
+                      <MapPin className="w-3.5 h-3.5" />
+                      <span>Varjendid & Allikad</span>
+                    </div>
+                    <p className="text-[11px] text-zinc-600 dark:text-zinc-300">
+                      Valideeritud pääste- ja veepunktid, tööriistade laenutused ja hädaabi kogunemiskohad.
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-white/80 dark:bg-black/30 border border-[#87A878]/25 space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-[#E76F51]">
+                      <Signal className="w-3.5 h-3.5" />
+                      <span>Raadioleviala Jäljed</span>
+                    </div>
+                    <p className="text-[11px] text-zinc-600 dark:text-zinc-300">
+                      Kaardista LoRa ja Bluetooth signaali tugevust, et tuvastada levialasid ja pimealasid.
+                    </p>
+                  </div>
+                </div>
               </div>
             </Column>
           )}
 
           {/* ========================================================
-              STEP 5: Review & Node Activation
+              STEP 5: Navigation & Interaction Guide
              ======================================================== */}
           {currentStep === 5 && (
+            <Column gap={4} className="animate-in fade-in duration-200">
+              <Row verticalAlignment="center" gap={2}>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#588157]/15 text-[#588157]">
+                  {stringResource(R.string.onboarding_nav_guide_badge)}
+                </span>
+              </Row>
+
+              <Column gap={1}>
+                <Text style="headlineMedium" className="text-[#203A2A] dark:text-[#F0F5EE]">
+                  {stringResource(R.string.onboarding_nav_guide_title)}
+                </Text>
+                <Text style="titleSmall" className="text-[#588157] dark:text-[#87A878]">
+                  {stringResource(R.string.onboarding_nav_guide_subtitle)}
+                </Text>
+                <Text style="bodyMedium" className="text-[#637062] dark:text-[#A8BDA5] pt-1">
+                  {stringResource(R.string.onboarding_nav_guide_desc)}
+                </Text>
+              </Column>
+
+              <HorizontalDivider />
+
+              {/* 4 Core Tabs Tour */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3.5 rounded-2xl bg-white/80 dark:bg-[#1E2B1C] border border-[#87A878]/30 flex items-start gap-3">
+                  <div className="p-2.5 rounded-xl bg-[#588157]/15 text-[#588157] shrink-0">
+                    <Map className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-xs text-[#203A2A] dark:text-[#F0F5EE]">
+                      1. Väli (Field Map)
+                    </h4>
+                    <p className="text-[11px] text-zinc-600 dark:text-zinc-300 mt-0.5">
+                      Võrguühenduseta kaart, tänavaotsing, varjendid, veepunktid ja teekonna koostamine.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white/80 dark:bg-[#1E2B1C] border border-[#87A878]/30 flex items-start gap-3">
+                  <div className="p-2.5 rounded-xl bg-[#2A9D8F]/15 text-[#2A9D8F] shrink-0">
+                    <MessageSquare className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-xs text-[#203A2A] dark:text-[#F0F5EE]">
+                      2. Sõnumid (Mesh Chat)
+                    </h4>
+                    <p className="text-[11px] text-zinc-600 dark:text-zinc-300 mt-0.5">
+                      Krüpteeritud otsevestlused naabritega ja hädaolukorra SOS teated eetrisse.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white/80 dark:bg-[#1E2B1C] border border-[#87A878]/30 flex items-start gap-3">
+                  <div className="p-2.5 rounded-xl bg-[#E9C46A]/20 text-[#D4A338] shrink-0">
+                    <Repeat className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-xs text-[#203A2A] dark:text-[#F0F5EE]">
+                      3. Ring (Exchange)
+                    </h4>
+                    <p className="text-[11px] text-zinc-600 dark:text-zinc-300 mt-0.5">
+                      Tööriistade, päikeseenergia, seemnete ja oskuste vahetamine ilma rahalise vahenduseta.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white/80 dark:bg-[#1E2B1C] border border-[#87A878]/30 flex items-start gap-3">
+                  <div className="p-2.5 rounded-xl bg-[#E76F51]/15 text-[#E76F51] shrink-0">
+                    <Radio className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-xs text-[#203A2A] dark:text-[#F0F5EE]">
+                      4. Raadio (RF Peers)
+                    </h4>
+                    <p className="text-[11px] text-zinc-600 dark:text-zinc-300 mt-0.5">
+                      Läheduses olevad seadmed, signaali tugevus ja riistvaralise LoRa raadio olek.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Action Dial Callout */}
+              <div className="p-3 rounded-2xl bg-[#588157]/10 border border-[#588157]/20 flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-[#588157] text-white shrink-0">
+                  <Plus className="w-4 h-4" />
+                </div>
+                <p className="text-xs text-[#203A2A] dark:text-[#F0F5EE]">
+                  <strong>Kiirmenüü (+):</strong> Ekraani allservas asuv nupp võimaldab sekundiga käivitada SOS-häire, lisada uue ressursi või otsida üle kogu võrgu.
+                </p>
+              </div>
+            </Column>
+          )}
+
+          {/* ========================================================
+              STEP 6: Review & Node Activation
+             ======================================================== */}
+          {currentStep === 6 && (
             <Column gap={4} className="animate-in fade-in duration-200">
               <Row verticalAlignment="center" gap={2}>
                 <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#588157]/15 text-[#588157]">
@@ -809,7 +807,7 @@ export const SolarpunkOnboardingFlow: React.FC<SolarpunkOnboardingFlowProps> = (
               <div className="p-4 sm:p-5 rounded-3xl bg-linear-to-br from-[#FAF6EE] to-[#E9DFCE] dark:from-[#182315] dark:to-[#22331E] border-2 border-[#588157]/40 shadow-md space-y-3">
                 <div className="flex items-center justify-between pb-3 border-b border-[#87A878]/30">
                   <div className="flex items-center gap-3">
-                    <SolarpunkAvatarCanvas seed={avatarSeed || callsign} size={52} />
+                    <SolarpunkAvatarCanvas seed={avatarSeed || callsign} size={54} />
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-display font-bold text-lg text-[#203A2A] dark:text-[#F0F5EE]">
@@ -821,7 +819,7 @@ export const SolarpunkOnboardingFlow: React.FC<SolarpunkOnboardingFlowProps> = (
                       </div>
                       <span className="text-xs text-[#588157] dark:text-[#87A878] font-mono flex items-center gap-1">
                         <Compass className="w-3.5 h-3.5" />
-                        Bioregionaalne võrgusõlm
+                        Tallinna bioregionaalne võrgusõlm
                       </span>
                     </div>
                   </div>

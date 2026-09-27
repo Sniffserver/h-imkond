@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { ResourceCategory } from '../types';
+import { ResourceCategory, GeoPoint } from '../types';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import {
   X,
@@ -39,7 +39,7 @@ interface QuickAddResourceModalProps {
     type: 'offer' | 'request';
     availabilityText: string;
     imageUrl?: string;
-    coordinates?: { x: number; y: number; name?: string };
+    location: GeoPoint;
   }) => void;
   isNightMode?: boolean;
   onOpenWishlist?: () => void;
@@ -61,7 +61,7 @@ export const QuickAddResourceModal: React.FC<QuickAddResourceModalProps> = ({
   const [description, setDescription] = useState('');
   const [availabilityText, setAvailabilityText] = useState('Available immediately at home node');
   const [imageUrl, setImageUrl] = useState<string>('');
-  const [selectedLocation, setSelectedLocation] = useState<string>('Home Node (Cascadia-44N)');
+  const [selectedLocation, setSelectedLocation] = useState<string>('Kesklinn (Home Node)');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modalRef = useFocusTrap({ isOpen, onClose, modalName: 'Quick Add Resource Modal' });
@@ -69,10 +69,10 @@ export const QuickAddResourceModal: React.FC<QuickAddResourceModalProps> = ({
   if (!isOpen) return null;
 
   const locationsList = [
-    { name: 'Home Node (Cascadia-44N)', x: 0, y: 0, dist: 0.1 },
-    { name: 'River Crossing (Node 03)', x: 120, y: -80, dist: 0.8 },
-    { name: 'Ridge Trailhead (Node 02)', x: -140, y: 110, dist: 1.2 },
-    { name: 'South Bridge Relay', x: 80, y: 150, dist: 1.4 },
+    { name: 'Kesklinn (Home Node)', lat: 59.4370, lng: 24.7535, dist: 0.1 },
+    { name: 'Telliskivi Loomelinnak', lat: 59.4402, lng: 24.7291, dist: 0.4 },
+    { name: 'Kalamaja Kogukonnaaed', lat: 59.4450, lng: 24.7410, dist: 0.8 },
+    { name: 'Kadriorg Park Relay', lat: 59.4385, lng: 24.7725, dist: 1.2 },
   ];
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -112,7 +112,7 @@ export const QuickAddResourceModal: React.FC<QuickAddResourceModalProps> = ({
         type,
         availabilityText,
         imageUrl: imageUrl || undefined,
-        coordinates: { x: locObj.x, y: locObj.y, name: locObj.name },
+        location: { lat: locObj.lat, lng: locObj.lng },
       });
       // Reset form
       setStep(1);

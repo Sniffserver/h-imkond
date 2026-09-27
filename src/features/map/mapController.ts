@@ -90,8 +90,8 @@ export class MapController {
 
     const resourceItems = resources.map((r) => ({
       ...r,
-      lat: (r as any).lat ?? (59.437 + (r.coordinates?.y || 0) * 0.001),
-      lng: (r as any).lng ?? (24.7535 + (r.coordinates?.x || 0) * 0.001),
+      lat: r.location.lat,
+      lng: r.location.lng,
     }));
 
     const peerClusters = clusterSpatialItems(peerItems, this.state.zoom, this.state.bounds);

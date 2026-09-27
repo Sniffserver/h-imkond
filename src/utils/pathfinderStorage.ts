@@ -214,12 +214,12 @@ const INITIAL_BASELINE_WALK: WalkSession = {
   newBluetoothSpots: ['ble_hydro_sensor_1', 'ble_hoimu_beacon_2'],
   newLoraNodes: ['lora_tartu_r1', 'lora_supilinn_hub_3'],
   track: [
-    { lat: 58.3780, lng: 26.7290, timestamp: Date.now() - 86400000 * 2 - 7200000 },
-    { lat: 58.3795, lng: 26.7260, timestamp: Date.now() - 86400000 * 2 - 6600000 },
-    { lat: 58.3815, lng: 26.7225, timestamp: Date.now() - 86400000 * 2 - 6000000 },
-    { lat: 58.3842, lng: 26.7198, timestamp: Date.now() - 86400000 * 2 - 5400000 },
-    { lat: 58.3860, lng: 26.7170, timestamp: Date.now() - 86400000 * 2 - 4800000 },
-    { lat: 58.3885, lng: 26.7132, timestamp: Date.now() - 86400000 * 2 - 4200000 },
+    { lat: 58.3780, lng: 26.7290, accuracyMeters: 5, timestamp: Date.now() - 86400000 * 2 - 7200000 },
+    { lat: 58.3795, lng: 26.7260, accuracyMeters: 5, timestamp: Date.now() - 86400000 * 2 - 6600000 },
+    { lat: 58.3815, lng: 26.7225, accuracyMeters: 5, timestamp: Date.now() - 86400000 * 2 - 6000000 },
+    { lat: 58.3842, lng: 26.7198, accuracyMeters: 5, timestamp: Date.now() - 86400000 * 2 - 5400000 },
+    { lat: 58.3860, lng: 26.7170, accuracyMeters: 5, timestamp: Date.now() - 86400000 * 2 - 4800000 },
+    { lat: 58.3885, lng: 26.7132, accuracyMeters: 5, timestamp: Date.now() - 86400000 * 2 - 4200000 },
   ],
   notes: 'Esmane eetriardumine Emajõe kallastel. Tuvastatud Supilinna avatud võrk ja LoRa relee.',
 };
@@ -583,7 +583,7 @@ export function exportWalkSessionAsGPX(session: WalkSession): string {
       (pt) =>
         `    <trkpt lat="${pt.lat.toFixed(6)}" lon="${pt.lng.toFixed(6)}">
       <time>${new Date(pt.timestamp || Date.now()).toISOString()}</time>
-      ${pt.altitude ? `<ele>${pt.altitude.toFixed(1)}</ele>` : ''}
+      ${pt.altitudeMeters ? `<ele>${pt.altitudeMeters.toFixed(1)}</ele>` : ''}
     </trkpt>`
     )
     .join('\n');
@@ -622,7 +622,7 @@ export function exportPathfinderAsGeoJSON(
         type: 'Feature',
         geometry: {
           type: 'LineString',
-          coordinates: s.track.map((pt) => [pt.longitude, pt.latitude]),
+          coordinates: s.track.map((pt) => [pt.lng, pt.lat]),
         },
         properties: {
           type: 'walk_track',

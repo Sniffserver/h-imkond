@@ -117,35 +117,39 @@ export function convertOsmGeoJsonToHoimu(
 }
 
 /**
- * Fetches real live vector elements from OpenStreetMap's Overpass API.
- * Pulls emergency hydration spots, natural waters, parks, and pathways
- * within a 1.2km bounding box.
+ * Loads vector dataset from scheduled offline build artifacts (poi.pmtiles / tallinn-places.json).
+ * Adheres strictly to OSM Overpass usage policy by using pre-compiled scheduled extracts.
  */
 export async function fetchLiveOsmData(lat: number, lon: number): Promise<any> {
-  const delta = 0.015; // roughly ~1.5km box
-  const bbox = `${lat - delta},${lon - delta},${lat + delta},${lon + delta}`;
-
-  const query = `
-    [out:json][timeout:25];
-    (
-      way["highway"~"primary|secondary|tertiary|residential|footway|cycleway"](${bbox});
-      way["natural"="water"](${bbox});
-      way["leisure"="park"](${bbox});
-      node["amenity"~"water_point|drinking_water|hospital|pharmacy|marketplace"](${bbox});
-    );
-    out body;
-    >;
-    out skel qt;
-  `;
-
-  const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`OSM Overpass query failed: Status ${response.status}`);
+  try {
+    const res = await fetch('/maps/tallinn-places.json');
+    if (res.ok) {
+      const places = await res.json();
+      return {
+        type: 'FeatureCollection',
+        features: places.map((p: any) => ({
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [p.location.lng, p.location.lat],
+          },
+          properties: {
+            id: p.id,
+            name: p.name,
+            amenity: p.subCategory,
+            source: p.sourceName,
+          },
+        })),
+      };
+    }
+  } catch {
+    // Fall back to empty GeoJSON if offline
   }
 
-  const data = await response.json();
-  return overpassJsonToGeoJson(data);
+  return {
+    type: 'FeatureCollection',
+    features: [],
+  };
 }
 
 /**

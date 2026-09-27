@@ -61,16 +61,13 @@ export interface SymbiosisWeeklyPoint {
 // =========================================================================
 
 export interface GeoPoint {
-  lat?: number;
-  lng?: number;
-  latitude?: number;
-  longitude?: number;
-  timestamp?: number;
-  altitude?: number;
-  accuracy?: number;
+  lat: number;
+  lng: number;
 }
 
-export interface GeoFix extends GeoPoint {
+export interface GeoFix {
+  lat: number;
+  lng: number;
   accuracyMeters: number;
   timestamp: number;
   altitudeMeters?: number;
@@ -104,6 +101,7 @@ export type DataSource =
   | 'tallinn'
   | 'paasteamet'
   | 'ppa'
+  | 'ads'
   | 'hoimu'
   | 'sensor'
   | 'derived'
@@ -174,11 +172,15 @@ export type PlaceMainCategory =
   | 'safety'
   | 'tools'
   | 'stores'
-  | 'finds'
-  | 'water'
+  | 'food'
+  | 'health'
+  | 'mobility'
   | 'nature'
-  | 'energy'
-  | 'community';
+  | 'water'
+  | 'community'
+  | 'finds'
+  | 'hoimu'
+  | 'energy';
 
 export type PlaceSubCategory =
   // Safety
@@ -210,6 +212,27 @@ export type PlaceSubCategory =
   | 'department_store'
   | 'specialty'
   | 'fuel'
+  // Food
+  | 'bakery'
+  | 'grocery'
+  | 'cafe'
+  | 'restaurant'
+  | 'community_kitchen'
+  | 'pantry'
+  | 'farm_produce'
+  // Health
+  | 'clinic'
+  | 'first_aid'
+  | 'defibrillator'
+  | 'wellness'
+  // Mobility
+  | 'transit_hub'
+  | 'bus_station'
+  | 'train_station'
+  | 'ferry_terminal'
+  | 'bike_rack'
+  | 'cargo_bike'
+  | 'parking'
   // Finds
   | 'second_hand'
   | 'reuse'
@@ -231,12 +254,147 @@ export type PlaceSubCategory =
   | 'forest'
   | 'green_area'
   | 'garden'
-  // Energy & Community
-  | 'solar_hub'
-  | 'charging'
+  | 'community_garden'
+  | 'permaculture'
+  // Community
   | 'library'
   | 'community_center'
+  | 'cultural_center'
+  | 'youth_center'
+  // HÕIMU
+  | 'mesh_gateway'
+  | 'campfire'
+  | 'mutual_aid_hub'
+  | 'solar_station'
+  // Energy
+  | 'solar_hub'
+  | 'charging'
   | (string & {});
+
+export interface DiscoveryObservation {
+  segmentId: string;
+  streetId: string;
+  firstDiscoveredAt: number;
+  lastConfirmedAt: number;
+  confirmationCount: number;
+  bestAccuracyMeters: number;
+  confidence: 'low' | 'medium' | 'high';
+}
+
+export interface NeighborhoodIntelligence {
+  district: string;
+  name: string;
+  streetsTotal: number;
+  streetsExploredCount: number;
+  streetsExploredPercent: number;
+  placesTotal: number;
+  placesDiscoveredCount: number;
+  placesDiscoveredPercent: number;
+  meshObservationsCount: number;
+  signalCoverageKm: number;
+  lastVisitedAt?: number;
+  confidence: 'low' | 'medium' | 'high';
+}
+
+export interface UnknownNearbySummary {
+  unexploredStreetsCount: number;
+  unexploredPlacesCount: number;
+  unvisitedDistrictsCount: number;
+  unobservedMeshPathsCount: number;
+  nearestUnexploredStreets: Street[];
+  nearestUnexploredPlaces: MapPlace[];
+  primaryDistrict: string;
+}
+
+export interface FieldQuestObjective {
+  id: string;
+  title: string;
+  type: 'street_explore' | 'place_find' | 'mesh_observe' | 'return_campfire';
+  targetCount: number;
+  currentCount: number;
+  completed: boolean;
+  details?: string;
+}
+
+export interface FieldQuest {
+  id: string;
+  title: string;
+  district: string;
+  description: string;
+  targetDistanceKm: number;
+  estimatedMinutes: number;
+  objectives: FieldQuestObjective[];
+  completed: boolean;
+  startedAt?: number;
+  completedAt?: number;
+}
+
+export interface LocationProvider {
+  id: string;
+  name: string;
+  start(): Promise<void>;
+  stop(): Promise<void>;
+  subscribe(listener: (fix: GeoFix) => void): () => void;
+  getLastFix(): GeoFix | null;
+  getStatus(): 'idle' | 'running' | 'error';
+}
+
+export interface SourceRecord {
+  provider: DataSource;
+  sourceId: string;
+  retrievedAt: number;
+  updatedAt?: number;
+  publishedAt?: number;
+  sourceUpdatedAt?: number;
+  license?: string;
+  checksum?: string;
+  observedAddress?: string;
+  observedCoordinates?: { lat: number; lng: number };
+}
+
+export interface DataConflictClaim {
+  provider: DataSource;
+  value: string;
+  sourceName?: string;
+  timestamp?: number;
+}
+
+export interface DataConflict {
+  id: string;
+  field: string;
+  status: 'sources_disagree' | 'resolved' | 'unverified';
+  summary: string;
+  claims: DataConflictClaim[];
+}
+
+export interface SignalObservation {
+  id?: string;
+  timestamp: number;
+  position: GeoPoint;
+  peerId: string;
+  rssi: number;
+  snr?: number;
+  medium: 'lora' | 'ble' | 'wifi';
+}
+
+export interface FieldObjectives {
+  discoverStreetSegments: number;
+  visitPlacesCount: number;
+  observeMeshSignal: boolean;
+  returnToCampfire: boolean;
+  targetDistanceKm: number;
+}
+
+export interface FieldReport {
+  id: string;
+  timestamp: number;
+  streetsDiscoveredCount: number;
+  placesConfirmedCount: number;
+  distanceKm: number;
+  radioObservationsCount: number;
+  neighborhoodsVisited: string[];
+  durationMinutes: number;
+}
 
 export interface MapPlace {
   id: string;
@@ -244,6 +402,8 @@ export interface MapPlace {
   location: GeoPoint;
   mainCategory: PlaceMainCategory;
   subCategory: PlaceSubCategory;
+  sources?: SourceRecord[];
+  conflicts?: DataConflict[];
   source: DataSource;
   sourceName?: string;
   sourceId?: string;
@@ -259,11 +419,17 @@ export interface MapPlace {
     | 'observed'
     | 'derived'
     | 'conflict'
+    | 'fixture'
+    | 'simulated'
     | 'unknown';
   observedByNodes?: number;
   lastConfirmed?: string;
   snapshotDate?: string;
   updatedDaysAgo?: number;
+  sourceUpdatedAt?: string;
+  ingestedAt?: string;
+  snapshotId?: string;
+  checksum?: string;
   address?: string;
   openingHours?: string;
   phone?: string;
@@ -273,20 +439,11 @@ export interface MapPlace {
   tags?: Record<string, string>;
 }
 
-export interface Poi {
-  id: string;
-  name: string;
-  location: GeoPoint;
-  category: PoiCategory;
-  source: DataSource;
-  sourceId?: string;
-  openingHours?: string;
-  website?: string;
-  phone?: string;
-  address?: string;
-  tags?: Record<string, string>;
-  description?: string;
-}
+/**
+ * @deprecated [LEGACY_GEO_COMPAT]
+ * Use `MapPlace` as the single canonical geographic POI truth.
+ */
+export type Poi = MapPlace;
 
 export interface MapTransform {
   scale: number;        // Zoom level (0.5 to 5.0)
@@ -295,6 +452,12 @@ export interface MapTransform {
   offsetY: number;      // Pan offset Y in screen pixels
 }
 
+/**
+ * @deprecated [LEGACY_GEO_COMPAT]
+ * Issue: #GEO-TRUTH-DEPRECATION-01 (Owner: map-engine-migration)
+ * Scheduled for deletion once MapLibre/PMTiles replaces legacy canvas.
+ * Use canonical `Street` from './types' instead.
+ */
 export interface VectorStreet {
   name: string;
   points: [number, number][];
@@ -302,12 +465,23 @@ export interface VectorStreet {
   type: 'primary' | 'secondary' | 'trail';
 }
 
+/**
+ * @deprecated [LEGACY_GEO_COMPAT]
+ * Issue: #GEO-TRUTH-DEPRECATION-02 (Owner: map-engine-migration)
+ * Scheduled for deletion once MapLibre/PMTiles replaces legacy canvas.
+ */
 export interface VectorZone {
   name: string;
   type: 'water' | 'park' | 'urban';
   points: [number, number][];
 }
 
+/**
+ * @deprecated [LEGACY_GEO_COMPAT]
+ * Issue: #GEO-TRUTH-DEPRECATION-03 (Owner: map-engine-migration)
+ * Scheduled for deletion once MapLibre/PMTiles replaces legacy canvas.
+ * Use canonical `MapPlace` from './types' instead.
+ */
 export interface VectorLandmark {
   id: string;
   name: string;
@@ -318,6 +492,12 @@ export interface VectorLandmark {
 
 export type SurvivalPoiCategory = 'Tools' | 'Bikes' | 'Medical' | 'Food' | 'Station' | (string & {});
 
+/**
+ * @deprecated [LEGACY_GEO_COMPAT]
+ * Issue: #GEO-TRUTH-DEPRECATION-04 (Owner: map-engine-migration)
+ * Scheduled for deletion once MapLibre/PMTiles replaces legacy canvas.
+ * Use canonical `MapPlace` from './types' instead.
+ */
 export interface SurvivalPoi {
   id: string;
   name: string;
@@ -330,6 +510,11 @@ export interface SurvivalPoi {
   description?: string;
 }
 
+/**
+ * @deprecated [LEGACY_GEO_COMPAT]
+ * Issue: #GEO-TRUTH-DEPRECATION-05 (Owner: map-engine-migration)
+ * Scheduled for deletion once MapLibre/PMTiles replaces legacy canvas.
+ */
 export interface CityMapData {
   id: string;
   cityName: string;
@@ -348,6 +533,11 @@ export interface CityMapData {
   survivalPois?: SurvivalPoi[];
 }
 
+/**
+ * @deprecated [LEGACY_GEO_COMPAT]
+ * Issue: #GEO-TRUTH-DEPRECATION-06 (Owner: map-engine-migration)
+ * Scheduled for deletion once MapLibre/PMTiles replaces legacy canvas.
+ */
 export interface MapPin {
   id: string;
   type: 'node' | 'resource';
@@ -447,8 +637,7 @@ export interface ResourceItem {
   category: ResourceCategory;
   type?: 'offer' | 'request';
   imageUrl?: string;
-  location?: GeoPoint;
-  coordinates?: { x: number; y: number; name?: string };
+  location: GeoPoint;
   distanceKm: number;
   createdAt: number;
   isActive: boolean;
@@ -888,7 +1077,7 @@ export interface WalkSession {
   title?: string;
   startedAt: number;
   endedAt: number;
-  track: GeoPoint[];    // GPS-jälg
+  track: GeoFix[];    // GPS-jälg
   newWifiSpots: string[];   // spot ID-d, mis on sellel käigul uued
   newBluetoothSpots: string[];
   newLoraNodes: string[];

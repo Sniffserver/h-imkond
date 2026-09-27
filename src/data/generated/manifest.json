@@ -1,22 +1,80 @@
 {
+  "id": "tallinn",
   "region": "tallinn",
-  "version": "2026.09.x",
-  "generatedAt": "2026-09-25T00:00:00Z",
+  "version": "2026.09.26",
+  "generatedAt": "2026-09-27T00:15:33.612Z",
+  "sources": [
+    {
+      "provider": "osm",
+      "snapshot": "2026.09.26",
+      "license": "ODbL (Open Database License)"
+    },
+    {
+      "provider": "tallinn",
+      "snapshot": "2026.09.26",
+      "license": "Tallinn Open Data (ODbL / CC-BY-SA)"
+    },
+    {
+      "provider": "paasteamet",
+      "snapshot": "2026.09.26",
+      "license": "Päästeamet Open Data"
+    },
+    {
+      "provider": "ads",
+      "snapshot": "2026.09.26",
+      "license": "Maa-amet ADS (Official Address System)"
+    }
+  ],
+  "artifacts": {
+    "basemap": {
+      "path": "tallinn-basemap.pmtiles",
+      "sha256": "8e21ff8727d6c9dbd580bdb15e45c1d8f1dbefcb9feb9c85632222048969f8b9",
+      "sizeBytes": 906
+    },
+    "poi": {
+      "path": "tallinn-poi.pmtiles",
+      "sha256": "ab4e72e147d8cf8cc8df7294ddfd93031ac74fb58b538a1e2475ac4dff1aa196",
+      "sizeBytes": 929,
+      "index": "tallinn-poi.index",
+      "count": 24
+    },
+    "routing": {
+      "path": "routing.graph",
+      "sha256": "b84e925b338fd7e93e662289a8b9b0e4dfacb3060c8bcbac58934e9896fe2704",
+      "sizeBytes": 3056,
+      "nodes": 79,
+      "edges": 110
+    },
+    "streetIndex": {
+      "path": "street-index.bin",
+      "sha256": "dd95602e3c2245423ba595ded25890380ed316bf2e748b7e9746afcf4ad6c4ce",
+      "sizeBytes": 1799,
+      "streetCount": 24
+    }
+  },
   "basemap": {
     "filename": "tallinn-basemap.pmtiles",
-    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    "sha256": "8e21ff8727d6c9dbd580bdb15e45c1d8f1dbefcb9feb9c85632222048969f8b9",
+    "sizeBytes": 906
   },
   "poi": {
     "filename": "tallinn-poi.pmtiles",
     "index": "tallinn-poi.index",
-    "sha256": "a1b2c3d4e5f678901234567890abcdef1234567890abcdef1234567890abcdef"
+    "sha256": "ab4e72e147d8cf8cc8df7294ddfd93031ac74fb58b538a1e2475ac4dff1aa196",
+    "sizeBytes": 929,
+    "count": 24
   },
   "routing": {
     "filename": "routing.graph",
-    "sha256": "7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12345678"
+    "sha256": "b84e925b338fd7e93e662289a8b9b0e4dfacb3060c8bcbac58934e9896fe2704",
+    "sizeBytes": 3056,
+    "nodes": 79,
+    "edges": 110
   },
   "streetIndex": {
     "filename": "street-index.bin",
-    "sha256": "cdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd"
+    "sha256": "dd95602e3c2245423ba595ded25890380ed316bf2e748b7e9746afcf4ad6c4ce",
+    "sizeBytes": 1799,
+    "streetCount": 24
   }
 }

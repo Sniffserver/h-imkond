@@ -89,10 +89,15 @@ export const NearbyResourcesOverlay: React.FC<NearbyResourcesOverlayProps> = ({
 
     // Ensure each offering has simulated or real coordinates
     const itemsWithCoords = activeOfferings.map((res, idx) => {
-      let x = res.coordinates?.x;
-      let y = res.coordinates?.y;
+      let x: number;
+      let y: number;
 
-      if (x === undefined || y === undefined) {
+      if (res.location) {
+        const dLatKm = (res.location.lat - 59.4370) * 110.574;
+        const dLngKm = (res.location.lng - 24.7535) * (111.32 * Math.cos((59.4370 * Math.PI) / 180));
+        x = Math.round(dLngKm * 50);
+        y = Math.round(-dLatKm * 50);
+      } else {
         // Deterministic spatial distribution across city sectors based on id / owner
         const angle = ((idx * 137.5) % 360) * (Math.PI / 180);
         const radius = 25 + ((idx * 23) % 45);

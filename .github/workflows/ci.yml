@@ -32,22 +32,31 @@ jobs:
       - name: 2. Lint (Blocking)
         run: npm run lint
 
-      - name: 3. Unit Tests (Blocking)
+      - name: 3. No Synthetic Production Data Scanner (Blocking)
+        run: npm run scan:synthetic
+
+      - name: 4. Map-Pack Build & Artifact Verification Gate (Blocking)
+        run: npm run maps:check
+
+      - name: 5. Unit Tests (Blocking)
         run: npx vitest run --exclude "src/__tests__/protocol/vectors.test.ts" --exclude "src/__tests__/meshCrypto.test.ts" --exclude "src/__tests__/e2eInvariants.test.ts"
 
-      - name: 4. Protocol Vector Validation (Blocking)
+      - name: 6. Protocol Vector Validation (Blocking)
         run: npx vitest run src/__tests__/protocol/vectors.test.ts
 
-      - name: 5. Cryptographic Tests (Blocking)
+      - name: 7. Cryptographic Tests (Blocking)
         run: npx vitest run src/__tests__/meshCrypto.test.ts
 
-      - name: 6. Accessibility Audit (Blocking)
+      - name: 8. Accessibility Audit (Blocking)
         run: npx vitest run src/__tests__/a11y/a11yAudit.test.ts
 
-      - name: 7. E2E Invariants Validation (Blocking)
+      - name: 9. CI Invariants Validation (Blocking)
+        run: npx vitest run src/__tests__/ciInvariants.test.ts
+
+      - name: 10. E2E Invariants Validation (Blocking)
         run: npx vitest run src/__tests__/e2eInvariants.test.ts
 
-      - name: 8. Production Applet Build (Blocking)
+      - name: 11. Production Applet Build (Blocking)
         run: npm run build
 
       - name: 9. Bundle Size Visualization (Non-blocking)

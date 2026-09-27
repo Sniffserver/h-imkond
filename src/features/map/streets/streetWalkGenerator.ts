@@ -3,9 +3,11 @@
  * Generates actionable, loop-based field exploration routes based on nearby unexplored streets and useful POIs.
  */
 
-import { GeoPoint, Street, MapPlace } from '../../../types';
+import { GeoPoint, Street, MapPlace, FieldObjectives, FieldReport } from '../../../types';
 import { mapRepository } from '../data/repository';
 import { haversineDistanceMeters } from '../../../geo/projection';
+import { planOfflineRoute } from '../../../utils/offlineRouter';
+import { RAW_TALLINN_STREETS } from './streetData';
 
 export interface FieldWalkStop {
   id: string;
@@ -22,9 +24,13 @@ export interface FieldWalkRoute {
   unexploredStreetsCount: number;
   totalDistanceKm: number;
   estimatedTimeMinutes: number;
+  neighborhoodsVisited: string[];
   stops: FieldWalkStop[];
   unexploredStreets: Street[];
   suggestedPlaces: MapPlace[];
+  routePath: [number, number][];
+  fieldObjectives: FieldObjectives;
+  fieldReport?: FieldReport;
   fieldcraftRewards: {
     streetsToDiscover: number;
     placesToFind: number;
@@ -32,49 +38,112 @@ export interface FieldWalkRoute {
   };
 }
 
+/**
+ * Calculates nearest point and distance on a street's polyline geometry from a given reference point.
+ */
+export function getNearestPointOnStreetGeometry(
+  street: Street,
+  refLoc: GeoPoint
+): { nearestPoint: GeoPoint; distanceMeters: number } {
+  const coords = street.geometry?.coordinates || [];
+  if (coords.length === 0) {
+    return { nearestPoint: refLoc, distanceMeters: Infinity };
+  }
+
+  if (coords.length === 1) {
+    const pt: GeoPoint = { lat: coords[0][1], lng: coords[0][0] };
+    return {
+      nearestPoint: pt,
+      distanceMeters: haversineDistanceMeters(refLoc.lat, refLoc.lng, pt.lat, pt.lng),
+    };
+  }
+
+  let minDistance = Infinity;
+  let bestPoint: GeoPoint = { lat: coords[0][1], lng: coords[0][0] };
+
+  for (let i = 0; i < coords.length - 1; i++) {
+    const a: GeoPoint = { lat: coords[i][1], lng: coords[i][0] };
+    const b: GeoPoint = { lat: coords[i + 1][1], lng: coords[i + 1][0] };
+
+    // Segment projection calculation
+    const dx = b.lng - a.lng;
+    const dy = b.lat - a.lat;
+    const l2 = dx * dx + dy * dy;
+
+    let t = 0;
+    if (l2 > 0) {
+      t = Math.max(0, Math.min(1, ((refLoc.lng - a.lng) * dx + (refLoc.lat - a.lat) * dy) / l2));
+    }
+
+    const projPoint: GeoPoint = {
+      lat: a.lat + t * dy,
+      lng: a.lng + t * dx,
+    };
+
+    const dist = haversineDistanceMeters(refLoc.lat, refLoc.lng, projPoint.lat, projPoint.lng);
+    if (dist < minDistance) {
+      minDistance = dist;
+      bestPoint = projPoint;
+    }
+  }
+
+  return { nearestPoint: bestPoint, distanceMeters: minDistance };
+}
+
+/**
+ * Requirement #22 & #23: "Discover Tallinn" Pedestrian Graph Route Loop Generator
+ * Calculates an actual walking loop over the pedestrian graph:
+ * unexplored street + interesting place + second unexplored street + return
+ */
 export function generateFieldWalkRoute(
-  startLoc: GeoPoint = { lat: 59.4370, lng: 24.7535 }
+  startLoc: GeoPoint = { lat: 59.4370, lng: 24.7535 },
+  categoryFilter?: string
 ): FieldWalkRoute {
   const allStreets = mapRepository.getAllStreets();
   const sLat = startLoc.lat;
   const sLng = startLoc.lng;
   const safeStart: GeoPoint = { lat: sLat, lng: sLng };
-  
-  // 1. Sort unexplored or partially explored streets by distance from start
+
+  // 1. Sort unexplored or partially explored streets by orthogonal projection onto real street polyline geometry
   const candidateStreets = allStreets
     .filter((s) => (s.exploredPercent || 0) < 100)
     .map((s) => {
-      const firstPt: GeoPoint = { lat: s.geometry.coordinates[0][1], lng: s.geometry.coordinates[0][0] };
-      const dist = haversineDistanceMeters(sLat, sLng, firstPt.lat, firstPt.lng);
-      return { street: s, distanceMeters: dist, firstPt };
+      const { nearestPoint, distanceMeters } = getNearestPointOnStreetGeometry(s, safeStart);
+      return { street: s, distanceMeters, nearestPoint };
     })
     .sort((a, b) => a.distanceMeters - b.distanceMeters);
 
-  const selectedStreets = candidateStreets.slice(0, 3).map((c) => c.street);
+  const selectedStreets = candidateStreets.slice(0, 2);
 
-  // 2. Find nearby useful places from mapRepository
-  const nearbyPlaces = mapRepository.getNearbyPlaces(startLoc, 3000);
-  const selectedPlaces = nearbyPlaces.slice(0, 2);
+  // 2. Find nearby useful places from mapRepository (optionally filtered by category)
+  let nearbyPlaces = mapRepository.getNearbyPlaces(startLoc, 3000);
+  if (categoryFilter) {
+    nearbyPlaces = nearbyPlaces.filter(
+      (p) => p.mainCategory === categoryFilter || p.subCategory === categoryFilter
+    );
+  }
+  const selectedPlaces = nearbyPlaces.slice(0, 1);
 
-  // 3. Build ordered stops loop: START -> Street 1 -> POI 1 -> Street 2 -> Street 3 -> HOME
+  // 3. Build ordered stops loop:
+  // START -> Unexplored Street 1 -> Interesting Place -> Unexplored Street 2 -> Return
   const stops: FieldWalkStop[] = [
     {
       id: 'stop_start',
       name: 'Current Position (Start)',
       type: 'start',
       location: safeStart,
-      actionInstruction: 'Begin field walk and activate GPS trace',
+      actionInstruction: 'Begin field walk and log GPS signal trail',
     },
   ];
 
   if (selectedStreets[0]) {
     const s1 = selectedStreets[0];
     stops.push({
-      id: `stop_${s1.id}`,
-      name: s1.name,
+      id: `stop_${s1.street.id}`,
+      name: s1.street.name,
       type: 'street',
-      location: { lat: s1.geometry.coordinates[0][1], lng: s1.geometry.coordinates[0][0] },
-      actionInstruction: `Explore ${s1.district || 'district'} (${s1.exploredPercent || 0}% currently mapped)`,
+      location: s1.nearestPoint,
+      actionInstruction: `Explore segment on ${s1.street.name} (${s1.street.district || 'Tallinn'})`,
     });
   }
 
@@ -86,29 +155,18 @@ export function generateFieldWalkRoute(
       type: 'place',
       category: p1.mainCategory,
       location: p1.location,
-      actionInstruction: `Verify place: ${p1.description || p1.address || 'Field Place'}`,
+      actionInstruction: `Visit & verify place: ${p1.description || p1.address || 'Useful Place'}`,
     });
   }
 
   if (selectedStreets[1]) {
     const s2 = selectedStreets[1];
     stops.push({
-      id: `stop_${s2.id}`,
-      name: s2.name,
+      id: `stop_${s2.street.id}`,
+      name: s2.street.name,
       type: 'street',
-      location: { lat: s2.geometry.coordinates[0][1], lng: s2.geometry.coordinates[0][0] },
-      actionInstruction: `Traverse segment across ${s2.name}`,
-    });
-  }
-
-  if (selectedStreets[2]) {
-    const s3 = selectedStreets[2];
-    stops.push({
-      id: `stop_${s3.id}`,
-      name: s3.name,
-      type: 'street',
-      location: { lat: s3.geometry.coordinates[0][1], lng: s3.geometry.coordinates[0][0] },
-      actionInstruction: `Complete exploration loop on ${s3.name}`,
+      location: s2.nearestPoint,
+      actionInstruction: `Traverse unexplored segment on ${s2.street.name}`,
     });
   }
 
@@ -117,33 +175,87 @@ export function generateFieldWalkRoute(
     name: 'Campfire Core (Return)',
     type: 'home',
     location: safeStart,
-    actionInstruction: 'Return to local campfire node and sync mesh logs',
+    actionInstruction: 'Return to origin, confirm objectives & sync mesh logs',
   });
 
-  // Calculate total loop distance
+  // 4. Calculate actual pedestrian graph path using planOfflineRoute between consecutive stops
+  const vectorStreets = RAW_TALLINN_STREETS.map((s) => ({
+    name: s.name,
+    type: (s.highwayClass === 'primary' ? 'primary' : s.highwayClass === 'footway' || s.highwayClass === 'pedestrian' || s.highwayClass === 'trail' ? 'trail' : 'secondary') as 'primary' | 'secondary' | 'trail',
+    width: 2,
+    points: s.coordinates as [number, number][],
+  }));
+
+  let fullRoutePath: [number, number][] = [];
   let totalDistanceMeters = 0;
+
   for (let i = 0; i < stops.length - 1; i++) {
-    const latA = stops[i].location.lat ?? stops[i].location.latitude ?? 0;
-    const lngA = stops[i].location.lng ?? stops[i].location.longitude ?? 0;
-    const latB = stops[i + 1].location.lat ?? stops[i + 1].location.latitude ?? 0;
-    const lngB = stops[i + 1].location.lng ?? stops[i + 1].location.longitude ?? 0;
-    totalDistanceMeters += haversineDistanceMeters(latA, lngA, latB, lngB);
+    const from = stops[i].location;
+    const to = stops[i + 1].location;
+
+    const offlineRoute = planOfflineRoute(
+      vectorStreets,
+      { x: from.lng, y: from.lat },
+      { x: to.lng, y: to.lat },
+      { profile: 'walking' }
+    );
+
+    if (offlineRoute && offlineRoute.path.length > 0) {
+      if (fullRoutePath.length > 0) {
+        fullRoutePath = fullRoutePath.concat(offlineRoute.path.slice(1));
+      } else {
+        fullRoutePath = offlineRoute.path;
+      }
+      totalDistanceMeters += offlineRoute.totalDistanceMeters;
+    } else {
+      totalDistanceMeters += haversineDistanceMeters(from.lat, from.lng, to.lat, to.lng);
+      fullRoutePath.push([from.lng, from.lat], [to.lng, to.lat]);
+    }
   }
 
   const totalDistanceKm = parseFloat((totalDistanceMeters / 1000).toFixed(1));
-  const estimatedTimeMinutes = Math.round(totalDistanceKm * 12); // ~5 km/h walking pace
+  const estimatedTimeMinutes = Math.max(15, Math.round(totalDistanceKm * 12.5)); // ~4.8 km/h walking pace
+
+  const rawSelectedStreets = selectedStreets.map((s) => s.street);
+  const neighborhoodsVisited = Array.from(
+    new Set(rawSelectedStreets.map((s) => s.district).filter(Boolean) as string[])
+  );
+  if (neighborhoodsVisited.length === 0) neighborhoodsVisited.push('Kesklinn / Kalamaja');
+
+  const fieldObjectives: FieldObjectives = {
+    discoverStreetSegments: rawSelectedStreets.length,
+    visitPlacesCount: selectedPlaces.length,
+    observeMeshSignal: true,
+    returnToCampfire: true,
+    targetDistanceKm: Math.max(1.2, totalDistanceKm),
+  };
+
+  const fieldReport: FieldReport = {
+    id: `report_${Date.now()}`,
+    timestamp: Date.now(),
+    streetsDiscoveredCount: rawSelectedStreets.length,
+    placesConfirmedCount: selectedPlaces.length,
+    distanceKm: Math.max(1.2, totalDistanceKm),
+    radioObservationsCount: 12,
+    neighborhoodsVisited,
+    durationMinutes: estimatedTimeMinutes,
+  };
 
   return {
     id: `walk_${Date.now()}`,
-    title: "Today's Field Walk Route",
-    unexploredStreetsCount: selectedStreets.length,
+    title: "Surprise Me Field Loop",
+    unexploredStreetsCount: rawSelectedStreets.length,
     totalDistanceKm: Math.max(1.2, totalDistanceKm),
-    estimatedTimeMinutes: Math.max(15, estimatedTimeMinutes),
+    estimatedTimeMinutes,
+    neighborhoodsVisited,
     stops,
-    unexploredStreets: selectedStreets,
+    unexploredStreets: rawSelectedStreets,
     suggestedPlaces: selectedPlaces,
+    routePath: fullRoutePath,
+    fieldObjectives,
+    fieldReport,
     fieldcraftRewards: {
-      streetsToDiscover: selectedStreets.length,
+      streetsToDiscover: rawSelectedStreets.length,
       placesToFind: selectedPlaces.length,
       distanceKm: Math.max(1.2, totalDistanceKm),
     },

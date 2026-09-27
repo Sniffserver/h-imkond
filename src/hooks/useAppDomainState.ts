@@ -18,6 +18,7 @@ import {
   ResourceCategory,
   CryptoIdentity,
   SentimentType,
+  GeoPoint,
 } from '../types';
 import {
   INITIAL_USER,
@@ -498,6 +499,8 @@ export function useAppDomainState({ addToast, isWishlistOpen }: UseAppDomainStat
     category: ResourceCategory;
     type: 'offer' | 'request';
     availabilityText: string;
+    location?: GeoPoint;
+    imageUrl?: string;
   }) => {
     const newRes: ResourceItem = {
       id: `res-${Date.now()}`,
@@ -506,6 +509,8 @@ export function useAppDomainState({ addToast, isWishlistOpen }: UseAppDomainStat
       title: data.title,
       description: data.description,
       category: data.category,
+      type: data.type,
+      location: data.location || { lat: 59.4370, lng: 24.7535 },
       distanceKm: 0.1,
       createdAt: Date.now(),
       isActive: true,
@@ -513,6 +518,7 @@ export function useAppDomainState({ addToast, isWishlistOpen }: UseAppDomainStat
       avatarSeed: user.avatarSeed,
       ownerReputationTier: 'Steward',
       ownerCompletedExchanges: user.completedExchanges,
+      imageUrl: data.imageUrl,
     };
 
     setResources((prev) => [newRes, ...prev]);
