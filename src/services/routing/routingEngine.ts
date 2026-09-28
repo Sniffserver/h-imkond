@@ -14,6 +14,7 @@ import {
 } from './binaryFormat';
 
 export type RoutingProfileType = 'walking' | 'bike' | 'wheelchair' | 'emergency';
+export type RouteQuality = 'graph' | 'estimated' | 'unavailable';
 
 export interface RouteOptions {
   profile?: RoutingProfileType;
@@ -34,6 +35,8 @@ export interface RouteResult {
   estimatedMinutes: number;
   steps: RouteStep[];
   profileUsed: RoutingProfileType;
+  quality: RouteQuality;
+  errorMessage?: string;
 }
 
 export { routingRepository } from './routingRepository';
@@ -241,6 +244,7 @@ export class RoutingEngine {
         estimatedMinutes: Math.max(1, Math.round(dist / 75)),
         steps: [{ instruction: 'Oled juba sihtkohas', streetName: 'Sihtkoht', distanceMeters: dist }],
         profileUsed: profile,
+        quality: 'graph',
       };
     }
 
@@ -379,6 +383,7 @@ export class RoutingEngine {
       estimatedMinutes,
       steps,
       profileUsed: profile,
+      quality: 'graph',
     };
   }
 

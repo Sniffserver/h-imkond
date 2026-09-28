@@ -71,7 +71,7 @@ describe('Unified LocationContext Stream & Atomic Map Pack Storage Engine', () =
     expect(packManifest).toBeDefined();
     expect(packManifest.routingSnapshotVersion).toBeDefined();
 
-    // Mock fetch response returning valid PMTiles bytes
+    // Mock fetch response returning valid artifact bytes with corresponding binary headers
     const mockPmtilesBytes = new Uint8Array(200);
     // Write PMTiles magic bytes
     mockPmtilesBytes[0] = 0x50; // P
@@ -83,15 +83,49 @@ describe('Unified LocationContext Stream & Atomic Map Pack Storage Engine', () =
     mockPmtilesBytes[6] = 0x73; // s
     mockPmtilesBytes[7] = 0x03; // PMTiles v3 specVersion
 
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      headers: new Headers({ 'Content-Length': '200' }),
-      blob: async () => new Blob([mockPmtilesBytes]),
-      arrayBuffer: async () => mockPmtilesBytes.buffer,
-    } as any);
+    const mockRoutingBytes = new Uint8Array(32);
+    'HROUTG'.split('').forEach((c, i) => { mockRoutingBytes[i] = c.charCodeAt(0); });
 
-    // Mock SHA-256 calculator to return manifest's expected checksum
-    const shaSpy = vi.spyOn(mapPackServiceModule, 'calculateSha256').mockResolvedValue(packManifest.sha256 || 'custom');
+    const mockStreetIndexBytes = new Uint8Array(32);
+    'HSTRIDX'.split('').forEach((c, i) => { mockStreetIndexBytes[i] = c.charCodeAt(0); });
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url: any) => {
+      const urlStr = String(url);
+      let data = mockPmtilesBytes;
+      if (urlStr.includes('.graph')) data = mockRoutingBytes;
+      if (urlStr.includes('street-index') || urlStr.includes('.bin')) data = mockStreetIndexBytes;
+
+      return {
+        ok: true,
+        headers: new Headers({ 'Content-Length': String(data.byteLength) }),
+        blob: async () => new Blob([data]),
+        arrayBuffer: async () => data.buffer,
+      } as any;
+    });
+
+    // Mock SHA-256 calculator to return manifest's expected checksum for each artifact
+    let pmCallCount = 0;
+    const shaSpy = vi.spyOn(mapPackServiceModule, 'calculateSha256').mockImplementation(async (buf: any) => {
+      const bytes = new Uint8Array(buf);
+      const magic = String.fromCharCode(...bytes.slice(0, 7));
+      if (magic === 'PMTiles') {
+        pmCallCount++;
+        if (pmCallCount === 1) {
+          return packManifest.artifacts?.basemap?.sha256 || packManifest.sha256;
+        } else {
+          return packManifest.artifacts?.poi?.sha256 || 'poi-sha';
+        }
+      }
+      const magicRouting = String.fromCharCode(...bytes.slice(0, 6));
+      if (magicRouting === 'HROUTG') {
+        return packManifest.artifacts?.routing?.sha256 || 'routing-sha';
+      }
+      const magicStreet = String.fromCharCode(...bytes.slice(0, 7));
+      if (magicStreet === 'HSTRIDX') {
+        return packManifest.artifacts?.streetIndex?.sha256 || 'street-sha';
+      }
+      return 'custom';
+    });
 
     const success = await MapPackInstaller.install('tallinn');
     expect(success).toBe(true);

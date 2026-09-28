@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { FieldQuest } from '../../../types';
+import React, { useState, useEffect } from 'react';
+import { FieldQuest, FieldQuestObjective } from '../../../types';
 import { fieldQuestService } from './fieldQuestService';
 import {
   Compass,
@@ -12,7 +12,8 @@ import {
   Sparkles,
   MapPin,
   Radio,
-  Home,
+  Lock,
+  Check,
 } from 'lucide-react';
 
 interface FieldQuestSheetProps {
@@ -22,13 +23,35 @@ interface FieldQuestSheetProps {
 
 export const FieldQuestSheet: React.FC<FieldQuestSheetProps> = ({ onClose, onAddToast }) => {
   const [quests, setQuests] = useState<FieldQuest[]>(() => fieldQuestService.getQuests());
+  
+  useEffect(() => {
+    const unsub = fieldQuestService.subscribe(() => {
+      setQuests([...fieldQuestService.getQuests()]);
+    });
+    return unsub;
+  }, []);
+
   const activeQuest = quests.find((q) => !q.completed) || quests[0];
 
-  const handleToggleObjective = (questId: string, objectiveId: string) => {
+  const handleConfirmSubjective = (questId: string, objectiveId: string) => {
     fieldQuestService.completeObjective(questId, objectiveId);
-    setQuests([...fieldQuestService.getQuests()]);
     if (onAddToast) {
-      onAddToast('Field Objective Verified', 'Observation recorded into physical ledger', 'success');
+      onAddToast('Field Observation Confirmed', 'Subjective observation recorded with User-confirmed ledger entry.', 'success');
+    }
+  };
+
+  const getObjectiveIcon = (type: string) => {
+    switch (type) {
+      case 'street_explore':
+        return <Footprints className="w-4 h-4 text-emerald-400" />;
+      case 'place_find':
+        return <MapPin className="w-4 h-4 text-amber-400" />;
+      case 'mesh_observe':
+        return <Radio className="w-4 h-4 text-sky-400" />;
+      case 'return_campfire':
+        return <Sparkles className="w-4 h-4 text-teal-400" />;
+      default:
+        return <Compass className="w-4 h-4 text-purple-400" />;
     }
   };
 
@@ -48,13 +71,13 @@ export const FieldQuestSheet: React.FC<FieldQuestSheetProps> = ({ onClose, onAdd
               </span>
             </h2>
             <p className="text-xs text-stone-400">
-              Real-world exploratory objectives connecting streets, tools, reuse & mesh
+              Real-world physical exploration objectives (streets, tools, reuse & mesh)
             </p>
           </div>
         </div>
         <button
           onClick={onClose}
-          className="p-2 rounded-lg bg-stone-800 text-stone-400 hover:text-white hover:bg-stone-700 transition"
+          className="p-2 rounded-lg bg-stone-800 text-stone-400 hover:text-white hover:bg-stone-700 transition cursor-pointer"
           aria-label="Close sheet"
         >
           <X className="w-5 h-5" />
@@ -91,40 +114,76 @@ export const FieldQuestSheet: React.FC<FieldQuestSheetProps> = ({ onClose, onAdd
 
           {/* Objectives Checklist */}
           <div>
-            <div className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2">
-              Survey Objectives
+            <div className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+              <span>Survey Objectives</span>
+              <span className="text-[10px] text-emerald-500 font-mono lowercase tracking-normal font-normal">
+                ● gps-based trace auto-verify active
+              </span>
             </div>
             <div className="space-y-2">
-              {activeQuest.objectives.map((obj) => (
-                <button
-                  key={obj.id}
-                  onClick={() => handleToggleObjective(activeQuest.id, obj.id)}
-                  className={`w-full text-left p-3 rounded-xl border flex items-start space-x-3 transition ${
-                    obj.completed
-                      ? 'bg-stone-950/50 border-emerald-900/60 text-stone-300'
-                      : 'bg-stone-900/90 hover:bg-stone-800 border-stone-800 text-stone-100'
-                  }`}
-                >
-                  <div className="mt-0.5">
-                    {obj.completed ? (
-                      <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                    ) : (
-                      <Circle className="w-5 h-5 text-stone-500" />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <div className={`text-sm font-medium ${obj.completed ? 'line-through text-stone-400' : ''}`}>
-                      {obj.title}
+              {activeQuest.objectives.map((obj) => {
+                const isSubjective = obj.type === 'subjective';
+                return (
+                  <div
+                    key={obj.id}
+                    className={`p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left transition ${
+                      obj.completed
+                        ? 'bg-stone-950/50 border-emerald-900/40 text-stone-300'
+                        : 'bg-stone-900/90 border-stone-800 text-stone-100'
+                    }`}
+                  >
+                    <div className="flex items-start space-x-3 flex-1 min-w-0">
+                      <div className="mt-0.5 shrink-0">
+                        {obj.completed ? (
+                          <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                        ) : (
+                          <div className="w-5 h-5 rounded-full border border-stone-600 flex items-center justify-center bg-stone-950 text-[10px] text-stone-500 font-mono">
+                            {getObjectiveIcon(obj.type)}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs sm:text-sm font-bold ${obj.completed ? 'line-through text-stone-400' : ''}`}>
+                            {obj.title}
+                          </span>
+                          {!isSubjective && !obj.completed && (
+                            <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.2 rounded bg-stone-950 text-stone-400 flex items-center gap-1 shrink-0">
+                              <Lock className="w-2.5 h-2.5" />
+                              AUTO
+                            </span>
+                          )}
+                          {obj.isUserConfirmed && (
+                            <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.2 rounded bg-[#E9C46A]/10 text-[#E9C46A] border border-[#E9C46A]/20 shrink-0">
+                              User-confirmed
+                            </span>
+                          )}
+                        </div>
+                        {obj.details && (
+                          <div className="text-xs text-stone-400 mt-1">{obj.details}</div>
+                        )}
+                      </div>
                     </div>
-                    {obj.details && (
-                      <div className="text-xs text-stone-400 mt-0.5">{obj.details}</div>
-                    )}
+
+                    <div className="flex items-center justify-between sm:justify-end gap-3 self-stretch sm:self-center">
+                      <span className="text-xs font-mono font-bold text-stone-400 bg-stone-950 px-2 py-0.5 rounded">
+                        {obj.currentCount}/{obj.targetCount}
+                      </span>
+
+                      {isSubjective && !obj.completed && (
+                        <button
+                          type="button"
+                          onClick={() => handleConfirmSubjective(activeQuest.id, obj.id)}
+                          className="px-3 py-1.5 text-xs font-bold uppercase rounded-lg bg-[#E9C46A] hover:bg-[#dfb44f] text-[#10170F] transition shadow-xs cursor-pointer flex items-center gap-1"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Confirm</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-xs font-mono text-stone-400 pt-0.5">
-                    {obj.currentCount}/{obj.targetCount}
-                  </div>
-                </button>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

@@ -42,16 +42,16 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
       id: 'today',
       section: 'now',
       targetTab: 'today',
-      label: 'Campfire',
-      sublabel: 'You & Sparks',
+      label: 'Home',
+      sublabel: 'Campfire',
       icon: Flame,
     },
     {
       id: 'map',
       section: 'explore',
       targetTab: 'map',
-      label: 'Landscape',
-      sublabel: 'Around the fire',
+      label: 'Map',
+      sublabel: 'Landscape',
       icon: Compass,
       badge: isWalkActive,
     },
@@ -59,8 +59,8 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
       id: 'messages',
       section: 'connect',
       targetTab: 'messages',
-      label: 'Connect',
-      sublabel: 'Carried sparks',
+      label: 'Messages',
+      sublabel: 'Connect',
       icon: Sparkles,
       hasUnread: unreadCount > 0,
     },
@@ -76,8 +76,8 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
       id: 'more',
       section: 'more',
       targetTab: 'more',
-      label: 'Lab',
-      sublabel: 'Tools & radio',
+      label: 'More',
+      sublabel: 'Lab',
       icon: Grid,
     },
   ];
@@ -164,17 +164,30 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
                 )}
               </div>
               <span
-                className={`text-[11px] mt-1 font-medium transition-colors ${
+                className={`text-[11px] mt-0.5 font-bold leading-none transition-colors ${
                   isActive
                     ? isNightMode
-                      ? 'font-bold text-[#E9C46A]'
-                      : 'font-bold text-[#203A2A]'
+                      ? 'text-[#E9C46A]'
+                      : 'text-[#203A2A]'
                     : isNightMode
                     ? 'text-[#A8BDA5]'
                     : 'text-[#637062]'
                 }`}
               >
                 {tab.label}
+              </span>
+              <span
+                className={`text-[8.5px] mt-0.5 font-mono tracking-wide uppercase opacity-75 leading-none transition-colors ${
+                  isActive
+                    ? isNightMode
+                      ? 'text-[#E9C46A]/90'
+                      : 'text-[#588157]'
+                    : isNightMode
+                    ? 'text-[#A8BDA5]/60'
+                    : 'text-[#637062]/60'
+                }`}
+              >
+                {tab.sublabel}
               </span>
             </button>
           );

@@ -8,7 +8,9 @@ import { MapPackManifest, MAP_PACK_MANIFESTS } from './MapPackManifest';
 export type MapPackInstallState =
   | 'available'
   | 'downloading'
+  | 'staged'
   | 'verifying'
+  | 'verified'
   | 'installed'
   | 'active'
   | 'outdated'

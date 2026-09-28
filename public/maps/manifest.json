@@ -1,7 +1,7 @@
 {
   "id": "tallinn",
-  "version": "2026.09.26",
-  "generatedAt": "2026-09-27T18:54:33.057Z",
+  "version": "2026.09.27-A",
+  "generatedAt": "2026-09-27T20:39:43.170Z",
   "region": "tallinn",
   "sources": [
     {
@@ -28,13 +28,13 @@
   "artifacts": {
     "basemap": {
       "path": "tallinn-basemap.pmtiles",
-      "sha256": "e2bf5b73d6bb3a61c695c885d5595c1ff59a512dd32b832e178932ea28c8f988",
-      "sizeBytes": 971
+      "sha256": "abe646ecb90cca1619f7fccf00aac754b54f35a2b6ea3a4b47426d6b2eac4e3c",
+      "sizeBytes": 1507141
     },
     "poi": {
       "path": "tallinn-poi.pmtiles",
-      "sha256": "d64c310ecae9eeb3a3b750817584e9de5a72a3fc2a42389236e67bd6d1b9c29a",
-      "sizeBytes": 608,
+      "sha256": "52915fde8101bb2c9ddbe51237b0c40734004a9abb7049a14aa3704bd078f8ed",
+      "sizeBytes": 51909,
       "index": "tallinn-poi.index",
       "count": 29
     },
@@ -50,18 +50,23 @@
       "sha256": "0151500ade36532345b725a1259339457eab9d334ddab717008d1e9a1d7ab5f8",
       "sizeBytes": 1519,
       "streetCount": 24
+    },
+    "searchIndex": {
+      "path": "search-index.bin",
+      "sha256": "154170dda417866f20001adfb056e481e548968097611600bdeddae960a5527b",
+      "sizeBytes": 784
     }
   },
   "basemap": {
     "filename": "tallinn-basemap.pmtiles",
-    "sha256": "e2bf5b73d6bb3a61c695c885d5595c1ff59a512dd32b832e178932ea28c8f988",
-    "sizeBytes": 971
+    "sha256": "abe646ecb90cca1619f7fccf00aac754b54f35a2b6ea3a4b47426d6b2eac4e3c",
+    "sizeBytes": 1507141
   },
   "poi": {
     "filename": "tallinn-poi.pmtiles",
     "index": "tallinn-poi.index",
-    "sha256": "d64c310ecae9eeb3a3b750817584e9de5a72a3fc2a42389236e67bd6d1b9c29a",
-    "sizeBytes": 608,
+    "sha256": "52915fde8101bb2c9ddbe51237b0c40734004a9abb7049a14aa3704bd078f8ed",
+    "sizeBytes": 51909,
     "count": 29
   },
   "routing": {
@@ -76,5 +81,10 @@
     "sha256": "0151500ade36532345b725a1259339457eab9d334ddab717008d1e9a1d7ab5f8",
     "sizeBytes": 1519,
     "streetCount": 24
+  },
+  "searchIndex": {
+    "filename": "search-index.bin",
+    "sha256": "154170dda417866f20001adfb056e481e548968097611600bdeddae960a5527b",
+    "sizeBytes": 784
   }
 }

@@ -12,8 +12,8 @@ export const RESOURCES_LABEL_LAYER = 'resources-labels';
 export interface ResourceItem {
   id: string;
   title: string;
-  category: 'tool' | 'food' | 'power' | 'shelter' | 'skill';
-  type: 'offer' | 'request';
+  category: string;
+  type?: 'offer' | 'request';
   location: GeoPoint;
   description?: string;
   availableQuantity?: string;

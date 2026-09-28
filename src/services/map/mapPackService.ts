@@ -24,6 +24,7 @@ import {
   MapPackManifest,
   validatePMTilesHeader,
 } from '../../features/map/packs/MapPackManifest';
+import { preloadLocalMapPacksIntoProtocol } from '../../features/map/pmtiles';
 
 export type MapPackLifecycleStatus = 'installed' | 'active' | 'outdated' | 'corrupt' | 'missing';
 
@@ -70,6 +71,7 @@ export interface MultiArtifactBundle {
   poi?: ArrayBuffer;
   routing?: ArrayBuffer;
   streetIndex?: ArrayBuffer;
+  searchIndex?: ArrayBuffer;
 }
 
 export class MapPackService {
@@ -386,7 +388,8 @@ export class MapPackService {
     const totalSize = (artifacts.basemap?.byteLength || 0) +
       (artifacts.poi?.byteLength || 0) +
       (artifacts.routing?.byteLength || 0) +
-      (artifacts.streetIndex?.byteLength || 0);
+      (artifacts.streetIndex?.byteLength || 0) +
+      (artifacts.searchIndex?.byteLength || 0);
 
     this.memoryPacks.set(cityId, {
       artifacts,
@@ -416,7 +419,10 @@ export class MapPackService {
           artifacts,
         };
         const req = store.put(record);
-        tx.oncomplete = () => resolve();
+        tx.oncomplete = () => {
+          preloadLocalMapPacksIntoProtocol();
+          resolve();
+        };
         tx.onerror = () => reject(tx.error || req.error);
       } catch (err) {
         reject(err);

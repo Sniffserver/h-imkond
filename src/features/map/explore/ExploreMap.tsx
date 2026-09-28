@@ -17,7 +17,9 @@ import { initializeMapSources } from './ExploreMapSources';
 import {
   setupAllOverlayLayers,
   applyCategoryFilterToPlaces,
+  applyMapLayerVisibility,
   updateUserLocationData,
+  MapLayerState,
 } from './ExploreMapLayers';
 import { updatePeopleLayerData, PeerMapMarker } from './overlays/PeopleLayer';
 import { updateResourcesLayerData, ResourceItem } from './overlays/ResourcesLayer';
@@ -33,7 +35,9 @@ import { applyMapTheme, getTacticalVectorMapStyle, TacticalMapTheme } from '../p
 import { mapRepository } from '../data/repository';
 import { MapPlace, Street, GeoPoint, SignalObservation } from '../../../types';
 import { routingRepository } from '../../../services/routing/routingRepository';
+import { RouteResult } from '../../../services/routing/routingEngine';
 import { generateFieldWalkRoute } from '../streets/streetWalkGenerator';
+import { Loader2 } from 'lucide-react';
 
 export interface ExploreMapProps {
   initialCenter?: GeoPoint;
@@ -46,6 +50,11 @@ export interface ExploreMapProps {
   signalTrail?: SignalObservation[];
   streets?: Street[];
   places?: MapPlace[];
+  layers?: MapLayerState;
+  activeRoute?: RouteResult | null;
+  onActiveRouteChange?: (route: RouteResult | null) => void;
+  routingDestinationName?: string;
+  onRoutingDestinationNameChange?: (name: string) => void;
 }
 
 export const ExploreMap: React.FC<ExploreMapProps> = ({
@@ -59,12 +68,26 @@ export const ExploreMap: React.FC<ExploreMapProps> = ({
   signalTrail = [],
   streets: propStreets,
   places: propPlaces,
+  layers,
+  activeRoute: propActiveRoute,
+  onActiveRouteChange,
+  routingDestinationName: propRoutingDestName,
+  onRoutingDestinationNameChange,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<maplibregl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchMatch[]>([]);
+  const [isRoutingInitializing, setIsRoutingInitializing] = useState(true);
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [internalRoutingDestinationName, setInternalRoutingDestinationName] = useState<string>('');
+  const routingDestinationName = propRoutingDestName !== undefined ? propRoutingDestName : internalRoutingDestinationName;
+  const setRoutingDestinationName = (name: string) => {
+    setInternalRoutingDestinationName(name);
+    onRoutingDestinationNameChange?.(name);
+  };
+  const [showRouteDetails, setShowRouteDetails] = useState(false);
 
   const {
     theme,
@@ -73,14 +96,32 @@ export const ExploreMap: React.FC<ExploreMapProps> = ({
     setSelectedPlace,
     selectedStreet,
     setSelectedStreet,
-    activeRoute,
-    setActiveRoute,
+    activeRoute: internalActiveRoute,
+    setActiveRoute: setInternalActiveRoute,
     userLocation,
     filters,
     toggleFilter,
     setCategoryFilter,
     clearSelection,
   } = useExploreMapState();
+
+  const activeRoute = propActiveRoute !== undefined ? propActiveRoute : internalActiveRoute;
+  const setActiveRoute = (route: RouteResult | null) => {
+    setInternalActiveRoute(route);
+    onActiveRouteChange?.(route);
+  };
+
+  useEffect(() => {
+    if (propActiveRoute !== undefined) {
+      setInternalActiveRoute(propActiveRoute);
+    }
+  }, [propActiveRoute]);
+
+  useEffect(() => {
+    if (propRoutingDestName !== undefined) {
+      setInternalRoutingDestinationName(propRoutingDestName);
+    }
+  }, [propRoutingDestName]);
 
   const [places, setPlaces] = useState<MapPlace[]>([]);
   const [streets, setStreets] = useState<Street[]>([]);
@@ -101,7 +142,18 @@ export const ExploreMap: React.FC<ExploreMapProps> = ({
       setStreets(loadedStreets);
     }
 
-    routingRepository.initialize('/routing/tallinn.graph').catch(() => {});
+    let mounted = true;
+    setIsRoutingInitializing(true);
+    routingRepository.initialize('/routing/tallinn.graph')
+      .finally(() => {
+        if (mounted) {
+          setIsRoutingInitializing(false);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
   }, [propPlaces, propStreets]);
 
   // Initialize MapLibre GL
@@ -229,6 +281,13 @@ export const ExploreMap: React.FC<ExploreMapProps> = ({
     }
   }, [places, mapLoaded]);
 
+  // Update map layer visibility dynamically when layers prop changes
+  useEffect(() => {
+    if (mapInstanceRef.current && mapLoaded && layers) {
+      applyMapLayerVisibility(mapInstanceRef.current, layers);
+    }
+  }, [layers, mapLoaded]);
+
   // Update active route line
   useEffect(() => {
     if (mapInstanceRef.current && mapLoaded) {
@@ -251,7 +310,29 @@ export const ExploreMap: React.FC<ExploreMapProps> = ({
 
   // A* Routing Trigger to a Place using authoritative RoutingRepository
   const handleRouteToPlace = (place: MapPlace) => {
+    if (isRoutingInitializing) return;
+    setRoutingDestinationName(place.name);
+
     const route = routingRepository.planRoute(userLocation, place.location, { profile: 'walking' });
+
+    if (route.quality === 'unavailable' || route.path.length === 0) {
+      const directBearing = routingRepository.planDirectBearing(userLocation, place.location);
+      setActiveRoute({
+        path: directBearing.path,
+        totalDistanceMeters: directBearing.totalDistanceMeters,
+        estimatedMinutes: directBearing.estimatedMinutes,
+        steps: [
+          {
+            instruction: 'Teedevõrgu marsruut pole saadaval. Kuvatakse otsesiht.',
+            streetName: 'Linnulennuline asimuut',
+            distanceMeters: directBearing.totalDistanceMeters,
+          },
+        ],
+        profileUsed: 'walking',
+        quality: 'estimated',
+      });
+      return;
+    }
 
     setActiveRoute({
       path: route.path,
@@ -263,11 +344,13 @@ export const ExploreMap: React.FC<ExploreMapProps> = ({
         distanceMeters: s.distanceMeters,
       })),
       profileUsed: route.profileUsed || 'walking',
+      quality: 'graph',
     });
   };
 
   // Generate Field Walk Street Hunt Loop over pedestrian routing graph
   const handleGenerateStreetHunt = () => {
+    setRoutingDestinationName('Street Hunt Loop');
     const walkRoute = generateFieldWalkRoute(userLocation);
     const routePath = (walkRoute.routePath && walkRoute.routePath.length > 0)
       ? walkRoute.routePath
@@ -283,6 +366,7 @@ export const ExploreMap: React.FC<ExploreMapProps> = ({
         distanceMeters: 300,
       })),
       profileUsed: 'walking',
+      quality: 'graph',
     });
   };
 
@@ -312,6 +396,14 @@ export const ExploreMap: React.FC<ExploreMapProps> = ({
             </button>
           )}
         </div>
+
+        {/* Offline Routing Preparation Indicator */}
+        {isRoutingInitializing && (
+          <div className="self-center px-3 py-1 rounded-xl bg-[#10170F]/90 backdrop-blur-md border border-emerald-500/40 text-emerald-300 text-xs font-mono font-medium flex items-center gap-2 shadow-lg animate-pulse pointer-events-auto">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+            <span>Preparing offline routing…</span>
+          </div>
+        )}
 
         {/* Search Results Dropdown */}
         {searchResults.length > 0 && (
@@ -393,8 +485,13 @@ export const ExploreMap: React.FC<ExploreMapProps> = ({
         {/* Generate Street Hunt Loop Button */}
         <button
           onClick={handleGenerateStreetHunt}
-          title="Geno Tänavajahil silmus"
-          className="w-10 h-10 rounded-xl bg-[#2A9D8F]/90 backdrop-blur-md border border-[#2A9D8F]/60 text-white font-bold text-lg flex items-center justify-center shadow-lg hover:scale-105 transition"
+          disabled={isRoutingInitializing}
+          title={isRoutingInitializing ? 'Teekonnagraafi laadimine...' : 'Geno Tänavajahil silmus'}
+          className={`w-10 h-10 rounded-xl backdrop-blur-md border text-white font-bold text-lg flex items-center justify-center shadow-lg transition ${
+            isRoutingInitializing
+              ? 'bg-[#2A9D8F]/40 border-[#2A9D8F]/30 opacity-50 cursor-not-allowed'
+              : 'bg-[#2A9D8F]/90 border-[#2A9D8F]/60 hover:scale-105'
+          }`}
         >
           🗺
         </button>
@@ -415,31 +512,88 @@ export const ExploreMap: React.FC<ExploreMapProps> = ({
 
       {/* Active Route Instruction Bottom Sheet */}
       {activeRoute && (
-        <div className="absolute bottom-4 left-3 right-3 z-20 max-w-lg mx-auto bg-[#10170F]/95 backdrop-blur-lg border border-[#E9C46A]/50 rounded-2xl shadow-2xl p-4 text-[#E5EBDD] flex flex-col gap-3">
-          <div className="flex items-center justify-between border-b border-[#8FA875]/20 pb-2">
-            <div>
-              <span className="text-xs font-mono font-bold text-[#E9C46A] uppercase tracking-wider">
-                A* Jalgsi Navigatsioon
+        <div className="absolute bottom-4 left-3 right-3 z-20 max-w-lg mx-auto bg-[#10170F]/95 backdrop-blur-lg border border-[#8FA875]/40 rounded-2xl shadow-2xl p-5 text-[#E5EBDD] flex flex-col gap-3">
+          <div className="flex items-center justify-between border-b border-[#8FA875]/20 pb-3">
+            <div className="space-y-0.5">
+              <span className="text-[10px] font-mono font-bold text-stone-400 uppercase tracking-wider block">
+                Walk Navigation
               </span>
               <h4 className="font-bold text-base text-white">
-                {(activeRoute.totalDistanceMeters / 1000).toFixed(1)} km • ~{activeRoute.estimatedMinutes} min kõndi
+                Walk to {routingDestinationName}
               </h4>
+              <div className="flex items-center gap-2 text-xs text-[#8FA875] font-medium font-sans">
+                <span>{(activeRoute.totalDistanceMeters / 1000).toFixed(1)} km</span>
+                <span>·</span>
+                <span className="text-[#E9C46A] font-semibold">≈ {activeRoute.estimatedMinutes} min walk</span>
+              </div>
             </div>
             <button
               onClick={() => setActiveRoute(null)}
-              className="px-2.5 py-1 rounded-lg bg-[#E76F51]/20 border border-[#E76F51]/40 text-[#E76F51] text-xs font-mono font-bold hover:bg-[#E76F51]/30"
+              className="px-3.5 py-1.5 rounded-xl bg-[#E76F51]/10 border border-[#E76F51]/30 text-[#E76F51] text-xs font-bold hover:bg-[#E76F51]/20 transition"
             >
-              Lõpeta marsruut
+              Cancel
             </button>
           </div>
 
-          <div className="max-h-36 overflow-y-auto space-y-1.5 text-xs font-mono pr-1 divide-y divide-[#8FA875]/10">
-            {activeRoute.steps.map((step, idx) => (
-              <div key={idx} className="pt-1.5 flex items-center justify-between">
-                <span className="text-[#E5EBDD]">{step.instruction}</span>
-                <span className="text-[#8FA875] whitespace-nowrap ml-2">{step.distanceMeters}m</span>
+          {/* Simple step-by-step route tree (Quiet UX Representation) */}
+          <div className="flex flex-col text-xs space-y-1.5 pl-2 border-l-2 border-stone-600/80 my-1 py-1">
+            <div className="flex items-center gap-2 text-[#E5EBDD] font-semibold">
+              <span className="text-emerald-500 text-sm">●</span>
+              <span>Start</span>
+            </div>
+            
+            {activeRoute.steps.slice(0, 2).map((step, idx) => (
+              <div key={idx} className="flex items-center gap-2 text-stone-400 text-[11px] font-mono pl-0.5 py-0.5">
+                <span className="text-stone-500">├─</span>
+                <span className="truncate">{step.streetName || step.instruction}</span>
               </div>
             ))}
+            {activeRoute.steps.length > 2 && (
+              <div className="flex items-center gap-2 text-stone-500 text-[10px] font-mono pl-0.5 py-0.5">
+                <span>├─</span>
+                <span>... ({activeRoute.steps.length - 2} more steps)</span>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 text-[#E5EBDD] font-semibold">
+              <span className="text-[#E9C46A] text-sm">■</span>
+              <span>Destination</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsNavigating(!isNavigating)}
+            className={`w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition text-center shadow-md ${
+              isNavigating
+                ? 'bg-emerald-600 text-white animate-pulse'
+                : 'bg-[#8FA875] text-[#10170F] hover:bg-[#8FA875]/90'
+            }`}
+          >
+            {isNavigating ? '● Navigation active' : 'Start navigation'}
+          </button>
+
+          {/* Collapsible advanced steps */}
+          <div className="border-t border-[#8FA875]/10 pt-2">
+            <button
+              type="button"
+              onClick={() => setShowRouteDetails(!showRouteDetails)}
+              className="w-full flex items-center justify-between text-[10px] font-mono font-bold text-stone-400 hover:text-stone-200 cursor-pointer"
+            >
+              <span>Route details</span>
+              {showRouteDetails ? <span>▲</span> : <span>▼</span>}
+            </button>
+
+            {showRouteDetails && (
+              <div className="max-h-32 overflow-y-auto space-y-1 text-[11px] font-mono text-[#E5EBDD]/90 divide-y divide-[#8FA875]/10 mt-2 bg-black/20 p-2.5 rounded-xl border border-[#8FA875]/10">
+                {activeRoute.steps.map((step, idx) => (
+                  <div key={idx} className="pt-1.5 flex items-center justify-between gap-4">
+                    <span>{step.instruction}</span>
+                    <span className="text-[#8FA875] shrink-0 font-bold font-mono">{step.distanceMeters}m</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -470,9 +624,14 @@ export const ExploreMap: React.FC<ExploreMapProps> = ({
           <div className="flex items-center gap-2 pt-2 border-t border-[#8FA875]/20 mt-1">
             <button
               onClick={() => handleRouteToPlace(selectedPlace)}
-              className="flex-1 py-2 rounded-xl bg-[#8FA875] text-[#10170F] font-bold text-xs font-mono text-center hover:bg-[#8FA875]/90 shadow-md"
+              disabled={isRoutingInitializing}
+              className={`flex-1 py-2 rounded-xl font-bold text-xs font-mono text-center shadow-md transition ${
+                isRoutingInitializing
+                  ? 'bg-neutral-800 text-neutral-400 border border-neutral-700 cursor-not-allowed'
+                  : 'bg-[#8FA875] text-[#10170F] hover:bg-[#8FA875]/90'
+              }`}
             >
-              🚶 Marsruut Siia (A*)
+              {isRoutingInitializing ? '⏳ Preparing walking route...' : '🚶 Walk to place'}
             </button>
           </div>
         </div>

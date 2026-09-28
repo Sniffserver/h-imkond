@@ -12,13 +12,13 @@
       {
         "provider": "ppa",
         "sourceId": "PPA-REG-TLN-01",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583139,
         "checksum": "b00edf461ab3d68b"
       },
       {
         "provider": "osm",
         "sourceId": "node/982341029",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583139,
         "checksum": "cf860c5500663c36"
       }
     ],
@@ -114,7 +114,7 @@
     "provenanceStatus": "conflict",
     "sourceUpdatedAt": "2026-09-01T08:00:00Z",
     "snapshotDate": "2026-09-01",
-    "ingestedAt": "2026-09-27T18:54:33.050Z",
+    "ingestedAt": "2026-09-27T20:39:43.138Z",
     "snapshotId": "tln-mun-b00edf461ab3",
     "checksum": "b00edf461ab3d68b",
     "address": "Pärnu mnt 139, Kesklinn",
@@ -147,7 +147,7 @@
       {
         "provider": "tallinn",
         "sourceId": "TLN-VESI-01",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "checksum": "b00edf461ab3d68b"
       }
     ],
@@ -157,7 +157,7 @@
     "provenanceStatus": "official",
     "sourceUpdatedAt": "2026-09-14T09:00:00Z",
     "snapshotDate": "2026-09-14",
-    "ingestedAt": "2026-09-27T18:54:33.050Z",
+    "ingestedAt": "2026-09-27T20:39:43.138Z",
     "snapshotId": "tln-mun-b00edf461ab3",
     "checksum": "b00edf461ab3d68b",
     "address": "Lossi tee 13, Nõmme",
@@ -182,7 +182,7 @@
       {
         "provider": "tallinn",
         "sourceId": "TLN-VESI-02",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "checksum": "b00edf461ab3d68b"
       }
     ],
@@ -192,7 +192,7 @@
     "provenanceStatus": "official",
     "sourceUpdatedAt": "2026-09-14T10:00:00Z",
     "snapshotDate": "2026-09-14",
-    "ingestedAt": "2026-09-27T18:54:33.050Z",
+    "ingestedAt": "2026-09-27T20:39:43.138Z",
     "snapshotId": "tln-mun-b00edf461ab3",
     "checksum": "b00edf461ab3d68b",
     "address": "August Weizenbergi 26, Kadriorg",
@@ -216,7 +216,7 @@
       {
         "provider": "tallinn",
         "sourceId": "TLN-VESI-03",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "checksum": "b00edf461ab3d68b"
       }
     ],
@@ -226,7 +226,7 @@
     "provenanceStatus": "official",
     "sourceUpdatedAt": "2026-09-14T10:30:00Z",
     "snapshotDate": "2026-09-14",
-    "ingestedAt": "2026-09-27T18:54:33.050Z",
+    "ingestedAt": "2026-09-27T20:39:43.138Z",
     "snapshotId": "tln-mun-b00edf461ab3",
     "checksum": "b00edf461ab3d68b",
     "address": "Toompuiestee 24, Kesklinn",
@@ -249,7 +249,7 @@
       {
         "provider": "tallinn",
         "sourceId": "TLN-VESI-04",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "checksum": "b00edf461ab3d68b"
       }
     ],
@@ -259,7 +259,7 @@
     "provenanceStatus": "official",
     "sourceUpdatedAt": "2026-09-14T11:00:00Z",
     "snapshotDate": "2026-09-14",
-    "ingestedAt": "2026-09-27T18:54:33.050Z",
+    "ingestedAt": "2026-09-27T20:39:43.138Z",
     "snapshotId": "tln-mun-b00edf461ab3",
     "checksum": "b00edf461ab3d68b",
     "address": "Tööstuse 50, Põhja-Tallinn",
@@ -282,7 +282,7 @@
       {
         "provider": "ppa",
         "sourceId": "PPA-REG-TLN-02",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "checksum": "b00edf461ab3d68b"
       }
     ],
@@ -292,7 +292,7 @@
     "provenanceStatus": "official",
     "sourceUpdatedAt": "2026-09-01T08:00:00Z",
     "snapshotDate": "2026-09-01",
-    "ingestedAt": "2026-09-27T18:54:33.050Z",
+    "ingestedAt": "2026-09-27T20:39:43.138Z",
     "snapshotId": "tln-mun-b00edf461ab3",
     "checksum": "b00edf461ab3d68b",
     "address": "Kolde pst 65, Pelgulinn",
@@ -316,7 +316,7 @@
       {
         "provider": "ppa",
         "sourceId": "PPA-REG-TLN-03",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "checksum": "b00edf461ab3d68b"
       }
     ],
@@ -326,7 +326,7 @@
     "provenanceStatus": "official",
     "sourceUpdatedAt": "2026-09-01T08:00:00Z",
     "snapshotDate": "2026-09-01",
-    "ingestedAt": "2026-09-27T18:54:33.050Z",
+    "ingestedAt": "2026-09-27T20:39:43.138Z",
     "snapshotId": "tln-mun-b00edf461ab3",
     "checksum": "b00edf461ab3d68b",
     "address": "P. Pinna 4, Lasnamäe",
@@ -350,7 +350,7 @@
       {
         "provider": "paasteamet",
         "sourceId": "VARJ-TLN-001",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "checksum": "0c904aa0c9b0f495"
       }
     ],
@@ -360,7 +360,7 @@
     "provenanceStatus": "official",
     "sourceUpdatedAt": "2026-09-18T10:00:00Z",
     "snapshotDate": "2026-09-18",
-    "ingestedAt": "2026-09-27T18:54:33.050Z",
+    "ingestedAt": "2026-09-27T20:39:43.138Z",
     "snapshotId": "rescue-tln-0c904aa0c9b0",
     "checksum": "0c904aa0c9b0f495",
     "address": "Vabaduse väljak 9, Tallinn",
@@ -388,7 +388,7 @@
       {
         "provider": "paasteamet",
         "sourceId": "VARJ-TLN-002",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "checksum": "0c904aa0c9b0f495"
       }
     ],
@@ -398,7 +398,7 @@
     "provenanceStatus": "official",
     "sourceUpdatedAt": "2026-09-18T10:30:00Z",
     "snapshotDate": "2026-09-18",
-    "ingestedAt": "2026-09-27T18:54:33.050Z",
+    "ingestedAt": "2026-09-27T20:39:43.138Z",
     "snapshotId": "rescue-tln-0c904aa0c9b0",
     "checksum": "0c904aa0c9b0f495",
     "address": "Vabriku 18, Tallinn",
@@ -426,7 +426,7 @@
       {
         "provider": "paasteamet",
         "sourceId": "VARJ-TLN-003",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "checksum": "0c904aa0c9b0f495"
       }
     ],
@@ -436,7 +436,7 @@
     "provenanceStatus": "official",
     "sourceUpdatedAt": "2026-09-18T11:00:00Z",
     "snapshotDate": "2026-09-18",
-    "ingestedAt": "2026-09-27T18:54:33.050Z",
+    "ingestedAt": "2026-09-27T20:39:43.138Z",
     "snapshotId": "rescue-tln-0c904aa0c9b0",
     "checksum": "0c904aa0c9b0f495",
     "address": "Salme 12, Tallinn",
@@ -464,7 +464,7 @@
       {
         "provider": "paasteamet",
         "sourceId": "VARJ-TLN-004",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "checksum": "0c904aa0c9b0f495"
       }
     ],
@@ -474,7 +474,7 @@
     "provenanceStatus": "official",
     "sourceUpdatedAt": "2026-09-18T11:30:00Z",
     "snapshotDate": "2026-09-18",
-    "ingestedAt": "2026-09-27T18:54:33.050Z",
+    "ingestedAt": "2026-09-27T20:39:43.138Z",
     "snapshotId": "rescue-tln-0c904aa0c9b0",
     "checksum": "0c904aa0c9b0f495",
     "address": "Ehitajate tee 5, Tallinn",
@@ -502,7 +502,7 @@
       {
         "provider": "paasteamet",
         "sourceId": "KOM-TLN-001",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "checksum": "0c904aa0c9b0f495"
       }
     ],
@@ -512,7 +512,7 @@
     "provenanceStatus": "official",
     "sourceUpdatedAt": "2026-09-18T12:00:00Z",
     "snapshotDate": "2026-09-18",
-    "ingestedAt": "2026-09-27T18:54:33.050Z",
+    "ingestedAt": "2026-09-27T20:39:43.138Z",
     "snapshotId": "rescue-tln-0c904aa0c9b0",
     "checksum": "0c904aa0c9b0f495",
     "address": "Raua 2, Tallinn",
@@ -539,7 +539,7 @@
       {
         "provider": "paasteamet",
         "sourceId": "KOM-TLN-002",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "checksum": "0c904aa0c9b0f495"
       }
     ],
@@ -549,7 +549,7 @@
     "provenanceStatus": "official",
     "sourceUpdatedAt": "2026-09-18T12:30:00Z",
     "snapshotDate": "2026-09-18",
-    "ingestedAt": "2026-09-27T18:54:33.050Z",
+    "ingestedAt": "2026-09-27T20:39:43.138Z",
     "snapshotId": "rescue-tln-0c904aa0c9b0",
     "checksum": "0c904aa0c9b0f495",
     "address": "Paldiski mnt 47, Tallinn",
@@ -576,7 +576,7 @@
       {
         "provider": "osm",
         "sourceId": "node/104829104",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "checksum": "cf860c5500663c36"
       }
     ],
@@ -586,7 +586,7 @@
     "provenanceStatus": "osm",
     "sourceUpdatedAt": "2026-09-18T10:15:00Z",
     "snapshotDate": "2026-09-18",
-    "ingestedAt": "2026-09-27T18:54:33.050Z",
+    "ingestedAt": "2026-09-27T20:39:43.137Z",
     "snapshotId": "osm-tln-cf860c550066",
     "checksum": "cf860c5500663c36",
     "address": "Kolde pst 65, Tallinn",
@@ -615,7 +615,7 @@
       {
         "provider": "osm",
         "sourceId": "node/489201948",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "checksum": "cf860c5500663c36"
       }
     ],
@@ -625,7 +625,7 @@
     "provenanceStatus": "osm",
     "sourceUpdatedAt": "2026-09-16T08:30:00Z",
     "snapshotDate": "2026-09-16",
-    "ingestedAt": "2026-09-27T18:54:33.050Z",
+    "ingestedAt": "2026-09-27T20:39:43.137Z",
     "snapshotId": "osm-tln-cf860c550066",
     "checksum": "cf860c5500663c36",
     "address": "Vikerlase 14, Tallinn",
@@ -654,7 +654,7 @@
       {
         "provider": "osm",
         "sourceId": "node/729104829",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "checksum": "cf860c5500663c36"
       }
     ],
@@ -664,7 +664,7 @@
     "provenanceStatus": "osm",
     "sourceUpdatedAt": "2026-09-22T14:00:00Z",
     "snapshotDate": "2026-09-22",
-    "ingestedAt": "2026-09-27T18:54:33.050Z",
+    "ingestedAt": "2026-09-27T20:39:43.137Z",
     "snapshotId": "osm-tln-cf860c550066",
     "checksum": "cf860c5500663c36",
     "address": "Ravi 18, Tallinn",
@@ -695,7 +695,7 @@
       {
         "provider": "osm",
         "sourceId": "node/839201849",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "checksum": "cf860c5500663c36"
       }
     ],
@@ -705,7 +705,7 @@
     "provenanceStatus": "osm",
     "sourceUpdatedAt": "2026-09-21T11:20:00Z",
     "snapshotDate": "2026-09-21",
-    "ingestedAt": "2026-09-27T18:54:33.050Z",
+    "ingestedAt": "2026-09-27T20:39:43.137Z",
     "snapshotId": "osm-tln-cf860c550066",
     "checksum": "cf860c5500663c36",
     "address": "J. Sütiste tee 19, Tallinn",
@@ -736,7 +736,7 @@
       {
         "provider": "osm",
         "sourceId": "node/593820194",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "checksum": "cf860c5500663c36"
       }
     ],
@@ -746,7 +746,7 @@
     "provenanceStatus": "osm",
     "sourceUpdatedAt": "2026-09-24T15:30:00Z",
     "snapshotDate": "2026-09-24",
-    "ingestedAt": "2026-09-27T18:54:33.050Z",
+    "ingestedAt": "2026-09-27T20:39:43.137Z",
     "snapshotId": "osm-tln-cf860c550066",
     "checksum": "cf860c5500663c36",
     "address": "Tõnismägi 5, Tallinn",
@@ -777,7 +777,7 @@
       {
         "provider": "osm",
         "sourceId": "node/649201847",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "checksum": "cf860c5500663c36"
       }
     ],
@@ -787,7 +787,7 @@
     "provenanceStatus": "osm",
     "sourceUpdatedAt": "2026-09-20T10:00:00Z",
     "snapshotDate": "2026-09-20",
-    "ingestedAt": "2026-09-27T18:54:33.050Z",
+    "ingestedAt": "2026-09-27T20:39:43.137Z",
     "snapshotId": "osm-tln-cf860c550066",
     "checksum": "cf860c5500663c36",
     "address": "Raekoja plats 11, Tallinn",
@@ -818,7 +818,7 @@
       {
         "provider": "osm",
         "sourceId": "node/849201847",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "checksum": "cf860c5500663c36"
       }
     ],
@@ -828,7 +828,7 @@
     "provenanceStatus": "osm",
     "sourceUpdatedAt": "2026-09-19T09:40:00Z",
     "snapshotDate": "2026-09-19",
-    "ingestedAt": "2026-09-27T18:54:33.050Z",
+    "ingestedAt": "2026-09-27T20:39:43.137Z",
     "snapshotId": "osm-tln-cf860c550066",
     "checksum": "cf860c5500663c36",
     "address": "Kaeruti tee 2, Tallinn",
@@ -861,7 +861,7 @@
       {
         "provider": "osm",
         "sourceId": "node/928374829",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "checksum": "cf860c5500663c36"
       }
     ],
@@ -871,7 +871,7 @@
     "provenanceStatus": "osm",
     "sourceUpdatedAt": "2026-09-21T16:10:00Z",
     "snapshotDate": "2026-09-21",
-    "ingestedAt": "2026-09-27T18:54:33.050Z",
+    "ingestedAt": "2026-09-27T20:39:43.137Z",
     "snapshotId": "osm-tln-cf860c550066",
     "checksum": "cf860c5500663c36",
     "address": "Tammsaare tee 49, Tallinn",
@@ -904,7 +904,7 @@
       {
         "provider": "osm",
         "sourceId": "node/748392019",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "checksum": "cf860c5500663c36"
       }
     ],
@@ -914,7 +914,7 @@
     "provenanceStatus": "osm",
     "sourceUpdatedAt": "2026-09-18T15:00:00Z",
     "snapshotDate": "2026-09-18",
-    "ingestedAt": "2026-09-27T18:54:33.050Z",
+    "ingestedAt": "2026-09-27T20:39:43.137Z",
     "snapshotId": "osm-tln-cf860c550066",
     "checksum": "cf860c5500663c36",
     "address": "Tatari 64, Tallinn",
@@ -945,7 +945,7 @@
       {
         "provider": "osm",
         "sourceId": "node/384729104",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "checksum": "cf860c5500663c36"
       }
     ],
@@ -955,7 +955,7 @@
     "provenanceStatus": "osm",
     "sourceUpdatedAt": "2026-09-12T13:20:00Z",
     "snapshotDate": "2026-09-12",
-    "ingestedAt": "2026-09-27T18:54:33.050Z",
+    "ingestedAt": "2026-09-27T20:39:43.137Z",
     "snapshotId": "osm-tln-cf860c550066",
     "checksum": "cf860c5500663c36",
     "address": "Vene 33, Tallinn",
@@ -986,7 +986,7 @@
       {
         "provider": "osm",
         "sourceId": "node/302948172",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "checksum": "cf860c5500663c36"
       }
     ],
@@ -996,7 +996,7 @@
     "provenanceStatus": "osm",
     "sourceUpdatedAt": "2026-09-23T18:00:00Z",
     "snapshotDate": "2026-09-23",
-    "ingestedAt": "2026-09-27T18:54:33.050Z",
+    "ingestedAt": "2026-09-27T20:39:43.137Z",
     "snapshotId": "osm-tln-cf860c550066",
     "checksum": "cf860c5500663c36",
     "address": "Endla 45, Tallinn",
@@ -1027,7 +1027,7 @@
       {
         "provider": "osm",
         "sourceId": "node/493029184",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "checksum": "cf860c5500663c36"
       }
     ],
@@ -1037,7 +1037,7 @@
     "provenanceStatus": "osm",
     "sourceUpdatedAt": "2026-09-15T09:00:00Z",
     "snapshotDate": "2026-09-15",
-    "ingestedAt": "2026-09-27T18:54:33.050Z",
+    "ingestedAt": "2026-09-27T20:39:43.137Z",
     "snapshotId": "osm-tln-cf860c550066",
     "checksum": "cf860c5500663c36",
     "address": "Toompuiestee 24, Tallinn",
@@ -1064,7 +1064,7 @@
       {
         "provider": "hoimu",
         "sourceId": "HOIMU-NODE-TLN-TEL-01",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "signature": "SIG_ED25519_TEL_01_7c41b899a19d",
         "signerPublicKey": "pub_ed25519_node_tln_tel_01"
       }
@@ -1078,7 +1078,7 @@
     "lastConfirmed": "2026-09-24 (Yesterday)",
     "sourceUpdatedAt": "2026-09-24T18:00:00Z",
     "snapshotDate": "2026-09-24",
-    "ingestedAt": "2026-09-27T18:54:33.052Z",
+    "ingestedAt": "2026-09-27T20:39:43.140Z",
     "snapshotId": "mesh-obs-tln-01",
     "address": "Telliskivi 60a (Hoov), Kalamaja",
     "description": "Community-maintained open tool chest: angle grinders, torque wrenches, multimeter, wire strippers, bolt cutters, and socket sets.",
@@ -1102,7 +1102,7 @@
       {
         "provider": "hoimu",
         "sourceId": "HOIMU-NODE-TLN-KOP-02",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "signature": "SIG_ED25519_KOP_02_3b118da49c02",
         "signerPublicKey": "pub_ed25519_node_tln_kop_02"
       }
@@ -1116,7 +1116,7 @@
     "lastConfirmed": "2026-09-25 (Today)",
     "sourceUpdatedAt": "2026-09-25T09:00:00Z",
     "snapshotDate": "2026-09-25",
-    "ingestedAt": "2026-09-27T18:54:33.052Z",
+    "ingestedAt": "2026-09-27T20:39:43.140Z",
     "snapshotId": "mesh-obs-tln-02",
     "address": "Kopli 93, Põhja-Tallinn",
     "description": "Free resource box: dry sealed oats, warm socks, matchboxes, spare 18650 batteries, and water purification tablets.",
@@ -1140,7 +1140,7 @@
       {
         "provider": "hoimu",
         "sourceId": "HOIMU-NODE-TLN-PEL-03",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "signature": "SIG_ED25519_PEL_03_9d28ba1207e4",
         "signerPublicKey": "pub_ed25519_node_tln_pel_03"
       }
@@ -1154,7 +1154,7 @@
     "lastConfirmed": "2026-09-23",
     "sourceUpdatedAt": "2026-09-23T17:00:00Z",
     "snapshotDate": "2026-09-23",
-    "ingestedAt": "2026-09-27T18:54:33.052Z",
+    "ingestedAt": "2026-09-27T20:39:43.140Z",
     "snapshotId": "mesh-obs-tln-03",
     "address": "Roo 21b, Pelgulinn",
     "description": "Weekly community repair space with soldering stations, 3D printer for spare gears, sewing machines, and bicycle truing stand.",
@@ -1177,7 +1177,7 @@
       {
         "provider": "hoimu",
         "sourceId": "HOIMU-NODE-TLN-KAD-04",
-        "retrievedAt": 1790535273052,
+        "retrievedAt": 1790541583140,
         "signature": "SIG_ED25519_KAD_04_e5762a19fb66",
         "signerPublicKey": "pub_ed25519_node_tln_kad_04"
       }
@@ -1191,7 +1191,7 @@
     "lastConfirmed": "2026-09-25 (Today)",
     "sourceUpdatedAt": "2026-09-25T11:00:00Z",
     "snapshotDate": "2026-09-25",
-    "ingestedAt": "2026-09-27T18:54:33.052Z",
+    "ingestedAt": "2026-09-27T20:39:43.140Z",
     "snapshotId": "mesh-obs-tln-04",
     "address": "Mäekalda 2, Kadriorg",
     "description": "Off-grid autonomous solar and LoRa relay station with emergency device charging ports.",

@@ -29,6 +29,58 @@ export interface OverlayData {
   route?: RouteResult | null;
 }
 
+export interface MapLayerState {
+  places?: boolean;
+  peers?: boolean;
+  resources?: boolean;
+  meshLinks?: boolean;
+  signalTrail?: boolean;
+  discovery?: boolean;
+  safety?: boolean;
+}
+
+export function setLayerVisibility(map: maplibregl.Map, layerId: string, visible: boolean): void {
+  if (map && map.getLayer(layerId)) {
+    map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
+  }
+}
+
+export function applyMapLayerVisibility(map: maplibregl.Map, layers: Partial<MapLayerState>): void {
+  if (!map) return;
+
+  if (layers.places !== undefined) {
+    setLayerVisibility(map, 'places-clusters', layers.places);
+    setLayerVisibility(map, 'places-cluster-count', layers.places);
+    setLayerVisibility(map, 'places-unclustered', layers.places);
+    setLayerVisibility(map, 'places-labels', layers.places);
+  }
+
+  if (layers.peers !== undefined) {
+    setLayerVisibility(map, 'people-points', layers.peers);
+    setLayerVisibility(map, 'people-labels', layers.peers);
+  }
+
+  if (layers.resources !== undefined) {
+    setLayerVisibility(map, 'resources-points', layers.resources);
+    setLayerVisibility(map, 'resources-labels', layers.resources);
+  }
+
+  if (layers.meshLinks !== undefined) {
+    setLayerVisibility(map, 'mesh-links-line', layers.meshLinks);
+  }
+
+  if (layers.signalTrail !== undefined) {
+    setLayerVisibility(map, 'signal-trail-line', layers.signalTrail);
+    setLayerVisibility(map, 'signal-trail-points', layers.signalTrail);
+  }
+
+  if (layers.discovery !== undefined) {
+    setLayerVisibility(map, 'discovery-unexplored', layers.discovery);
+    setLayerVisibility(map, 'discovery-explored', layers.discovery);
+    setLayerVisibility(map, 'discovery-labels', layers.discovery);
+  }
+}
+
 /**
  * Section 38: 10-Step Unified Tactical Map Layer Pipeline
  * Step 1: Base MapLibre & PMTiles Protocol

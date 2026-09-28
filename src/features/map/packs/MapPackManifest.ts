@@ -47,6 +47,13 @@ export interface MapPackManifest {
   releaseDate: string;
   features: string[];
   featureFlags: MapPackFeatureList;
+  artifacts?: {
+    basemap: { path: string; sha256: string; sizeBytes: number };
+    poi: { path: string; sha256: string; sizeBytes: number; index?: string; count?: number };
+    routing: { path: string; sha256: string; sizeBytes: number; nodes?: number; edges?: number };
+    streetIndex: { path: string; sha256: string; sizeBytes: number; streetCount?: number };
+    searchIndex?: { path: string; sha256: string; sizeBytes: number };
+  };
 }
 
 /**
@@ -61,9 +68,9 @@ export const MAP_PACK_MANIFESTS: Record<string, MapPackManifest> = {
     cityId: 'tallinn',
     region: 'Harju Biopiirkond & Pealinn',
     regionName: 'Harju Biopiirkond & Pealinn',
-    version: '2026.09.26',
-    routingSnapshotVersion: '2026.09.26',
-    sha256: 'e2bf5b73d6bb3a61c695c885d5595c1ff59a512dd32b832e178932ea28c8f988',
+    version: '2026.09.27-A',
+    routingSnapshotVersion: '2026.09.27-A',
+    sha256: 'abe646ecb90cca1619f7fccf00aac754b54f35a2b6ea3a4b47426d6b2eac4e3c',
     provenanceType: 'official_published',
     isCustomUnverified: false,
     pmtiles: '/maps/tallinn-basemap.pmtiles',
@@ -74,12 +81,44 @@ export const MAP_PACK_MANIFESTS: Record<string, MapPackManifest> = {
     routingUrl: '/routing/tallinn.graph',
     streetIndexUrl: '/maps/street-index.bin',
     fileName: 'tallinn.pmtiles',
+    artifacts: {
+      basemap: {
+        path: 'tallinn-basemap.pmtiles',
+        sha256: 'abe646ecb90cca1619f7fccf00aac754b54f35a2b6ea3a4b47426d6b2eac4e3c',
+        sizeBytes: 1507141
+      },
+      poi: {
+        path: 'tallinn-poi.pmtiles',
+        sha256: '52915fde8101bb2c9ddbe51237b0c40734004a9abb7049a14aa3704bd078f8ed',
+        sizeBytes: 51909,
+        index: 'tallinn-poi.index',
+        count: 29
+      },
+      routing: {
+        path: 'routing.graph',
+        sha256: '38597029630387d90f45b7887e757bb46ade54b31a6bfade877e7de23234ed9a',
+        sizeBytes: 2916,
+        nodes: 79,
+        edges: 110
+      },
+      streetIndex: {
+        path: 'street-index.bin',
+        sha256: '0151500ade36532345b725a1259339457eab9d334ddab717008d1e9a1d7ab5f8',
+        sizeBytes: 1519,
+        streetCount: 24
+      },
+      searchIndex: {
+        path: 'search-index.bin',
+        sha256: '154170dda417866f20001adfb056e481e548968097611600bdeddae960a5527b',
+        sizeBytes: 784
+      }
+    },
     center: [59.437, 24.7535],
     bounds: [24.50, 59.32, 25.00, 59.50],
     minZoom: 0,
     maxZoom: 15,
-    sizeBytes: 14_200_000,
-    sizeFormatted: '14.2 MB',
+    sizeBytes: 1557083,
+    sizeFormatted: '1.5 MB',
     source: 'OpenStreetMap',
     license: 'ODbL',
     attribution: '© OpenStreetMap contributors',

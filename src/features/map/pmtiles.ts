@@ -10,12 +10,74 @@
  */
 
 import * as maplibregl from 'maplibre-gl';
-import { Protocol } from 'pmtiles';
+import { Protocol, PMTiles } from 'pmtiles';
+import { mapPackService } from '../../services/map/mapPackService';
 
 export type TacticalMapTheme = 'day' | 'night' | 'red' | 'high_contrast' | 'direct_sun' | 'eco' | 'crisis';
 
 let pmtilesProtocolInitialized = false;
 let globalProtocolInstance: Protocol | null = null;
+
+class BufferSource {
+  private buffer: ArrayBuffer;
+  private key: string;
+
+  constructor(buffer: ArrayBuffer, key: string) {
+    this.buffer = buffer;
+    this.key = key;
+  }
+
+  public getKey(): string {
+    return this.key;
+  }
+
+  public async getBytes(offset: number, length: number): Promise<{ data: ArrayBuffer }> {
+    return { data: this.buffer.slice(offset, offset + length) };
+  }
+}
+
+export function preloadLocalMapPacksIntoProtocol(): void {
+  if (!globalProtocolInstance) return;
+
+  const origin = typeof window !== 'undefined' && window.location?.origin
+    ? window.location.origin
+    : 'http://localhost:3000';
+
+  const registerArtifact = async (cityId: string, artifactType: 'basemap' | 'poi', keys: string[]) => {
+    try {
+      const buffer = await mapPackService.getMapPackArtifact(cityId, artifactType);
+      if (buffer && buffer.byteLength > 0) {
+        keys.forEach((k) => {
+          const source = new BufferSource(buffer, k);
+          const pmtilesInstance = new PMTiles(source);
+          globalProtocolInstance!.tiles.set(k, pmtilesInstance);
+        });
+      }
+    } catch (e) {
+      console.warn(`[preloadLocalMapPacksIntoProtocol] Error preloading offline ${artifactType}:`, e);
+    }
+  };
+
+  // Tallinn Basemap Keys
+  registerArtifact('tallinn', 'basemap', [
+    '/maps/tallinn-basemap.pmtiles',
+    '/maps/tallinn.pmtiles',
+    `${origin}/maps/tallinn-basemap.pmtiles`,
+    `${origin}/maps/tallinn.pmtiles`,
+    'pmtiles:///maps/tallinn-basemap.pmtiles',
+    'pmtiles:///maps/tallinn.pmtiles',
+    'pmtiles://maps/tallinn-basemap.pmtiles',
+    'pmtiles://maps/tallinn.pmtiles',
+  ]);
+
+  // Tallinn POI Keys
+  registerArtifact('tallinn', 'poi', [
+    '/maps/tallinn-poi.pmtiles',
+    `${origin}/maps/tallinn-poi.pmtiles`,
+    'pmtiles:///maps/tallinn-poi.pmtiles',
+    'pmtiles://maps/tallinn-poi.pmtiles',
+  ]);
+}
 
 export function initializePMTilesProtocol(): Protocol {
   if (!pmtilesProtocolInitialized) {
@@ -56,6 +118,10 @@ export function initializePMTilesProtocol(): Protocol {
     });
     pmtilesProtocolInitialized = true;
   }
+
+  // Preload local map pack into tiles map for immediate offline use
+  preloadLocalMapPacksIntoProtocol();
+
   return globalProtocolInstance!;
 }
 

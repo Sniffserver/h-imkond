@@ -480,6 +480,8 @@ export function AppContent() {
       <OfflineIndicator onAddToast={addToast} />
       <OfflineTransitionIndicator
         isNightMode={isNightMode}
+        peers={peers}
+        messages={messages}
         onReconnect={() => {
           addToast('Checking Mesh & Network', 'Re-evaluating gateway status...', 'info');
         }}

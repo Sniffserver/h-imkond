@@ -141,6 +141,11 @@ export interface GeneratedManifest {
       sizeBytes?: number;
       streetCount?: number;
     };
+    searchIndex?: {
+      path: string;
+      sha256: string;
+      sizeBytes?: number;
+    };
   };
   basemap: {
     filename: string;
@@ -166,5 +171,10 @@ export interface GeneratedManifest {
     sha256: string;
     sizeBytes: number;
     streetCount: number;
+  };
+  searchIndex?: {
+    filename: string;
+    sha256: string;
+    sizeBytes: number;
   };
 }

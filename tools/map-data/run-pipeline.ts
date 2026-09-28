@@ -125,6 +125,7 @@ export async function runIngestionPipeline(options?: { forceLive?: boolean }): P
       { id: 'police' },
       { id: 'tools' },
     ],
+    isPoi: true,
   });
   fs.copyFileSync(poiPmtilesOutput, poiPmtilesGenerated);
 
@@ -139,6 +140,7 @@ export async function runIngestionPipeline(options?: { forceLive?: boolean }): P
   fs.copyFileSync(streetArtifacts.routingGraphPath, path.join(publicRoutingDir, 'tallinn.graph'));
   fs.copyFileSync(streetArtifacts.routingGraphPath, path.join(publicMapsDir, 'routing.graph'));
   fs.copyFileSync(streetArtifacts.streetIndexPath, path.join(publicMapsDir, 'street-index.bin'));
+  fs.copyFileSync(streetArtifacts.searchIndexPath, path.join(publicMapsDir, 'search-index.bin'));
 
   // Step 7: Cryptographic Manifest Generation (Gandalf Gate #2 Enforcement)
   console.log('[Gandalf Gate #2] Running artifact verification & manifest generation pipeline...');
@@ -149,11 +151,12 @@ export async function runIngestionPipeline(options?: { forceLive?: boolean }): P
       poiIndex: poiArtifacts.indexPath,
       routingGraph: streetArtifacts.routingGraphPath,
       streetIndex: streetArtifacts.streetIndexPath,
+      searchIndex: streetArtifacts.searchIndexPath,
       placesJson: poiArtifacts.jsonPath,
     },
     {
       region: 'tallinn',
-      version: '2026.09.26',
+      version: '2026.09.27-A',
       poiCount: canonicalPlaces.length,
       routingNodes: streetArtifacts.nodeCount,
       routingEdges: streetArtifacts.edgeCount,
@@ -172,6 +175,9 @@ export async function runIngestionPipeline(options?: { forceLive?: boolean }): P
   console.log(`    - poi:          ${manifestData.poi.filename} (${manifestData.poi.sha256.substring(0, 16)}... ${manifestData.poi.sizeBytes} B, ${manifestData.poi.count} places)`);
   console.log(`    - routing:      ${manifestData.routing.filename} (${manifestData.routing.sha256.substring(0, 16)}... ${manifestData.routing.sizeBytes} B, ${manifestData.routing.nodes} nodes)`);
   console.log(`    - streetIndex:  ${manifestData.streetIndex.filename} (${manifestData.streetIndex.sha256.substring(0, 16)}... ${manifestData.streetIndex.sizeBytes} B)`);
+  if (manifestData.searchIndex) {
+    console.log(`    - searchIndex:  ${manifestData.searchIndex.filename} (${manifestData.searchIndex.sha256.substring(0, 16)}... ${manifestData.searchIndex.sizeBytes} B)`);
+  }
   console.log('====================================================================');
 
   return {
@@ -198,6 +204,11 @@ export async function runIngestionPipeline(options?: { forceLive?: boolean }): P
         path: streetArtifacts.streetIndexPath,
         sha256: manifestData.streetIndex.sha256,
         sizeBytes: manifestData.streetIndex.sizeBytes,
+      },
+      searchIndex: {
+        path: streetArtifacts.searchIndexPath,
+        sha256: manifestData.searchIndex?.sha256 || '',
+        sizeBytes: manifestData.searchIndex?.sizeBytes || 0,
       },
     },
   };

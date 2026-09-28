@@ -137,12 +137,22 @@ export const HoimuAppHeader: React.FC<HoimuAppHeaderProps> = ({
       >
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-1.5">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#87A878] opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#87A878]" />
-            </span>
-            <span className="text-[#E9C46A] font-semibold">MESH ACTIVE:</span>
-            <span>{peerCount} Peers (Zero-Cloud)</span>
+            {peerCount > 0 ? (
+              <>
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#87A878] opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#87A878]" />
+                </span>
+                <span className="text-[#E9C46A] font-semibold">MESH CONNECTED ·</span>
+                <span>{peerCount} {peerCount === 1 ? 'peer' : 'peers'}</span>
+              </>
+            ) : (
+              <>
+                <span className="h-2 w-2 rounded-full bg-[#E9C46A]/80 inline-block" />
+                <span className="text-[#E9C46A] font-semibold">LOCAL MODE</span>
+                <span className="text-white/60 text-[10px] hidden sm:inline">(Standby)</span>
+              </>
+            )}
           </span>
           <span className="hidden md:inline text-white/30">•</span>
           <PiBridgeStatusBadge isNightMode={isNightMode} onClick={onOpenPiBridge} />

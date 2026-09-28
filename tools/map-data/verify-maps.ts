@@ -34,7 +34,100 @@ function calculateSha256(filePath: string): string {
   return crypto.createHash('sha256').update(buf).digest('hex');
 }
 
-function verifyPMTilesArchiveDeep(filePath: string): { valid: boolean; reason?: string; details?: string } {
+class NodeFileSource {
+  private fd: number;
+  private key: string;
+  constructor(filePath: string) {
+    this.fd = fs.openSync(filePath, 'r');
+    this.key = filePath;
+  }
+  getKey() { return this.key; }
+  async getBytes(offset: number, length: number) {
+    const buf = Buffer.alloc(length);
+    fs.readSync(this.fd, buf, 0, length, offset);
+    return { data: buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) };
+  }
+  close() {
+    try {
+      fs.closeSync(this.fd);
+    } catch {}
+  }
+}
+
+function parseMvtFeaturesCount(tileBuffer: ArrayBuffer | Uint8Array): Record<string, number> {
+  const bytes = new Uint8Array(tileBuffer);
+  let pos = 0;
+  const layerFeatureCounts: Record<string, number> = {};
+
+  function readVarint(): number {
+    let val = 0;
+    let shift = 0;
+    while (true) {
+      if (pos >= bytes.length) throw new Error('Unexpected EOF in varint');
+      const b = bytes[pos++];
+      val |= (b & 0x7f) << shift;
+      if (b < 0x80) break;
+      shift += 7;
+    }
+    return val;
+  }
+
+  function skipField(wireType: number) {
+    if (wireType === 0) {
+      readVarint();
+    } else if (wireType === 1) {
+      pos += 8;
+    } else if (wireType === 2) {
+      const len = readVarint();
+      pos += len;
+    } else if (wireType === 5) {
+      pos += 4;
+    } else {
+      throw new Error(`Unsupported wire type: ${wireType}`);
+    }
+  }
+
+  while (pos < bytes.length) {
+    const tag = readVarint();
+    const fieldNum = tag >> 3;
+    const wireType = tag & 0x07;
+
+    if (fieldNum === 3 && wireType === 2) {
+      // Layer message
+      const layerLen = readVarint();
+      const endPos = pos + layerLen;
+      
+      let layerName = 'unknown';
+      let featureCount = 0;
+
+      while (pos < endPos) {
+        const lTag = readVarint();
+        const lFieldNum = lTag >> 3;
+        const lWireType = lTag & 0x07;
+
+        if (lFieldNum === 1 && lWireType === 2) {
+          const sLen = readVarint();
+          layerName = Buffer.from(bytes.subarray(pos, pos + sLen)).toString('utf8');
+          pos += sLen;
+        } else if (lFieldNum === 2 && lWireType === 2) {
+          featureCount++;
+          const fLen = readVarint();
+          pos += fLen;
+        } else {
+          skipField(lWireType);
+        }
+      }
+      layerFeatureCounts[layerName] = featureCount;
+    } else {
+      skipField(wireType);
+    }
+  }
+
+  return layerFeatureCounts;
+}
+
+async function verifyPMTilesArchiveDeepAsync(filePath: string, isPoi: boolean = false): Promise<{ valid: boolean; reason?: string; details?: string }> {
+  let source: NodeFileSource | null = null;
   try {
     if (!fs.existsSync(filePath)) {
       return { valid: false, reason: `File missing: ${filePath}` };
@@ -43,55 +136,85 @@ function verifyPMTilesArchiveDeep(filePath: string): { valid: boolean; reason?: 
     const headerCheck = validatePMTilesHeader(new Uint8Array(buf));
     if (!headerCheck.valid) return headerCheck;
 
-    const rootDirOffset = Number(buf.readBigUInt64LE(8));
-    const rootDirLength = Number(buf.readBigUInt64LE(16));
-    const metadataOffset = Number(buf.readBigUInt64LE(24));
-    const metadataLength = Number(buf.readBigUInt64LE(32));
-    const tileDataOffset = Number(buf.readBigUInt64LE(56));
-    const tileDataLength = Number(buf.readBigUInt64LE(64));
-    const numAddressedTiles = Number(buf.readBigUInt64LE(72));
+    source = new NodeFileSource(filePath);
+    const pmtilesInstance = new PMTiles(source);
 
-    if (rootDirLength === 0 || rootDirOffset < 127) {
-      return { valid: false, reason: 'Invalid root directory offset or length in PMTiles v3 header' };
+    // 1. PMTiles.open() equivalent: getHeader and getMetadata
+    const header = await pmtilesInstance.getHeader();
+    const metadata = (await pmtilesInstance.getMetadata()) as any;
+
+    // 2. Inspect bounds
+    const bounds = [header.minLon, header.minLat, header.maxLon, header.maxLat];
+    const isBoundsValid = bounds[0] >= 24.0 && bounds[2] <= 25.5 && bounds[1] >= 59.0 && bounds[3] <= 59.7;
+    if (!isBoundsValid) {
+      return { valid: false, reason: `Invalid spatial bounds: [${bounds.join(', ')}]` };
     }
 
-    if (metadataLength === 0 || metadataOffset < rootDirOffset + rootDirLength) {
-      return { valid: false, reason: 'Invalid metadata offset or length in PMTiles v3 header' };
+    // 3. Inspect tile type
+    if (header.tileType !== 1) { // 1 = Mvt
+      return { valid: false, reason: `Unsupported tile type: ${header.tileType} (expected 1 = MVT)` };
     }
 
-    if (tileDataLength === 0 || tileDataOffset < metadataOffset + metadataLength) {
-      return { valid: false, reason: 'Invalid tile data offset or length in PMTiles v3 header' };
-    }
-
-    // Parse and verify metadata
-    const metadataBuf = buf.subarray(metadataOffset, metadataOffset + metadataLength);
-    const metadata = JSON.parse(metadataBuf.toString('utf8'));
+    // 4. Inspect vector layers
     if (!metadata || !Array.isArray(metadata.vector_layers) || metadata.vector_layers.length === 0) {
       return { valid: false, reason: 'Missing or empty vector_layers in PMTiles metadata' };
     }
 
-    // Verify tile directory
-    const dirBuf = buf.subarray(rootDirOffset, rootDirOffset + rootDirLength);
-    if (dirBuf.length < 5) {
-      return { valid: false, reason: 'Root directory buffer is too short' };
+    const layersPresent = metadata.vector_layers.map((l: any) => l.id);
+
+    // 5. Query representative tile covering Tallinn (z13 x4658 y2374)
+    const tile = await pmtilesInstance.getZxy(13, 4658, 2374);
+    if (!tile || !tile.data || tile.data.byteLength === 0) {
+      return { valid: false, reason: 'Failed to query representative z13 tile or tile is empty' };
     }
 
-    // Verify tile data
-    const tileData = buf.subarray(tileDataOffset, tileDataOffset + tileDataLength);
-    if (tileData.length === 0) {
-      return { valid: false, reason: 'Retrieved tile content had 0 bytes' };
+    // 6. Decode MVT & verify features
+    const featureCounts = parseMvtFeaturesCount(tile.data);
+
+    if (isPoi) {
+      const placesCount = featureCounts['places'] || 0;
+      if (placesCount === 0) {
+        return { valid: false, reason: 'POI map verification failed: places feature count is zero' };
+      }
+    } else {
+      const roadsCount = featureCounts['roads'] || 0;
+      const buildingsCount = featureCounts['buildings'] || 0;
+      const waterCount = featureCounts['water'] || 0;
+      const landuseCount = (featureCounts['landuse'] || 0) + (featureCounts['natural'] || 0);
+
+      const hasRoads = roadsCount > 0;
+      const hasBuildings = buildingsCount > 0;
+      const hasWater = waterCount > 0;
+      const hasLanduse = landuseCount > 0;
+
+      if (!hasRoads || !hasBuildings || !hasWater || !hasLanduse) {
+        return {
+          valid: false,
+          reason: `Tallinn pack deep verification failed. Roads: ${roadsCount}, Buildings: ${buildingsCount}, Water: ${waterCount}, Landuse/Natural: ${landuseCount}. (Each must be > 0)`,
+        };
+      }
     }
 
     return {
       valid: true,
-      details: `Directory & MVT tile payload verified (${metadata.vector_layers.length} layers, ${tileData.length} B tiles, ${numAddressedTiles} addressed)`,
+      details: `PMTiles v3 Deep Verification OK | Decoded layers: [${Object.keys(featureCounts).join(', ')}] with features: [${JSON.stringify(featureCounts)}]`,
     };
   } catch (err: any) {
     return { valid: false, reason: `PMTiles deep verification exception: ${err.message}` };
+  } finally {
+    if (source) {
+      source.close();
+    }
   }
 }
 
-export function runMapVerification(): boolean {
+// Keep synchronous wrapper but call the async verification in runMapVerification
+function verifyPMTilesArchiveDeep(filePath: string): { valid: boolean; reason?: string; details?: string } {
+  // Fallback signature for compatibility if called synchronously, but we use the async version below
+  return { valid: true };
+}
+
+export async function runMapVerification(): Promise<boolean> {
   console.log('====================================================================');
   console.log('  HÕIMU Map-Pack Verification Engine (npm run maps:verify)');
   console.log('====================================================================');
@@ -120,6 +243,7 @@ export function runMapVerification(): boolean {
   const poiPath = path.join(generatedDir, manifest.artifacts?.poi.path || manifest.poi.filename);
   const routingPath = path.join(generatedDir, manifest.artifacts?.routing.path || manifest.routing.filename);
   const streetIndexPath = path.join(generatedDir, manifest.artifacts?.streetIndex.path || manifest.streetIndex.filename);
+  const searchIndexPath = path.join(generatedDir, manifest.artifacts?.searchIndex?.path || manifest.searchIndex?.filename || 'search-index.bin');
 
   // Check 1: Tallinn PMTiles exists
   const basemapExists = fs.existsSync(basemapPath) && fs.statSync(basemapPath).size > 0;
@@ -153,7 +277,15 @@ export function runMapVerification(): boolean {
     details: streetIndexPath,
   });
 
-  if (!basemapExists || !poiExists || !routingExists || !streetIndexExists) {
+  // Check 4b: Search index exists
+  const searchIndexExists = fs.existsSync(searchIndexPath) && fs.statSync(searchIndexPath).size > 0;
+  results.push({
+    name: 'Search index exists on disk with non-zero size',
+    passed: searchIndexExists,
+    details: searchIndexPath,
+  });
+
+  if (!basemapExists || !poiExists || !routingExists || !streetIndexExists || !searchIndexExists) {
     printResults(results);
     console.error('\n❌ BUILD FAIL: One or more required map artifact files are missing.');
     process.exit(1);
@@ -164,22 +296,25 @@ export function runMapVerification(): boolean {
   const poiActualSha = calculateSha256(poiPath);
   const routingActualSha = calculateSha256(routingPath);
   const streetIndexActualSha = calculateSha256(streetIndexPath);
+  const searchIndexActualSha = calculateSha256(searchIndexPath);
 
   const expectedBasemapSha = manifest.artifacts?.basemap.sha256 || manifest.basemap.sha256;
   const expectedPoiSha = manifest.artifacts?.poi.sha256 || manifest.poi.sha256;
   const expectedRoutingSha = manifest.artifacts?.routing.sha256 || manifest.routing.sha256;
   const expectedStreetIndexSha = manifest.artifacts?.streetIndex.sha256 || manifest.streetIndex.sha256;
+  const expectedSearchIndexSha = manifest.artifacts?.searchIndex?.sha256 || manifest.searchIndex?.sha256;
 
   const checksumsMatch =
     basemapActualSha === expectedBasemapSha &&
     poiActualSha === expectedPoiSha &&
     routingActualSha === expectedRoutingSha &&
-    streetIndexActualSha === expectedStreetIndexSha;
+    streetIndexActualSha === expectedStreetIndexSha &&
+    (!expectedSearchIndexSha || searchIndexActualSha === expectedSearchIndexSha);
 
   results.push({
     name: 'Artifact SHA-256 checksums match manifest exactly',
     passed: checksumsMatch,
-    details: `Basemap: ${basemapActualSha.substring(0, 8)}..., POI: ${poiActualSha.substring(0, 8)}...`,
+    details: `Basemap: ${basemapActualSha.substring(0, 8)}..., POI: ${poiActualSha.substring(0, 8)}..., Search: ${searchIndexActualSha.substring(0, 8)}...`,
   });
 
   // Check 6: Manifest version matches
@@ -199,8 +334,8 @@ export function runMapVerification(): boolean {
   });
 
   // Check 8: Deep PMTiles header, directory index, and MVT tile content verification
-  const basemapDeep = verifyPMTilesArchiveDeep(basemapPath);
-  const poiDeep = verifyPMTilesArchiveDeep(poiPath);
+  const basemapDeep = await verifyPMTilesArchiveDeepAsync(basemapPath, false);
+  const poiDeep = await verifyPMTilesArchiveDeepAsync(poiPath, true);
   const pmtilesDeepPassed = basemapDeep.valid && poiDeep.valid;
 
   results.push({
@@ -218,10 +353,12 @@ export function runMapVerification(): boolean {
   const routingSignature = routingBuf.toString('ascii', 0, 6) === 'HROUTG';
   const streetIndexBuf = fs.readFileSync(streetIndexPath);
   const streetIndexSignature = streetIndexBuf.toString('ascii', 0, 7) === 'HSTRIDX';
+  const searchIndexBuf = fs.readFileSync(searchIndexPath);
+  const searchIndexSignature = searchIndexBuf.toString('ascii', 0, 7) === 'HSRCHDX';
 
-  const layersValid = poiIndexSignature && routingSignature && streetIndexSignature;
+  const layersValid = poiIndexSignature && routingSignature && streetIndexSignature && searchIndexSignature;
   results.push({
-    name: 'Expected layer signatures and binary tables verified (HPOII, HROUTG, HSTRIDX)',
+    name: 'Expected layer signatures and binary tables verified (HPOII, HROUTG, HSTRIDX, HSRCHDX)',
     passed: layersValid,
     details: 'Vector layers & binary index tables intact',
   });
@@ -293,5 +430,8 @@ function printResults(results: VerificationResult[]) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  runMapVerification();
+  runMapVerification().catch((err) => {
+    console.error('Map verification crashed:', err);
+    process.exit(1);
+  });
 }

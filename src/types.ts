@@ -309,11 +309,12 @@ export interface UnknownNearbySummary {
 export interface FieldQuestObjective {
   id: string;
   title: string;
-  type: 'street_explore' | 'place_find' | 'mesh_observe' | 'return_campfire';
+  type: 'street_explore' | 'place_find' | 'mesh_observe' | 'return_campfire' | 'subjective';
   targetCount: number;
   currentCount: number;
   completed: boolean;
   details?: string;
+  isUserConfirmed?: boolean;
 }
 
 export interface FieldQuest {
