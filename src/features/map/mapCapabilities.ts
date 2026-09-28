@@ -9,7 +9,7 @@
 
 export type MapRenderer = 'webgl' | 'canvas' | 'ascii';
 
-export type MapQualityMode = 'power_saver' | 'balanced' | 'detail';
+export type MapQualityMode = 'power_saver' | 'power-saver' | 'balanced' | 'detail' | 'FULL' | 'STANDARD' | 'POWER_SAVER' | 'FIELD';
 
 export interface SystemCapabilities {
   hasWebGL: boolean;

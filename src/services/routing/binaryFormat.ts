@@ -24,6 +24,8 @@ export const EDGE_FLAGS = {
   BIKE_PATH: 0x20,
   PEDESTRIAN_ONLY: 0x40,
   WHEELCHAIR_ACCESSIBLE: 0x80,
+  PAVED: 0x100,
+  GRAVEL: 0x200,
 };
 
 export interface BinaryNode {

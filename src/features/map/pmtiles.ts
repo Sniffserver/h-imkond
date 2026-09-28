@@ -301,6 +301,7 @@ export function getTacticalVectorMapStyle(
   pmtilesUrl: string = '/maps/tallinn.pmtiles',
   theme: TacticalMapTheme = 'night'
 ): maplibregl.StyleSpecification {
+  initializePMTilesProtocol();
   const p = THEME_PALETTES[theme] || THEME_PALETTES.night;
 
   return {

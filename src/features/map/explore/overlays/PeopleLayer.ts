@@ -3,7 +3,7 @@
  */
 
 import type * as maplibregl from 'maplibre-gl';
-import { GeoPoint } from '../../../../types';
+import { GeoPoint, FieldProvenance } from '../../../../types';
 
 export const PEOPLE_SOURCE_ID = 'hoimu-people-source';
 export const PEOPLE_POINT_LAYER = 'people-points';
@@ -14,10 +14,16 @@ export interface PeerMapMarker {
   name: string;
   callsign: string;
   location: GeoPoint;
+  locationProvenance?: FieldProvenance;
   batteryPercent?: number;
+  batteryProvenance?: FieldProvenance;
   role?: string;
   online: boolean;
+  onlineProvenance?: FieldProvenance;
   rssi?: number;
+  rssiProvenance?: FieldProvenance;
+  distanceMeters?: number;
+  distanceProvenance?: FieldProvenance;
 }
 
 export function convertPeersToGeoJson(peers: PeerMapMarker[]): GeoJSON.FeatureCollection<GeoJSON.Point> {
@@ -33,10 +39,16 @@ export function convertPeersToGeoJson(peers: PeerMapMarker[]): GeoJSON.FeatureCo
         id: p.id,
         name: p.name,
         callsign: p.callsign,
-        batteryPercent: p.batteryPercent || 100,
+        batteryPercent: p.batteryPercent,
+        batteryProvenance: p.batteryProvenance || 'unknown',
         role: p.role || 'Peer',
         online: p.online ? 'true' : 'false',
-        rssi: p.rssi || -70,
+        onlineProvenance: p.onlineProvenance || 'observed',
+        rssi: p.rssi,
+        rssiProvenance: p.rssiProvenance || 'unknown',
+        locationProvenance: p.locationProvenance || 'observed',
+        distanceMeters: p.distanceMeters,
+        distanceProvenance: p.distanceProvenance || 'derived',
       },
     })),
   };

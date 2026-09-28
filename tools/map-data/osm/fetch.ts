@@ -279,6 +279,24 @@ const VETTED_OSM_FALLBACK: RawOsmElement[] = [
     },
     timestamp: '2026-09-15T09:00:00Z',
     version: 2
+  },
+  {
+    type: 'node',
+    id: 718293041,
+    lat: 59.4362,
+    lon: 24.7538,
+    tags: {
+      amenity: 'pharmacy',
+      name: 'Viru Keskuse Apteek',
+      'addr:street': 'Viru väljak',
+      'addr:housenumber': '4',
+      'addr:city': 'Tallinn',
+      phone: '+372 610 1340',
+      opening_hours: '09:00-21:00',
+      description: 'Südameapteek Viru Keskuses: ravimid, esmaabivahendid ja sidemed.'
+    },
+    timestamp: '2026-09-26T12:00:00Z',
+    version: 12
   }
 ];
 

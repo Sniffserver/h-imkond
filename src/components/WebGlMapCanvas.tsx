@@ -125,6 +125,7 @@ export const WebGlMapCanvas: React.FC<WebGlMapCanvasExtendedProps> = React.memo(
     const initialStyle = getTacticalVectorMapStyle(pmtilesUrl, tacticalTheme);
 
     try {
+      initializePMTilesProtocol();
       const map = new maplibregl.Map({
         container: mapContainerRef.current,
         zoom: 13,

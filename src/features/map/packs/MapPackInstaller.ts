@@ -14,9 +14,10 @@ import {
   MAP_PACK_MANIFESTS,
   validatePMTilesHeader,
 } from './MapPackManifest';
-import { MapPackStatusService } from './MapPackStatus';
+import { MapPackStatusService, MapPackStatusRecord } from './MapPackStatus';
 import { calculateSha256, mapPackService } from '../../../services/map/mapPackService';
 import { mapPackStorageEngine } from '../../../services/storage/mapPackStorageEngine';
+import { verifyPMTilesThreeLevels } from '../../../services/map/pmtilesVerifier';
 
 export interface GenerationArtifactEntry {
   key: 'basemap' | 'poi' | 'routingGraph' | 'streetIndex' | 'searchIndex';
@@ -27,7 +28,31 @@ export interface GenerationArtifactEntry {
 
 export class MapPackInstaller {
   /**
+   * Rollback to last-known-good generation if new generation install fails
+   */
+  public static async rollbackToLastKnownGood(
+    packId: string,
+    previousStatus?: MapPackStatusRecord
+  ): Promise<void> {
+    const statusService = MapPackStatusService.getInstance();
+    console.warn(`[MapPackInstaller] Rolling back generation for ${packId}...`);
+
+    if (previousStatus && previousStatus.state === 'active') {
+      statusService.updateStatus(packId, {
+        ...previousStatus,
+        error: 'Uue kaardipõlvkonna paigaldus ebaõnnestus - taastatud eelmine aktiivne versioon',
+      });
+    } else {
+      statusService.updateStatus(packId, {
+        state: 'error',
+        error: 'Uue kaardipõlvkonna paigaldus ja taastamine ebaõnnestus',
+      });
+    }
+  }
+
+  /**
    * Install an entire atomic Map Pack Generation (Basemap + POI + Routing + Street Index + Search Index)
+   * with 3-Level Verification and Automatic Rollback on failure.
    */
   public static async install(
     packId: string,
@@ -37,6 +62,8 @@ export class MapPackInstaller {
     if (!manifest) throw new Error(`Tundmatu kaardipakk: ${packId}`);
 
     const statusService = MapPackStatusService.getInstance();
+    const previousStatus = statusService.getStatus(packId);
+
     statusService.updateStatus(packId, {
       state: 'downloading',
       progressPercent: 5,
@@ -94,24 +121,27 @@ export class MapPackInstaller {
         totalBytes: totalDownloaded,
       });
 
-      // 1. Check minimal byte count for basemap
-      if (!basemapBuffer || basemapBuffer.byteLength < 127) {
-        throw new Error(`Vigane kaardipakk: baaskaardi fail on liiga lühike (${basemapBuffer?.byteLength || 0} baiti)`);
+      const centerLat = Array.isArray(manifest.center) ? manifest.center[0] : (manifest.center as any)?.lat || 59.4370;
+      const centerLng = Array.isArray(manifest.center) ? manifest.center[1] : (manifest.center as any)?.lng || 24.7535;
+
+      // 1. Explicit 3-Level Verification for Basemap PMTiles
+      const basemap3Level = verifyPMTilesThreeLevels(
+        basemapBuffer,
+        centerLat,
+        centerLng
+      );
+      if (!basemap3Level.valid) {
+        throw new Error(`Baaskaardi 3-tasemelise kontrolli viga: ${basemap3Level.errors.join('; ')}`);
       }
 
-      // 2. PMTiles Magic Header validation for Basemap
-      const basemapValidation = validatePMTilesHeader(basemapBuffer);
-      if (!basemapValidation.valid) {
-        throw new Error(`Kaardipaki baaskaardi formaadi viga: ${basemapValidation.reason}`);
-      }
-
-      // 3. PMTiles Magic Header validation for POI layer
-      if (!poiBuffer || poiBuffer.byteLength < 127) {
-        throw new Error(`Vigane kaardipakk: POI fail on liiga lühike (${poiBuffer?.byteLength || 0} baiti)`);
-      }
-      const poiValidation = validatePMTilesHeader(poiBuffer);
-      if (!poiValidation.valid) {
-        throw new Error(`Kaardipaki POI formaadi viga: ${poiValidation.reason}`);
+      // 2. Explicit 3-Level Verification for POI PMTiles
+      const poi3Level = verifyPMTilesThreeLevels(
+        poiBuffer,
+        centerLat,
+        centerLng
+      );
+      if (!poi3Level.valid) {
+        throw new Error(`POI kaardi 3-tasemelise kontrolli viga: ${poi3Level.errors.join('; ')}`);
       }
 
       // 4. Validate Routing Graph header (HROUTG)
@@ -254,6 +284,7 @@ export class MapPackInstaller {
       if (onProgress) onProgress(100, totalDownloaded, totalDownloaded);
       return true;
     } catch (err: any) {
+      await MapPackInstaller.rollbackToLastKnownGood(packId, previousStatus);
       statusService.updateStatus(packId, {
         state: 'error',
         error: err?.message || 'Paigaldamine ebaõnnestus',

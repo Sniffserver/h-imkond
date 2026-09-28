@@ -12,6 +12,8 @@ import {
   decodeRoutingBin,
   encodeRoutingBin
 } from './binaryFormat';
+import { MinHeap } from './MinHeap';
+import { SpatialNodeIndex } from './SpatialNodeIndex';
 
 export type RoutingProfileType = 'walking' | 'bike' | 'wheelchair' | 'emergency';
 export type RouteQuality = 'graph' | 'estimated' | 'unavailable';
@@ -40,6 +42,8 @@ export interface RouteResult {
 }
 
 export { routingRepository } from './routingRepository';
+export { MinHeap } from './MinHeap';
+export { SpatialNodeIndex } from './SpatialNodeIndex';
 
 /**
  * Calculates exact geodesic distance between two WGS84 coordinates in meters.
@@ -80,6 +84,7 @@ interface InternalNode extends BinaryNode {
 export class RoutingEngine {
   private nodesMap: Map<number, InternalNode> = new Map();
   private graphData: RoutingGraphData;
+  private spatialIndex: SpatialNodeIndex;
 
   constructor(graphData: RoutingGraphData) {
     this.graphData = graphData;
@@ -87,31 +92,33 @@ export class RoutingEngine {
       this.nodesMap.set(node.id, { ...node, neighbors: [] });
     }
 
-      for (const edge of graphData.edges) {
-        const srcNode = this.nodesMap.get(edge.sourceId);
-        const tgtNode = this.nodesMap.get(edge.targetId);
+    this.spatialIndex = new SpatialNodeIndex(graphData.nodes);
 
-        if (srcNode && tgtNode) {
-          srcNode.neighbors.push({
-            targetNode: tgtNode,
+    for (const edge of graphData.edges) {
+      const srcNode = this.nodesMap.get(edge.sourceId);
+      const tgtNode = this.nodesMap.get(edge.targetId);
+
+      if (srcNode && tgtNode) {
+        srcNode.neighbors.push({
+          targetNode: tgtNode,
+          distanceMeters: edge.distanceMeters,
+          flags: edge.flags,
+          maxSpeedKmh: edge.maxSpeedKmh,
+          streetName: edge.streetName,
+        });
+
+        // Bidirectional unless one-way
+        if (!(edge.flags & EDGE_FLAGS.ONE_WAY)) {
+          tgtNode.neighbors.push({
+            targetNode: srcNode,
             distanceMeters: edge.distanceMeters,
             flags: edge.flags,
             maxSpeedKmh: edge.maxSpeedKmh,
             streetName: edge.streetName,
           });
-
-          // Bidirectional unless one-way
-          if (!(edge.flags & EDGE_FLAGS.ONE_WAY)) {
-            tgtNode.neighbors.push({
-              targetNode: srcNode,
-              distanceMeters: edge.distanceMeters,
-              flags: edge.flags,
-              maxSpeedKmh: edge.maxSpeedKmh,
-              streetName: edge.streetName,
-            });
-          }
         }
       }
+    }
   }
 
   public static fromBinary(buffer: ArrayBuffer): RoutingEngine {
@@ -123,7 +130,17 @@ export class RoutingEngine {
    * Helper to build a metric routing graph directly from vector streets.
    */
   public static fromVectorStreets(
-    streets: Array<{ id?: string; name: string; coordinates: [number, number][]; type?: string; flags?: number }>
+    streets: Array<{
+      id?: string;
+      name: string;
+      coordinates?: [number, number][];
+      geometry?: { coordinates: [number, number][] };
+      type?: string;
+      flags?: number;
+      highwayClass?: string;
+      walkable?: boolean;
+      bicycle?: boolean;
+    }>
   ): RoutingEngine {
     const nodeMap = new Map<string, BinaryNode>();
     const nodes: BinaryNode[] = [];
@@ -155,7 +172,7 @@ export class RoutingEngine {
     };
 
     for (const street of streets) {
-      const coords = street.coordinates || [];
+      const coords = street.coordinates || (street as any).geometry?.coordinates || [];
       if (coords.length < 2) continue;
 
       let flags = street.flags || 0;
@@ -199,25 +216,15 @@ export class RoutingEngine {
   }
 
   /**
-   * Finds the nearest graph node to a given lat/lng coordinate.
+   * Finds the nearest graph node to a given lat/lng coordinate via spatial grid index.
    */
   public findNearestNode(lat: number, lng: number): BinaryNode | null {
-    let bestNode: BinaryNode | null = null;
-    let bestDist = Infinity;
-
-    for (const node of this.nodesMap.values()) {
-      const dist = calculateHaversineMeters(lat, lng, node.lat, node.lng);
-      if (dist < bestDist) {
-        bestDist = dist;
-        bestNode = node;
-      }
-    }
-
-    return bestNode;
+    return this.spatialIndex.findNearest(lat, lng);
   }
 
   /**
-   * A* Pathfinding Algorithm with profile cost weighting and hazard avoidance.
+   * A* Pathfinding Algorithm with true O(log N) binary MinHeap priority queue,
+   * profile cost weighting, and hazard avoidance.
    */
   public planRoute(
     origin: { lat: number; lng: number },
@@ -250,37 +257,26 @@ export class RoutingEngine {
 
     // A* Data structures
     const gScore = new Map<number, number>();
-    const fScore = new Map<number, number>();
     const cameFrom = new Map<number, { node: InternalNode; edge: AdjacencyEdge }>();
 
     gScore.set(startNode.id, 0);
     const initialH = calculateHaversineMeters(startNode.lat, startNode.lng, goalNode.lat, goalNode.lng);
-    fScore.set(startNode.id, initialH);
 
-    // Simple priority queue (Min-Heap based logic)
-    const openSet = new Set<number>([startNode.id]);
+    // O(log n) Min-Heap Priority Queue
+    const openHeap = new MinHeap<number>();
+    openHeap.push(startNode.id, initialH);
 
-    while (openSet.size > 0) {
-      // Pick node with lowest fScore
-      let currentId: number | null = null;
-      let lowestF = Infinity;
+    while (!openHeap.isEmpty()) {
+      const current = openHeap.pop();
+      if (!current) break;
 
-      for (const id of openSet) {
-        const score = fScore.get(id) ?? Infinity;
-        if (score < lowestF) {
-          lowestF = score;
-          currentId = id;
-        }
-      }
-
-      if (currentId === null) break;
+      const currentId = current.key;
 
       if (currentId === goalNode.id) {
         // Reconstruct path
         return this.reconstructRoute(goalNode.id, cameFrom, origin, destination, profile);
       }
 
-      openSet.delete(currentId);
       const currentNode = this.nodesMap.get(currentId)!;
       const currentG = gScore.get(currentId) ?? Infinity;
 
@@ -317,9 +313,9 @@ export class RoutingEngine {
           gScore.set(neighborNode.id, tentativeG);
 
           const h = calculateHaversineMeters(neighborNode.lat, neighborNode.lng, goalNode.lat, goalNode.lng);
-          fScore.set(neighborNode.id, tentativeG + h);
+          const f = tentativeG + h;
 
-          openSet.add(neighborNode.id);
+          openHeap.push(neighborNode.id, f);
         }
       }
     }

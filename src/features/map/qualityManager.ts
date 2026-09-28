@@ -1,7 +1,25 @@
 import { MapEngine } from './mapEngine';
 import { MapQualityMode } from './mapCapabilities';
 
-export type QualityMode = 'power-saver' | 'balanced' | 'detail';
+export type QualityMode = 'FULL' | 'STANDARD' | 'POWER_SAVER' | 'FIELD' | 'power-saver' | 'balanced' | 'detail';
+
+export interface FieldModeConfig {
+  simplifiedLabels: boolean;
+  lowAnimation: boolean;
+  reducedPoiDensity: boolean;
+  reducedSignalRedraw: boolean;
+  reducedShadows: boolean;
+}
+
+export const MODE_CONFIGS: Record<string, FieldModeConfig> = {
+  FULL: { simplifiedLabels: false, lowAnimation: false, reducedPoiDensity: false, reducedSignalRedraw: false, reducedShadows: false },
+  STANDARD: { simplifiedLabels: false, lowAnimation: false, reducedPoiDensity: false, reducedSignalRedraw: false, reducedShadows: true },
+  POWER_SAVER: { simplifiedLabels: true, lowAnimation: true, reducedPoiDensity: true, reducedSignalRedraw: true, reducedShadows: true },
+  FIELD: { simplifiedLabels: true, lowAnimation: true, reducedPoiDensity: true, reducedSignalRedraw: true, reducedShadows: true },
+  detail: { simplifiedLabels: false, lowAnimation: false, reducedPoiDensity: false, reducedSignalRedraw: false, reducedShadows: false },
+  balanced: { simplifiedLabels: false, lowAnimation: false, reducedPoiDensity: false, reducedSignalRedraw: false, reducedShadows: true },
+  'power-saver': { simplifiedLabels: true, lowAnimation: true, reducedPoiDensity: true, reducedSignalRedraw: true, reducedShadows: true },
+};
 
 export interface QualityChangeNotification {
   title: string;
@@ -96,22 +114,22 @@ export class MapQualityManager {
     );
 
     if (isLowBattery || isSlowConnection) {
-      if (this.currentMode !== 'power-saver') {
+      if (this.currentMode !== 'FIELD' && this.currentMode !== 'POWER_SAVER' && this.currentMode !== 'power-saver') {
         const prev = this.currentMode;
         const reason = isLowBattery ? 'battery' : 'network';
-        this.setQualityMode('power-saver', false);
+        this.setQualityMode('FIELD', false);
 
         this.emitNotification({
-          title: 'Map quality reduced',
+          title: 'Field Mode Activated',
           message: isLowBattery
-            ? 'Battery below 20%. Map detail reduced to preserve energy for mesh operations.'
-            : 'Slow or metered network detected. Reduced map bandwidth.',
+            ? 'Battery below 20%. Field Mode activated (simplified labels, low animation, reduced POI density, reduced signal redraw) to maximize battery autonomy.'
+            : 'Slow connection detected. Field Mode activated to conserve bandwidth.',
           previousMode: prev,
-          newMode: 'power-saver',
+          newMode: 'FIELD',
           reason,
           action: {
-            label: 'Restore detail',
-            onClick: () => this.setQualityMode('detail', true),
+            label: 'Restore FULL mode',
+            onClick: () => this.setQualityMode('FULL', true),
           },
         });
       }
@@ -154,8 +172,8 @@ export class MapQualityManager {
     }
 
     // Pass to map engine if hooked
-    if (this.mapEngine) {
-      this.mapEngine.setQualityMode(mode);
+    if (this.mapEngine && typeof (this.mapEngine as any).setQualityMode === 'function') {
+      (this.mapEngine as any).setQualityMode(mode);
     }
 
     // Notify listeners

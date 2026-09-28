@@ -171,12 +171,12 @@ export async function runIngestionPipeline(options?: { forceLive?: boolean }): P
   console.log('====================================================================');
   console.log('  SUCCESS: Ingestion pipeline execution completed!');
   console.log(`  Artifact Manifest: ${manifestPath}`);
-  console.log(`    - basemap:      ${manifestData.basemap.filename} (${manifestData.basemap.sha256.substring(0, 16)}... ${manifestData.basemap.sizeBytes} B)`);
-  console.log(`    - poi:          ${manifestData.poi.filename} (${manifestData.poi.sha256.substring(0, 16)}... ${manifestData.poi.sizeBytes} B, ${manifestData.poi.count} places)`);
-  console.log(`    - routing:      ${manifestData.routing.filename} (${manifestData.routing.sha256.substring(0, 16)}... ${manifestData.routing.sizeBytes} B, ${manifestData.routing.nodes} nodes)`);
-  console.log(`    - streetIndex:  ${manifestData.streetIndex.filename} (${manifestData.streetIndex.sha256.substring(0, 16)}... ${manifestData.streetIndex.sizeBytes} B)`);
-  if (manifestData.searchIndex) {
-    console.log(`    - searchIndex:  ${manifestData.searchIndex.filename} (${manifestData.searchIndex.sha256.substring(0, 16)}... ${manifestData.searchIndex.sizeBytes} B)`);
+  console.log(`    - basemap:      ${manifestData.artifacts.basemap.path} (${manifestData.artifacts.basemap.sha256.substring(0, 16)}... ${manifestData.artifacts.basemap.sizeBytes} B)`);
+  console.log(`    - poi:          ${manifestData.artifacts.poi.path} (${manifestData.artifacts.poi.sha256.substring(0, 16)}... ${manifestData.artifacts.poi.sizeBytes} B, ${manifestData.artifacts.poi.count} places)`);
+  console.log(`    - routing:      ${manifestData.artifacts.routing.path} (${manifestData.artifacts.routing.sha256.substring(0, 16)}... ${manifestData.artifacts.routing.sizeBytes} B, ${manifestData.artifacts.routing.nodes} nodes)`);
+  console.log(`    - streetIndex:  ${manifestData.artifacts.streetIndex.path} (${manifestData.artifacts.streetIndex.sha256.substring(0, 16)}... ${manifestData.artifacts.streetIndex.sizeBytes} B)`);
+  if (manifestData.artifacts.searchIndex) {
+    console.log(`    - searchIndex:  ${manifestData.artifacts.searchIndex.path} (${manifestData.artifacts.searchIndex.sha256.substring(0, 16)}... ${manifestData.artifacts.searchIndex.sizeBytes} B)`);
   }
   console.log('====================================================================');
 
@@ -187,28 +187,28 @@ export async function runIngestionPipeline(options?: { forceLive?: boolean }): P
     artifacts: {
       basemap: {
         path: basemapGenerated,
-        sha256: manifestData.basemap.sha256,
-        sizeBytes: manifestData.basemap.sizeBytes,
+        sha256: manifestData.artifacts.basemap.sha256,
+        sizeBytes: manifestData.artifacts.basemap.sizeBytes,
       },
       poi: {
         path: poiPmtilesGenerated,
-        sha256: manifestData.poi.sha256,
-        sizeBytes: manifestData.poi.sizeBytes,
+        sha256: manifestData.artifacts.poi.sha256,
+        sizeBytes: manifestData.artifacts.poi.sizeBytes,
       },
       routing: {
         path: streetArtifacts.routingGraphPath,
-        sha256: manifestData.routing.sha256,
-        sizeBytes: manifestData.routing.sizeBytes,
+        sha256: manifestData.artifacts.routing.sha256,
+        sizeBytes: manifestData.artifacts.routing.sizeBytes,
       },
       streetIndex: {
         path: streetArtifacts.streetIndexPath,
-        sha256: manifestData.streetIndex.sha256,
-        sizeBytes: manifestData.streetIndex.sizeBytes,
+        sha256: manifestData.artifacts.streetIndex.sha256,
+        sizeBytes: manifestData.artifacts.streetIndex.sizeBytes,
       },
       searchIndex: {
         path: streetArtifacts.searchIndexPath,
-        sha256: manifestData.searchIndex?.sha256 || '',
-        sizeBytes: manifestData.searchIndex?.sizeBytes || 0,
+        sha256: manifestData.artifacts.searchIndex?.sha256 || '',
+        sizeBytes: manifestData.artifacts.searchIndex?.sizeBytes || 0,
       },
     },
   };

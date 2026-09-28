@@ -103,78 +103,54 @@ export interface ArtifactFileSpec {
   sizeBytes: number;
 }
 
-export interface ManifestSourceEntry {
+export interface SourceManifest {
   provider: string;
   snapshot: string;
   license: string;
 }
 
-export interface GeneratedManifest {
+export interface ArtifactManifest {
+  filename?: string;
+  path: string;
+  sha256: string;
+  sizeBytes: number;
+  index?: string;
+  count?: number;
+  nodes?: number;
+  edges?: number;
+  streetCount?: number;
+}
+
+export interface MapPackManifest {
   id?: string;
+  generationId: string;
   region: string;
   version: string;
   generatedAt: string;
-  sources?: ManifestSourceEntry[];
-  artifacts?: {
-    basemap: {
-      path: string;
-      sha256: string;
-      sizeBytes: number;
-    };
-    poi: {
-      path: string;
-      sha256: string;
-      sizeBytes: number;
-      index?: string;
-      count?: number;
-    };
-    routing: {
-      path: string;
-      sha256: string;
-      sizeBytes?: number;
-      nodes?: number;
-      edges?: number;
-    };
-    streetIndex: {
-      path: string;
-      sha256: string;
-      sizeBytes?: number;
-      streetCount?: number;
-    };
-    searchIndex?: {
-      path: string;
-      sha256: string;
-      sizeBytes?: number;
-    };
+
+  sources: SourceManifest[];
+
+  artifacts: {
+    basemap: ArtifactManifest;
+    poi: ArtifactManifest;
+    routing: ArtifactManifest;
+    streetIndex: ArtifactManifest;
+    searchIndex: ArtifactManifest;
   };
-  basemap: {
-    filename: string;
-    sha256: string;
-    sizeBytes: number;
-  };
-  poi: {
-    filename: string;
-    index: string;
-    sha256: string;
-    sizeBytes: number;
-    count: number;
-  };
-  routing: {
-    filename: string;
-    sha256: string;
-    sizeBytes: number;
-    nodes: number;
-    edges: number;
-  };
-  streetIndex: {
-    filename: string;
-    sha256: string;
-    sizeBytes: number;
-    streetCount: number;
-  };
-  searchIndex?: {
-    filename: string;
-    sha256: string;
-    sizeBytes: number;
+
+  basemap?: ArtifactManifest;
+  poi?: ArtifactManifest;
+  routing?: ArtifactManifest;
+  streetIndex?: ArtifactManifest;
+  searchIndex?: ArtifactManifest;
+
+  compatibility: {
+    mapSchema: number;
+    routingSchema: number;
+    streetSchema: number;
+    searchSchema: number;
   };
 }
+
+export type ManifestSourceEntry = SourceManifest;
+export type GeneratedManifest = MapPackManifest;

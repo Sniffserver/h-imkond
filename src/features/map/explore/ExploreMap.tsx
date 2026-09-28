@@ -18,20 +18,21 @@ import {
   setupAllOverlayLayers,
   applyCategoryFilterToPlaces,
   applyMapLayerVisibility,
-  updateUserLocationData,
   MapLayerState,
 } from './ExploreMapLayers';
-import { updatePeopleLayerData, PeerMapMarker } from './overlays/PeopleLayer';
-import { updateResourcesLayerData, ResourceItem } from './overlays/ResourcesLayer';
-import { updateMeshLinksLayerData, MeshLink } from './overlays/MeshLinksLayer';
-import { updateSignalTrailData } from './overlays/SignalTrailLayer';
-import { updateDiscoveryLayerData } from './overlays/DiscoveryLayer';
-import { updatePlacesLayerData } from './overlays/PlacesLayer';
-import { updateRouteLayerData } from './overlays/RouteLayer';
+import { MapUpdateScheduler } from './MapUpdateScheduler';
+import { convertUserLocationToGeoJson, USER_LOCATION_SOURCE_ID } from './overlays/UserLocationLayer';
+import { convertPeersToGeoJson, PEOPLE_SOURCE_ID, PeerMapMarker } from './overlays/PeopleLayer';
+import { convertResourcesToGeoJson, RESOURCES_SOURCE_ID, ResourceItem } from './overlays/ResourcesLayer';
+import { convertMeshLinksToGeoJson, MESH_LINKS_SOURCE_ID, MeshLink } from './overlays/MeshLinksLayer';
+import { convertTrailToGeoJson, SIGNAL_TRAIL_SOURCE_ID } from './overlays/SignalTrailLayer';
+import { convertStreetsToDiscoveryGeoJson, DISCOVERY_SOURCE_ID } from './overlays/DiscoveryLayer';
+import { convertPlacesToGeoJson, PLACES_SOURCE_ID } from './overlays/PlacesLayer';
+import { convertRouteToGeoJson, ROUTE_SOURCE_ID } from './overlays/RouteLayer';
 import { bindExploreMapInteractions } from './ExploreMapSelection';
 import { flyToPoint, fitToGeoJsonBounds, resetMapNorth } from './ExploreMapGestures';
-import { searchExploreMap, SearchMatch } from './ExploreMapSearch';
-import { applyMapTheme, getTacticalVectorMapStyle, TacticalMapTheme } from '../pmtiles';
+import { searchExploreMapAsync, SearchMatch } from './ExploreMapSearch';
+import { applyMapTheme, getTacticalVectorMapStyle, initializePMTilesProtocol, TacticalMapTheme } from '../pmtiles';
 import { mapRepository } from '../data/repository';
 import { MapPlace, Street, GeoPoint, SignalObservation } from '../../../types';
 import { routingRepository } from '../../../services/routing/routingRepository';
@@ -76,6 +77,7 @@ export const ExploreMap: React.FC<ExploreMapProps> = ({
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<maplibregl.Map | null>(null);
+  const updateSchedulerRef = useRef<MapUpdateScheduler>(new MapUpdateScheduler());
   const [mapLoaded, setMapLoaded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchMatch[]>([]);
@@ -161,6 +163,7 @@ export const ExploreMap: React.FC<ExploreMapProps> = ({
     if (!mapContainerRef.current || mapInstanceRef.current) return;
 
     try {
+      initializePMTilesProtocol();
       const styleSpec = getTacticalVectorMapStyle('/maps/tallinn.pmtiles', theme);
       const map = new maplibregl.Map({
         container: mapContainerRef.current,
@@ -174,6 +177,7 @@ export const ExploreMap: React.FC<ExploreMapProps> = ({
 
       map.on('load', () => {
         try {
+          updateSchedulerRef.current.setMap(map);
           initializeMapSources(map, '/maps/tallinn.pmtiles');
           setupAllOverlayLayers(map, {
             userLocation,
@@ -208,6 +212,7 @@ export const ExploreMap: React.FC<ExploreMapProps> = ({
 
     return () => {
       try {
+        updateSchedulerRef.current.destroy();
         if (mapInstanceRef.current) {
           mapInstanceRef.current.remove();
           mapInstanceRef.current = null;
@@ -232,52 +237,73 @@ export const ExploreMap: React.FC<ExploreMapProps> = ({
     }
   }, [filters.categoryFilter, mapLoaded]);
 
-  // Update user location pin dynamically
+  // Batch Update user location pin dynamically
   useEffect(() => {
     if (mapInstanceRef.current && mapLoaded && userLocation) {
-      updateUserLocationData(mapInstanceRef.current, userLocation);
+      updateSchedulerRef.current.queueUpdate(
+        USER_LOCATION_SOURCE_ID,
+        convertUserLocationToGeoJson(userLocation)
+      );
     }
   }, [userLocation, mapLoaded]);
 
-  // Update peers layer in runtime
+  // Batch Update peers layer in runtime
   useEffect(() => {
     if (mapInstanceRef.current && mapLoaded) {
-      updatePeopleLayerData(mapInstanceRef.current, peers);
+      updateSchedulerRef.current.queueUpdate(
+        PEOPLE_SOURCE_ID,
+        convertPeersToGeoJson(peers)
+      );
     }
   }, [peers, mapLoaded]);
 
-  // Update resources layer in runtime
+  // Batch Update resources layer in runtime
   useEffect(() => {
     if (mapInstanceRef.current && mapLoaded) {
-      updateResourcesLayerData(mapInstanceRef.current, resources);
+      updateSchedulerRef.current.queueUpdate(
+        RESOURCES_SOURCE_ID,
+        convertResourcesToGeoJson(resources)
+      );
     }
   }, [resources, mapLoaded]);
 
-  // Update mesh links layer in runtime
+  // Batch Update mesh links layer in runtime
   useEffect(() => {
     if (mapInstanceRef.current && mapLoaded) {
-      updateMeshLinksLayerData(mapInstanceRef.current, meshLinks);
+      updateSchedulerRef.current.queueUpdate(
+        MESH_LINKS_SOURCE_ID,
+        convertMeshLinksToGeoJson(meshLinks)
+      );
     }
   }, [meshLinks, mapLoaded]);
 
-  // Update signal trail / radio geography layer in runtime
+  // Batch Update signal trail / radio geography layer in runtime
   useEffect(() => {
     if (mapInstanceRef.current && mapLoaded) {
-      updateSignalTrailData(mapInstanceRef.current, signalTrail);
+      updateSchedulerRef.current.queueUpdate(
+        SIGNAL_TRAIL_SOURCE_ID,
+        convertTrailToGeoJson(signalTrail)
+      );
     }
   }, [signalTrail, mapLoaded]);
 
-  // Update street discovery layer in runtime
+  // Batch Update street discovery layer in runtime
   useEffect(() => {
     if (mapInstanceRef.current && mapLoaded) {
-      updateDiscoveryLayerData(mapInstanceRef.current, streets);
+      updateSchedulerRef.current.queueUpdate(
+        DISCOVERY_SOURCE_ID,
+        convertStreetsToDiscoveryGeoJson(streets)
+      );
     }
   }, [streets, mapLoaded]);
 
-  // Update places layer in runtime
+  // Batch Update places layer in runtime
   useEffect(() => {
     if (mapInstanceRef.current && mapLoaded) {
-      updatePlacesLayerData(mapInstanceRef.current, places);
+      updateSchedulerRef.current.queueUpdate(
+        PLACES_SOURCE_ID,
+        convertPlacesToGeoJson(places)
+      );
     }
   }, [places, mapLoaded]);
 
@@ -288,24 +314,35 @@ export const ExploreMap: React.FC<ExploreMapProps> = ({
     }
   }, [layers, mapLoaded]);
 
-  // Update active route line
+  // Batch Update active route line
   useEffect(() => {
     if (mapInstanceRef.current && mapLoaded) {
-      updateRouteLayerData(mapInstanceRef.current, activeRoute);
+      updateSchedulerRef.current.queueUpdate(
+        ROUTE_SOURCE_ID,
+        convertRouteToGeoJson(activeRoute)
+      );
       if (activeRoute && activeRoute.path.length >= 2) {
         fitToGeoJsonBounds(mapInstanceRef.current, activeRoute.path);
       }
     }
   }, [activeRoute, mapLoaded]);
 
-  // Handle Search Input
+  // Handle Search Input (Debounced 60-100ms off main thread via Web Worker)
   useEffect(() => {
-    if (searchQuery.trim().length > 1) {
-      const results = searchExploreMap(searchQuery, userLocation, places, streets);
-      setSearchResults(results.slice(0, 6));
+    let active = true;
+    if (searchQuery.trim().length > 0) {
+      searchExploreMapAsync(searchQuery, userLocation, places, streets).then((results) => {
+        if (active) {
+          setSearchResults(results.slice(0, 6));
+        }
+      });
     } else {
       setSearchResults([]);
     }
+
+    return () => {
+      active = false;
+    };
   }, [searchQuery, userLocation, places, streets]);
 
   // A* Routing Trigger to a Place using authoritative RoutingRepository
@@ -514,19 +551,35 @@ export const ExploreMap: React.FC<ExploreMapProps> = ({
       {activeRoute && (
         <div className="absolute bottom-4 left-3 right-3 z-20 max-w-lg mx-auto bg-[#10170F]/95 backdrop-blur-lg border border-[#8FA875]/40 rounded-2xl shadow-2xl p-5 text-[#E5EBDD] flex flex-col gap-3">
           <div className="flex items-center justify-between border-b border-[#8FA875]/20 pb-3">
-            <div className="space-y-0.5">
-              <span className="text-[10px] font-mono font-bold text-stone-400 uppercase tracking-wider block">
-                Walk Navigation
-              </span>
-              <h4 className="font-bold text-base text-white">
-                Walk to {routingDestinationName}
-              </h4>
-              <div className="flex items-center gap-2 text-xs text-[#8FA875] font-medium font-sans">
-                <span>{(activeRoute.totalDistanceMeters / 1000).toFixed(1)} km</span>
-                <span>·</span>
-                <span className="text-[#E9C46A] font-semibold">≈ {activeRoute.estimatedMinutes} min walk</span>
+            {activeRoute.quality === 'estimated' ? (
+              <div className="space-y-0.5">
+                <span className="text-[10px] font-mono font-bold text-amber-400 uppercase tracking-wider block">
+                  DIRECT BEARING
+                </span>
+                <h4 className="font-bold text-base text-white">
+                  Direct bearing to {routingDestinationName}
+                </h4>
+                <div className="flex items-center gap-2 text-xs text-amber-300 font-medium font-sans">
+                  <span>{(activeRoute.totalDistanceMeters / 1000).toFixed(1)} km straight-line</span>
+                  <span>·</span>
+                  <span className="text-amber-400 font-semibold">Not a walking route</span>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-0.5">
+                <span className="text-[10px] font-mono font-bold text-stone-400 uppercase tracking-wider block">
+                  Walk Navigation
+                </span>
+                <h4 className="font-bold text-base text-white">
+                  Walk to {routingDestinationName}
+                </h4>
+                <div className="flex items-center gap-2 text-xs text-[#8FA875] font-medium font-sans">
+                  <span>{(activeRoute.totalDistanceMeters / 1000).toFixed(1)} km</span>
+                  <span>·</span>
+                  <span className="text-[#E9C46A] font-semibold">≈ {activeRoute.estimatedMinutes} min walk</span>
+                </div>
+              </div>
+            )}
             <button
               onClick={() => setActiveRoute(null)}
               className="px-3.5 py-1.5 rounded-xl bg-[#E76F51]/10 border border-[#E76F51]/30 text-[#E76F51] text-xs font-bold hover:bg-[#E76F51]/20 transition"

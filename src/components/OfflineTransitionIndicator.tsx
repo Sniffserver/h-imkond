@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { WifiOff, RefreshCw, Radio, HardDrive, MessageSquare, Database, Check, Minus, ChevronDown, ChevronUp } from 'lucide-react';
+import { WifiOff, RefreshCw, Check, Minus, ChevronDown, ChevronUp, AlertCircle, XCircle } from 'lucide-react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
-import { offlineMapService } from '../services/map/offlineMapService';
 import { MeshNode, MeshMessage } from '../types';
-import { mapRepository } from '../features/map/data/repository';
-import { routingRepository } from '../services/routing/routingRepository';
+import { offlineCapabilityService, OfflineCapabilities, CapabilityState } from '../services/capabilities/offlineCapabilityService';
 
 export interface OfflineTransitionIndicatorProps {
   onReconnect?: () => void;
@@ -25,10 +23,27 @@ export function OfflineTransitionIndicator({
   );
   const [isRetrying, setIsRetrying] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
+  const [capabilities, setCapabilities] = useState<OfflineCapabilities>(() =>
+    offlineCapabilityService.getSnapshot()
+  );
 
   useEffect(() => {
     setConnectionState(isOnline ? 'online' : 'offline');
   }, [isOnline]);
+
+  useEffect(() => {
+    let mounted = true;
+    offlineCapabilityService.evaluateCapabilities({ peers, messages }).then((caps) => {
+      if (mounted) setCapabilities(caps);
+    });
+    const unsub = offlineCapabilityService.subscribe((caps) => {
+      if (mounted) setCapabilities(caps);
+    });
+    return () => {
+      mounted = false;
+      unsub();
+    };
+  }, [peers, messages]);
 
   const handleRetry = async () => {
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
@@ -38,7 +53,6 @@ export function OfflineTransitionIndicator({
     if (onReconnect) {
       onReconnect();
     }
-    // Attempt standard fetch ping
     try {
       await fetch('/favicon.ico', { method: 'HEAD', cache: 'no-store' });
       setConnectionState('online');
@@ -51,14 +65,49 @@ export function OfflineTransitionIndicator({
 
   if (connectionState === 'online') return null;
 
-  // Real capability verification — zero mock overclaiming
-  const isMapSaved = offlineMapService.getDownloadedRegions().length > 0 || !!localStorage.getItem('cached_map_tiles_count') || true;
-  const queuedMessagesCount = messages.filter((m) => m.status === 'queued' || (m as any).isQueued).length;
-  const hasMessages = queuedMessagesCount > 0 || true; // Encrypted local outbox is primed and active
   const peerCount = peers.length;
-  const hasRadio = peerCount > 0;
-  const hasPlaces = mapRepository.getAllPlaces().length > 0;
-  const isRoutingReady = routingRepository.isReady() || true; // Tallinn graph engine initialized or bearing fallback
+  const hasRadio = capabilities.mesh === 'ready';
+
+  const renderStatus = (
+    label: string,
+    state: CapabilityState,
+    successText: string,
+    customMissingText?: string
+  ) => {
+    if (state === 'ready') {
+      return (
+        <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+          <Check className="w-3 h-3" /> {successText}
+        </span>
+      );
+    }
+    if (state === 'partial') {
+      return (
+        <span className="font-semibold text-amber-500 dark:text-amber-400 flex items-center gap-1">
+          <Minus className="w-3 h-3" /> Loading
+        </span>
+      );
+    }
+    if (state === 'missing' || state === 'unavailable') {
+      return (
+        <span className="font-semibold text-stone-500 dark:text-stone-400 flex items-center gap-1">
+          <span className="text-xs">○</span> {customMissingText || 'Unavailable'}
+        </span>
+      );
+    }
+    if (state === 'corrupt') {
+      return (
+        <span className="font-semibold text-rose-500 dark:text-rose-400 flex items-center gap-1">
+          <XCircle className="w-3 h-3" /> Corrupt
+        </span>
+      );
+    }
+    return (
+      <span className="font-semibold text-stone-400 flex items-center gap-1">
+        <AlertCircle className="w-3 h-3" /> Unknown
+      </span>
+    );
+  };
 
   return (
     <div
@@ -121,44 +170,37 @@ export function OfflineTransitionIndicator({
           </div>
         </div>
 
-        {/* Truthful Offline Capability Matrix */}
+        {/* Pure Rendering Layer: Truthful Offline Capability Matrix */}
         {isExpanded && (
           <div className="mt-3 pt-2.5 border-t border-black/10 dark:border-white/10 space-y-1 font-mono text-[11px]">
             <div className="flex items-center justify-between py-0.5">
               <span className="text-stone-500 dark:text-stone-400">Map</span>
-              <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                <Check className="w-3 h-3" /> Saved
-              </span>
-            </div>
-            <div className="flex items-center justify-between py-0.5">
-              <span className="text-stone-500 dark:text-stone-400">Messages</span>
-              <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                <Check className="w-3 h-3" /> Queued
-              </span>
-            </div>
-            <div className="flex items-center justify-between py-0.5">
-              <span className="text-stone-500 dark:text-stone-400">Mesh</span>
-              {hasRadio ? (
-                <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                  <Check className="w-3 h-3" /> {peerCount} connected
-                </span>
-              ) : (
-                <span className="font-semibold text-stone-500 dark:text-stone-400 flex items-center gap-1">
-                  <span className="text-xs">○</span> No radio connected
-                </span>
-              )}
+              {renderStatus('Map', capabilities.map, 'Ready', 'Missing')}
             </div>
             <div className="flex items-center justify-between py-0.5">
               <span className="text-stone-500 dark:text-stone-400">Places</span>
-              <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                <Check className="w-3 h-3" /> Local
-              </span>
+              {renderStatus('Places', capabilities.places, 'Local', 'Missing')}
             </div>
             <div className="flex items-center justify-between py-0.5">
               <span className="text-stone-500 dark:text-stone-400">Routing</span>
-              <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                <Check className="w-3 h-3" /> Ready
-              </span>
+              {renderStatus('Routing', capabilities.routing, 'Ready', 'Unavailable')}
+            </div>
+            <div className="flex items-center justify-between py-0.5">
+              <span className="text-stone-500 dark:text-stone-400">Search</span>
+              {renderStatus('Search', capabilities.search, 'Local', 'Missing')}
+            </div>
+            <div className="flex items-center justify-between py-0.5">
+              <span className="text-stone-500 dark:text-stone-400">Messages</span>
+              {renderStatus('Messages', capabilities.messages, 'Queued', 'No outbox')}
+            </div>
+            <div className="flex items-center justify-between py-0.5">
+              <span className="text-stone-500 dark:text-stone-400">Mesh</span>
+              {renderStatus(
+                'Mesh',
+                capabilities.mesh,
+                `${peerCount} connected`,
+                'No radio connected'
+              )}
             </div>
             <div className="flex items-center justify-between py-0.5">
               <span className="text-stone-500 dark:text-stone-400">Sync</span>

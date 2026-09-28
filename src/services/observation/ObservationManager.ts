@@ -61,6 +61,10 @@ export class ObservationManager {
     return [...this.trailHistory];
   }
 
+  public getAllObservations(): SignalObservation[] {
+    return this.getTrailHistory();
+  }
+
   public subscribe(listener: (obs: SignalObservation) => void): () => void {
     this.listeners.add(listener);
     return () => {

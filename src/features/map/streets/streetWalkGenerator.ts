@@ -30,6 +30,7 @@ export interface FieldWalkRoute {
   routePath: [number, number][];
   fieldObjectives: FieldObjectives;
   fieldReport?: FieldReport;
+  quality?: 'graph' | 'estimated' | 'unavailable';
   fieldcraftRewards: {
     streetsToDiscover: number;
     placesToFind: number;
@@ -187,6 +188,9 @@ export function generateFieldWalkRoute(
   // 4. Calculate actual pedestrian graph path using routingRepository between consecutive stops
   let fullRoutePath: [number, number][] = [];
   let totalDistanceMeters = 0;
+  let allSegmentsGraph = true;
+  let hasEstimatedSegment = false;
+  let hasUnavailableSegment = false;
 
   for (let i = 0; i < stops.length - 1; i++) {
     const from = stops[i].location;
@@ -194,7 +198,16 @@ export function generateFieldWalkRoute(
 
     const route = routingRepository.planRoute(from, to, { profile: 'walking' });
 
-    if (route && route.path.length > 0) {
+    if (route && route.quality === 'graph' && route.path.length > 0) {
+      if (fullRoutePath.length > 0) {
+        fullRoutePath = fullRoutePath.concat(route.path.slice(1));
+      } else {
+        fullRoutePath = route.path;
+      }
+      totalDistanceMeters += route.totalDistanceMeters;
+    } else if (route && route.quality === 'estimated' && route.path.length > 0) {
+      allSegmentsGraph = false;
+      hasEstimatedSegment = true;
       if (fullRoutePath.length > 0) {
         fullRoutePath = fullRoutePath.concat(route.path.slice(1));
       } else {
@@ -202,9 +215,26 @@ export function generateFieldWalkRoute(
       }
       totalDistanceMeters += route.totalDistanceMeters;
     } else {
+      // Fallback straight coordinates happened
+      allSegmentsGraph = false;
+      hasUnavailableSegment = true;
       totalDistanceMeters += haversineDistanceMeters(from.lat, from.lng, to.lat, to.lng);
       fullRoutePath.push([from.lng, from.lat], [to.lng, to.lat]);
     }
+  }
+
+  // Aggregate segment quality:
+  // all segments = graph -> graph
+  // some segments = estimated -> estimated
+  // any required segment unavailable -> unavailable
+  // Never: fallback happened + quality = graph
+  let quality: 'graph' | 'estimated' | 'unavailable' = 'graph';
+  if (hasUnavailableSegment) {
+    quality = 'unavailable';
+  } else if (hasEstimatedSegment || !allSegmentsGraph) {
+    quality = 'estimated';
+  } else {
+    quality = 'graph';
   }
 
   const totalDistanceKm = parseFloat((totalDistanceMeters / 1000).toFixed(1));
@@ -250,6 +280,7 @@ export function generateFieldWalkRoute(
     routePath: fullRoutePath,
     fieldObjectives,
     fieldReport,
+    quality,
     fieldcraftRewards: {
       streetsToDiscover: rawSelectedStreets.length,
       placesToFind: selectedPlaces.length,

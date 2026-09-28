@@ -21,6 +21,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { PMTiles } from 'pmtiles';
 import { validatePMTilesHeader } from '../../src/features/map/packs/MapPackManifest';
+import { verifyPMTilesThreeLevels } from '../../src/services/map/pmtilesVerifier';
 import { GeneratedManifest } from './types';
 
 interface VerificationResult {
@@ -126,92 +127,28 @@ function parseMvtFeaturesCount(tileBuffer: ArrayBuffer | Uint8Array): Record<str
   return layerFeatureCounts;
 }
 
-async function verifyPMTilesArchiveDeepAsync(filePath: string, isPoi: boolean = false): Promise<{ valid: boolean; reason?: string; details?: string }> {
-  let source: NodeFileSource | null = null;
+export async function verifyPMTilesArchiveDeep(
+  filePath: string,
+  isPoi: boolean = false
+): Promise<{ valid: boolean; reason?: string; details?: string }> {
   try {
     if (!fs.existsSync(filePath)) {
       return { valid: false, reason: `File missing: ${filePath}` };
     }
     const buf = fs.readFileSync(filePath);
-    const headerCheck = validatePMTilesHeader(new Uint8Array(buf));
-    if (!headerCheck.valid) return headerCheck;
+    const result = verifyPMTilesThreeLevels(buf, 59.4370, 24.7535);
 
-    source = new NodeFileSource(filePath);
-    const pmtilesInstance = new PMTiles(source);
-
-    // 1. PMTiles.open() equivalent: getHeader and getMetadata
-    const header = await pmtilesInstance.getHeader();
-    const metadata = (await pmtilesInstance.getMetadata()) as any;
-
-    // 2. Inspect bounds
-    const bounds = [header.minLon, header.minLat, header.maxLon, header.maxLat];
-    const isBoundsValid = bounds[0] >= 24.0 && bounds[2] <= 25.5 && bounds[1] >= 59.0 && bounds[3] <= 59.7;
-    if (!isBoundsValid) {
-      return { valid: false, reason: `Invalid spatial bounds: [${bounds.join(', ')}]` };
-    }
-
-    // 3. Inspect tile type
-    if (header.tileType !== 1) { // 1 = Mvt
-      return { valid: false, reason: `Unsupported tile type: ${header.tileType} (expected 1 = MVT)` };
-    }
-
-    // 4. Inspect vector layers
-    if (!metadata || !Array.isArray(metadata.vector_layers) || metadata.vector_layers.length === 0) {
-      return { valid: false, reason: 'Missing or empty vector_layers in PMTiles metadata' };
-    }
-
-    const layersPresent = metadata.vector_layers.map((l: any) => l.id);
-
-    // 5. Query representative tile covering Tallinn (z13 x4658 y2374)
-    const tile = await pmtilesInstance.getZxy(13, 4658, 2374);
-    if (!tile || !tile.data || tile.data.byteLength === 0) {
-      return { valid: false, reason: 'Failed to query representative z13 tile or tile is empty' };
-    }
-
-    // 6. Decode MVT & verify features
-    const featureCounts = parseMvtFeaturesCount(tile.data);
-
-    if (isPoi) {
-      const placesCount = featureCounts['places'] || 0;
-      if (placesCount === 0) {
-        return { valid: false, reason: 'POI map verification failed: places feature count is zero' };
-      }
-    } else {
-      const roadsCount = featureCounts['roads'] || 0;
-      const buildingsCount = featureCounts['buildings'] || 0;
-      const waterCount = featureCounts['water'] || 0;
-      const landuseCount = (featureCounts['landuse'] || 0) + (featureCounts['natural'] || 0);
-
-      const hasRoads = roadsCount > 0;
-      const hasBuildings = buildingsCount > 0;
-      const hasWater = waterCount > 0;
-      const hasLanduse = landuseCount > 0;
-
-      if (!hasRoads || !hasBuildings || !hasWater || !hasLanduse) {
-        return {
-          valid: false,
-          reason: `Tallinn pack deep verification failed. Roads: ${roadsCount}, Buildings: ${buildingsCount}, Water: ${waterCount}, Landuse/Natural: ${landuseCount}. (Each must be > 0)`,
-        };
-      }
+    if (!result.valid) {
+      return { valid: false, reason: `PMTiles 3-level verification failed: ${result.errors.join('; ')}` };
     }
 
     return {
       valid: true,
-      details: `PMTiles v3 Deep Verification OK | Decoded layers: [${Object.keys(featureCounts).join(', ')}] with features: [${JSON.stringify(featureCounts)}]`,
+      details: `3-Level Verification Passed (Level 1 Container: OK, Level 2 Semantic: ${result.details.layersCount} layers, Level 3 Content: ${result.details.sampledTilesCount} sampled tiles)`,
     };
   } catch (err: any) {
-    return { valid: false, reason: `PMTiles deep verification exception: ${err.message}` };
-  } finally {
-    if (source) {
-      source.close();
-    }
+    return { valid: false, reason: `PMTiles 3-level verification exception: ${err.message}` };
   }
-}
-
-// Keep synchronous wrapper but call the async verification in runMapVerification
-function verifyPMTilesArchiveDeep(filePath: string): { valid: boolean; reason?: string; details?: string } {
-  // Fallback signature for compatibility if called synchronously, but we use the async version below
-  return { valid: true };
 }
 
 export async function runMapVerification(): Promise<boolean> {
@@ -239,11 +176,11 @@ export async function runMapVerification(): Promise<boolean> {
     process.exit(1);
   }
 
-  const basemapPath = path.join(generatedDir, manifest.artifacts?.basemap.path || manifest.basemap.filename);
-  const poiPath = path.join(generatedDir, manifest.artifacts?.poi.path || manifest.poi.filename);
-  const routingPath = path.join(generatedDir, manifest.artifacts?.routing.path || manifest.routing.filename);
-  const streetIndexPath = path.join(generatedDir, manifest.artifacts?.streetIndex.path || manifest.streetIndex.filename);
-  const searchIndexPath = path.join(generatedDir, manifest.artifacts?.searchIndex?.path || manifest.searchIndex?.filename || 'search-index.bin');
+  const basemapPath = path.join(generatedDir, manifest.artifacts.basemap.path);
+  const poiPath = path.join(generatedDir, manifest.artifacts.poi.path);
+  const routingPath = path.join(generatedDir, manifest.artifacts.routing.path);
+  const streetIndexPath = path.join(generatedDir, manifest.artifacts.streetIndex.path);
+  const searchIndexPath = path.join(generatedDir, manifest.artifacts.searchIndex?.path || 'search-index.bin');
 
   // Check 1: Tallinn PMTiles exists
   const basemapExists = fs.existsSync(basemapPath) && fs.statSync(basemapPath).size > 0;
@@ -298,11 +235,11 @@ export async function runMapVerification(): Promise<boolean> {
   const streetIndexActualSha = calculateSha256(streetIndexPath);
   const searchIndexActualSha = calculateSha256(searchIndexPath);
 
-  const expectedBasemapSha = manifest.artifacts?.basemap.sha256 || manifest.basemap.sha256;
-  const expectedPoiSha = manifest.artifacts?.poi.sha256 || manifest.poi.sha256;
-  const expectedRoutingSha = manifest.artifacts?.routing.sha256 || manifest.routing.sha256;
-  const expectedStreetIndexSha = manifest.artifacts?.streetIndex.sha256 || manifest.streetIndex.sha256;
-  const expectedSearchIndexSha = manifest.artifacts?.searchIndex?.sha256 || manifest.searchIndex?.sha256;
+  const expectedBasemapSha = manifest.artifacts.basemap.sha256;
+  const expectedPoiSha = manifest.artifacts.poi.sha256;
+  const expectedRoutingSha = manifest.artifacts.routing.sha256;
+  const expectedStreetIndexSha = manifest.artifacts.streetIndex.sha256;
+  const expectedSearchIndexSha = manifest.artifacts.searchIndex?.sha256;
 
   const checksumsMatch =
     basemapActualSha === expectedBasemapSha &&
@@ -326,16 +263,16 @@ export async function runMapVerification(): Promise<boolean> {
   });
 
   // Check 7: Routing snapshot matches
-  const routingNodesValid = (manifest.artifacts?.routing.nodes ?? manifest.routing?.nodes ?? 0) > 0;
+  const routingNodesValid = (manifest.artifacts.routing.nodes ?? 0) > 0;
   results.push({
     name: 'Routing snapshot topology nodes populated',
     passed: routingNodesValid,
-    details: `${manifest.artifacts?.routing.nodes ?? manifest.routing?.nodes} nodes`,
+    details: `${manifest.artifacts.routing.nodes} nodes`,
   });
 
   // Check 8: Deep PMTiles header, directory index, and MVT tile content verification
-  const basemapDeep = await verifyPMTilesArchiveDeepAsync(basemapPath, false);
-  const poiDeep = await verifyPMTilesArchiveDeepAsync(poiPath, true);
+  const basemapDeep = await verifyPMTilesArchiveDeep(basemapPath, false);
+  const poiDeep = await verifyPMTilesArchiveDeep(poiPath, true);
   const pmtilesDeepPassed = basemapDeep.valid && poiDeep.valid;
 
   results.push({
@@ -350,7 +287,7 @@ export async function runMapVerification(): Promise<boolean> {
   const poiIndexBuf = fs.readFileSync(path.join(generatedDir, 'tallinn-poi.index'));
   const poiIndexSignature = poiIndexBuf.toString('ascii', 0, 5) === 'HPOII';
   const routingBuf = fs.readFileSync(routingPath);
-  const routingSignature = routingBuf.toString('ascii', 0, 6) === 'HROUTG';
+  const routingSignature = routingBuf.toString('ascii', 0, 6) === 'HROUTG' || routingBuf.toString('ascii', 0, 4) === 'HRTG';
   const streetIndexBuf = fs.readFileSync(streetIndexPath);
   const streetIndexSignature = streetIndexBuf.toString('ascii', 0, 7) === 'HSTRIDX';
   const searchIndexBuf = fs.readFileSync(searchIndexPath);

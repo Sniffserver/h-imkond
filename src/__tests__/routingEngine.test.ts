@@ -140,7 +140,7 @@ describe('HÕIMU Metric Binary Routing Engine & Repository', () => {
     expect(bearing.totalDistanceMeters).toBeGreaterThan(0);
   });
 
-  it('transforms domain state through MapViewModel boundary cleanly', () => {
+  it('transforms domain state through MapViewModel boundary cleanly with strict provenance', () => {
     const mockPeers: MeshNode[] = [
       {
         id: 'node_alpha_1',
@@ -159,6 +159,8 @@ describe('HÕIMU Metric Binary Routing Engine & Repository', () => {
         recentInteractions: [10],
         angle: 45,
         distanceRatio: 0.3,
+        location: { lat: 59.438, lng: 24.754 },
+        locationProvenance: 'observed',
       },
       {
         id: 'node_bravo_2',
@@ -177,6 +179,7 @@ describe('HÕIMU Metric Binary Routing Engine & Repository', () => {
         recentInteractions: [12],
         angle: 180,
         distanceRatio: 0.6,
+        // No location: position is unknown, must not produce a fake map marker!
       },
     ];
 
@@ -202,12 +205,27 @@ describe('HÕIMU Metric Binary Routing Engine & Repository', () => {
       peers: mockPeers,
       resources: mockResources,
       userLocation: { lat: 59.437, lng: 24.753 },
+      meshLinks: [
+        {
+          id: 'link_observed_1',
+          from: { lat: 59.437, lng: 24.753 },
+          to: { lat: 59.438, lng: 24.754 },
+          rssi: -65,
+          snr: 9,
+          quality: 'excellent',
+        },
+      ],
     });
 
-    expect(vm.peers).toHaveLength(2);
+    // Only nodes with real positions produce map markers
+    expect(vm.peers).toHaveLength(1);
     expect(vm.peers[0].callsign).toBe('ALPHA1');
+    expect(vm.peers[0].locationProvenance).toBe('observed');
+    expect(vm.peers[0].distanceProvenance).toBe('derived');
     expect(vm.resources).toHaveLength(1);
-    expect(vm.meshLinks).toHaveLength(1); // Link synthesized between the two online nodes
+    // Real observed link passed through, zero synthesized fictitious links
+    expect(vm.meshLinks).toHaveLength(1);
+    expect(vm.meshLinks[0].id).toBe('link_observed_1');
     expect(vm.places.length).toBeGreaterThan(0);
     expect(vm.streets.length).toBeGreaterThan(0);
   });

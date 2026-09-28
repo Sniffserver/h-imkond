@@ -15,6 +15,7 @@
     "maps:build": "npm run build:map-data",
     "maps:verify": "tsx tools/map-data/verify-maps.ts",
     "maps:check": "npm run build:map-data && npm run maps:verify",
+    "release:check": "tsx tools/run-release-gates.ts",
     "scan:synthetic": "tsx scripts/scan-production-integrity.ts",
     "audit:security": "node scripts/security-audit.cjs",
     "ci:gate": "npm run scan:synthetic && npm run audit:security && npm run maps:check && npm test && npm run build",

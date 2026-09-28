@@ -87,6 +87,19 @@ const TALLINN_MUNICIPAL_SNAPSHOT: RawTallinnMunicipalRecord[] = [
     omadused: { vee_tyyp: 'munitsipaalvesi' }
   },
   {
+    registri_kood: 'TLN-VESI-VIRU',
+    nimetus: 'Viru Väljaku Avalik Joogiveepunkt',
+    aadress: 'Viru väljak 4',
+    linnaosa: 'Kesklinn',
+    kategooria: 'joogivesi_kraan',
+    koordinaadid: { lat: 59.4365, lng: 24.7540 },
+    lahtiolekuajad: '24/7 (Avalik veevõtukoht)',
+    kirjeldus: 'Munitsipaal-joogiveekraan Viru Keskuse sissepääsu juures.',
+    muutmise_kuupaev: '2026-09-14T11:00:00Z',
+    haldaja: 'AS Tallinna Vesi',
+    omadused: { vee_tyyp: 'munitsipaalvesi', joogikolblik: 'jah' }
+  },
+  {
     registri_kood: 'PPA-REG-TLN-01',
     nimetus: 'Põhja Prefektuur (Kesklinna Jaoskond)',
     aadress: 'Pärnu mnt 139',

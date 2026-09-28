@@ -168,6 +168,15 @@ export class LocationManager {
   public getLastFix(): GeoFix | null {
     return this.lastFix || this.activeProvider.getLastFix();
   }
+
+  public getState(): { isLive: boolean; activeFix: GeoFix | null; activeProvider: LocationProviderType } {
+    const fix = this.getLastFix();
+    return {
+      isLive: !!fix,
+      activeFix: fix,
+      activeProvider: this.activeProviderType,
+    };
+  }
 }
 
 export const locationManager = LocationManager.getInstance();

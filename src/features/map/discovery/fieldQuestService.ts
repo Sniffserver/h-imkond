@@ -9,6 +9,17 @@ import { observationManager } from '../../../services/observation/ObservationMan
 import { mapRepository } from '../data/repository';
 
 const STORAGE_KEY_QUESTS = 'hoimu_field_quests';
+const CURRENT_SCHEMA_VERSION = 2;
+const CURRENT_QUEST_SET_VERSION = '2026.09';
+const MAX_POI_VISIT_ACCURACY_METERS = 35;
+const REQUIRED_POI_DWELL_MS = 10000; // 10-20 sec dwell requirement
+
+export interface VersionedFieldQuestState {
+  schemaVersion: number;
+  questSetVersion: string;
+  quests: FieldQuest[];
+  lastUpdated: string;
+}
 
 export const CANONICAL_FIELD_QUESTS: FieldQuest[] = [
   {
@@ -117,6 +128,7 @@ export class FieldQuestService {
   private static instance: FieldQuestService | null = null;
   private quests: FieldQuest[] = [];
   private listeners: Set<() => void> = new Set();
+  private poiDwellTracker: Map<string, number> = new Map(); // poiId/objId -> timestamp first entered
 
   private constructor() {
     this.loadFromStorage();
@@ -147,20 +159,35 @@ export class FieldQuestService {
       try {
         const saved = localStorage.getItem(STORAGE_KEY_QUESTS);
         if (saved) {
-          this.quests = JSON.parse(saved);
-          return;
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed.schemaVersion === CURRENT_SCHEMA_VERSION) {
+            this.quests = parsed.quests || [];
+            return;
+          } else if (Array.isArray(parsed)) {
+            // Legacy schema 1 array migration
+            this.quests = parsed;
+            this.saveToStorage();
+            return;
+          }
         }
       } catch {
         // Ignored
       }
     }
     this.quests = JSON.parse(JSON.stringify(CANONICAL_FIELD_QUESTS));
+    this.saveToStorage();
   }
 
   private saveToStorage(): void {
     if (typeof localStorage !== 'undefined') {
       try {
-        localStorage.setItem(STORAGE_KEY_QUESTS, JSON.stringify(this.quests));
+        const payload: VersionedFieldQuestState = {
+          schemaVersion: CURRENT_SCHEMA_VERSION,
+          questSetVersion: CURRENT_QUEST_SET_VERSION,
+          quests: this.quests,
+          lastUpdated: new Date().toISOString(),
+        };
+        localStorage.setItem(STORAGE_KEY_QUESTS, JSON.stringify(payload));
       } catch {
         // Ignored
       }
@@ -266,16 +293,26 @@ export class FieldQuestService {
     }
   }
 
-  public processLocationUpdate(lat: number, lng: number): void {
+  public processLocationUpdate(
+    lat: number,
+    lng: number,
+    accuracyMeters: number = 10,
+    timestamp: number = Date.now()
+  ): void {
     const active = this.getActiveQuest();
     if (!active) return;
+
+    // Accuracy Gating: Ignore inaccurate fix (e.g. ±80m cell triangulation)
+    if (accuracyMeters > MAX_POI_VISIT_ACCURACY_METERS) {
+      return;
+    }
 
     let changed = false;
 
     active.objectives.forEach((obj) => {
       if (obj.completed) return;
 
-      // 1. Visit POI: GPS proximity + dwell -> automatic completion
+      // 1. Visit POI: GPS proximity + accuracy gating + dwell stability -> automatic completion
       if (obj.type === 'place_find') {
         const places = mapRepository.getAllPlaces();
 
@@ -291,26 +328,42 @@ export class FieldQuestService {
         if (targetCategory) {
           const nearPlace = places.find((p: any) => {
             if (p.mainCategory !== targetCategory) return false;
-            const d = this.calculateDistance(lat, lng, p.location.lat, p.location.lng);
-            return d <= 40; // Under 40 meters proximity
+            const rawDist = this.calculateDistance(lat, lng, p.location.lat, p.location.lng);
+            // Accuracy adjusted distance
+            const effectiveDist = Math.max(0, rawDist - accuracyMeters / 2);
+            return effectiveDist <= 40;
           });
 
           if (nearPlace) {
-            obj.currentCount = Math.min(obj.targetCount, obj.currentCount + 1);
-            if (obj.currentCount >= obj.targetCount) {
-              obj.completed = true;
+            const dwellKey = `${obj.id}_${nearPlace.id}`;
+            if (!this.poiDwellTracker.has(dwellKey)) {
+              this.poiDwellTracker.set(dwellKey, timestamp);
+            } else {
+              const enteredAt = this.poiDwellTracker.get(dwellKey)!;
+              if (timestamp - enteredAt >= REQUIRED_POI_DWELL_MS) {
+                // Dwell / stability confirmed (10-20 seconds in radius)
+                obj.currentCount = Math.min(obj.targetCount, obj.currentCount + 1);
+                if (obj.currentCount >= obj.targetCount) {
+                  obj.completed = true;
+                }
+                changed = true;
+                this.poiDwellTracker.delete(dwellKey);
+              }
             }
-            changed = true;
+          } else {
+            // Reset dwell key if moved outside radius
+            this.poiDwellTracker.delete(`${obj.id}_place`);
           }
         }
       }
 
-      // 2. Return to campfire: GPS proximity
+      // 2. Return to campfire: GPS proximity + accuracy gating
       if (obj.type === 'return_campfire') {
         const campfireLat = 59.4370;
         const campfireLng = 24.7535;
-        const dist = this.calculateDistance(lat, lng, campfireLat, campfireLng);
-        if (dist <= 40) {
+        const rawDist = this.calculateDistance(lat, lng, campfireLat, campfireLng);
+        const effectiveDist = Math.max(0, rawDist - accuracyMeters / 2);
+        if (effectiveDist <= 40) {
           obj.currentCount = obj.targetCount;
           obj.completed = true;
           changed = true;

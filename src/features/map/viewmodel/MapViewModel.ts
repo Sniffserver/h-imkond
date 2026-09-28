@@ -9,16 +9,18 @@
  * ExploreMap
  */
 
-import { MeshNode, ResourceItem as DomainResourceItem, GeoPoint, SignalObservation, MapPlace, Street } from '../../../types';
+import { MeshNode, ResourceItem as DomainResourceItem, GeoPoint, SignalObservation, MapPlace, Street, FieldProvenance } from '../../../types';
 import { PeerMapMarker } from '../explore/overlays/PeopleLayer';
 import { ResourceItem as MapOverlayResourceItem } from '../explore/overlays/ResourcesLayer';
 import { MeshLink } from '../explore/overlays/MeshLinksLayer';
 import { mapRepository } from '../data/repository';
+import { calculateHaversineMeters } from '../../../services/routing/routingEngine';
 
 export interface MapViewModelInput {
   peers?: MeshNode[];
   resources?: DomainResourceItem[];
   userLocation: GeoPoint;
+  meshLinks?: MeshLink[];
   signalTrail?: SignalObservation[];
   places?: MapPlace[];
   streets?: Street[];
@@ -40,39 +42,74 @@ export function transformDomainToMapViewModel(input: MapViewModelInput): MapView
     peers = [],
     resources = [],
     userLocation,
+    meshLinks = [],
     signalTrail = [],
     places,
     streets,
   } = input;
 
   // 1. Transform MeshNode[] -> PeerMapMarker[]
-  const transformedPeers: PeerMapMarker[] = peers.map((node) => {
-    let loc: GeoPoint;
-    if ((node as any).location && typeof (node as any).location.lat === 'number') {
-      loc = (node as any).location;
-    } else {
-      // Polar radar projection relative to user position (within ~1.2km radius)
-      const rad = ((node.angle || 0) * Math.PI) / 180;
-      const distKm = Math.max(0.1, (node.distanceRatio || 0.4) * 1.2);
-      const latOffset = (distKm / 111.32) * Math.cos(rad);
-      const lngOffset = (distKm / (111.32 * Math.cos((userLocation.lat * Math.PI) / 180))) * Math.sin(rad);
-      loc = {
-        lat: userLocation.lat + latOffset,
-        lng: userLocation.lng + lngOffset,
-      };
+  // Rule:
+  // MeshNode
+  //  ├── actual position? → map marker
+  //  ├── no position? → no geographic marker
+  //  │
+  //  └── actual link observation?
+  //        yes → MeshLinksLayer
+  //        no  → no link
+  // Unknown is a valid state: do NOT turn unknown position into "approximately somewhere here".
+  const transformedPeers: PeerMapMarker[] = [];
+
+  for (const node of peers) {
+    let loc: GeoPoint | null = null;
+    let locationProvenance: FieldProvenance = 'unknown';
+
+    if (node.location && typeof node.location.lat === 'number' && typeof node.location.lng === 'number') {
+      loc = node.location;
+      locationProvenance = node.locationProvenance || 'observed';
+    } else if ((node as any).position && typeof (node as any).position.lat === 'number' && typeof (node as any).position.lng === 'number') {
+      loc = (node as any).position;
+      locationProvenance = 'observed';
     }
 
-    return {
+    // No actual observed or estimated position? Exclude from geographic map!
+    // The node remains valid and accessible in radar/comms, but not pinned to fake coordinates.
+    if (!loc) {
+      continue;
+    }
+
+    // Provenance for each field: observed | derived | estimated | unknown
+    const rssi = typeof node.lastRssi === 'number' ? node.lastRssi : undefined;
+    const rssiProvenance: FieldProvenance = node.rssiProvenance || (rssi !== undefined ? 'observed' : 'unknown');
+
+    const battery = typeof node.batteryLevel === 'number' ? node.batteryLevel : undefined;
+    const batteryProvenance: FieldProvenance = node.batteryProvenance || (battery !== undefined ? 'observed' : 'unknown');
+
+    const online = node.connectionState === 'direct' || node.connectionState === 'relayed';
+    const onlineProvenance: FieldProvenance = node.connectionState ? 'observed' : 'unknown';
+
+    const distMeters = Math.round(
+      calculateHaversineMeters(userLocation.lat, userLocation.lng, loc.lat, loc.lng)
+    );
+    const distanceProvenance: FieldProvenance = 'derived';
+
+    transformedPeers.push({
       id: node.id,
       name: node.callsign || `Node ${node.id.substring(0, 6)}`,
       callsign: node.callsign || node.id.substring(0, 6).toUpperCase(),
       location: loc,
-      batteryPercent: typeof (node as any).batteryLevel === 'number' ? (node as any).batteryLevel : 85,
+      locationProvenance,
+      batteryPercent: battery,
+      batteryProvenance,
       role: node.role || (node.hopDistance === 1 ? 'Direct Peer' : 'Relayed Node'),
-      online: node.connectionState === 'direct' || node.connectionState === 'relayed' || (node as any).status === 'online',
-      rssi: node.lastRssi ?? -75,
-    };
-  });
+      online,
+      onlineProvenance,
+      rssi,
+      rssiProvenance,
+      distanceMeters: distMeters,
+      distanceProvenance,
+    });
+  }
 
   // 2. Transform Domain ResourceItem[] -> MapOverlayResourceItem[]
   const transformedResources: MapOverlayResourceItem[] = resources
@@ -87,23 +124,21 @@ export function transformDomainToMapViewModel(input: MapViewModelInput): MapView
       availableQuantity: res.availabilityText || '1',
     }));
 
-  // 3. Synthesize Mesh Links from active peers with coordinates within mesh propagation distance
+  // 3. Mesh Links: Strictly actual link observations only.
+  // Never synthesize fictitious connections with hardcoded RSSI/SNR between arbitrary peer pairs.
   const transformedMeshLinks: MeshLink[] = [];
-  for (let i = 0; i < transformedPeers.length; i++) {
-    for (let j = i + 1; j < transformedPeers.length; j++) {
-      const p1 = transformedPeers[i];
-      const p2 = transformedPeers[j];
-      if (p1.online && p2.online) {
-        transformedMeshLinks.push({
-          id: `link_${p1.id}_${p2.id}`,
-          from: p1.location,
-          to: p2.location,
-          rssi: -78,
-          snr: 8.5,
-          quality: 'good',
-        });
-      }
-    }
+  if (meshLinks && meshLinks.length > 0) {
+    transformedMeshLinks.push(
+      ...meshLinks.filter(
+        (l) =>
+          l.from &&
+          typeof l.from.lat === 'number' &&
+          typeof l.from.lng === 'number' &&
+          l.to &&
+          typeof l.to.lat === 'number' &&
+          typeof l.to.lng === 'number'
+      )
+    );
   }
 
   // 4. Canonical Places & Streets fallback

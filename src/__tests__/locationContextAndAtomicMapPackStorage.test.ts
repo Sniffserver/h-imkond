@@ -89,11 +89,15 @@ describe('Unified LocationContext Stream & Atomic Map Pack Storage Engine', () =
     const mockStreetIndexBytes = new Uint8Array(32);
     'HSTRIDX'.split('').forEach((c, i) => { mockStreetIndexBytes[i] = c.charCodeAt(0); });
 
+    const mockSearchIndexBytes = new Uint8Array(32);
+    'HSRCHDX'.split('').forEach((c, i) => { mockSearchIndexBytes[i] = c.charCodeAt(0); });
+
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url: any) => {
       const urlStr = String(url);
       let data = mockPmtilesBytes;
       if (urlStr.includes('.graph')) data = mockRoutingBytes;
-      if (urlStr.includes('street-index') || urlStr.includes('.bin')) data = mockStreetIndexBytes;
+      if (urlStr.includes('street-index')) data = mockStreetIndexBytes;
+      if (urlStr.includes('search-index')) data = mockSearchIndexBytes;
 
       return {
         ok: true,
@@ -123,6 +127,9 @@ describe('Unified LocationContext Stream & Atomic Map Pack Storage Engine', () =
       const magicStreet = String.fromCharCode(...bytes.slice(0, 7));
       if (magicStreet === 'HSTRIDX') {
         return packManifest.artifacts?.streetIndex?.sha256 || 'street-sha';
+      }
+      if (magicStreet === 'HSRCHDX') {
+        return packManifest.artifacts?.searchIndex?.sha256 || 'search-sha';
       }
       return 'custom';
     });

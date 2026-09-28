@@ -27,12 +27,18 @@ interface InvertedIndexEntry {
 }
 
 // Multilingual and Estonian colloquial aliases
-const TERM_ALIASES: Record<string, { categories: string[]; subCategories: string[]; tags: string[]; synonyms: string[] }> = {
+export const TERM_ALIASES: Record<string, { categories: string[]; subCategories: string[]; tags: string[]; synonyms: string[] }> = {
   riistapood: {
     categories: ['tools'],
     subCategories: ['hardware', 'diy', 'tools', 'power_tools'],
     tags: ['tools', 'hardware'],
-    synonyms: ['ehituspood', 'tööriistapood', 'rauapood', 'hardware'],
+    synonyms: ['ehituspood', 'tööriistapood', 'rauapood', 'hardware', 'tools'],
+  },
+  tools: {
+    categories: ['tools'],
+    subCategories: ['hardware', 'diy', 'tools'],
+    tags: ['tools'],
+    synonyms: ['riistapood', 'tööriistad', 'ehituspood'],
   },
   tööriistad: {
     categories: ['tools'],
@@ -46,35 +52,65 @@ const TERM_ALIASES: Record<string, { categories: string[]; subCategories: string
     tags: ['police', 'emergency_services'],
     synonyms: ['politseijaoskond', 'korrakaitse', 'patrull', 'police'],
   },
+  police: {
+    categories: ['safety'],
+    subCategories: ['police'],
+    tags: ['police'],
+    synonyms: ['politsei', 'jaoskond'],
+  },
   päästeamet: {
     categories: ['safety'],
     subCategories: ['fire_station', 'emergency_services'],
     tags: ['rescue', 'fire_station'],
-    synonyms: ['tuletõrje', 'päästekomando', 'fire'],
+    synonyms: ['tuletõrje', 'päästekomando', 'fire', 'rescue'],
   },
   haigla: {
     categories: ['safety', 'health'],
     subCategories: ['hospital', 'medical', 'clinic'],
     tags: ['hospital', 'emergency'],
-    synonyms: ['emo', 'kiirabi', 'arst', 'trauma'],
+    synonyms: ['emo', 'kiirabi', 'arst', 'trauma', 'hospital'],
+  },
+  hospital: {
+    categories: ['safety', 'health'],
+    subCategories: ['hospital'],
+    tags: ['hospital'],
+    synonyms: ['haigla', 'emo', 'kiirabi'],
   },
   apteek: {
     categories: ['safety', 'health'],
     subCategories: ['pharmacy'],
     tags: ['pharmacy', 'medicine'],
-    synonyms: ['valveapteek', 'rohud', 'ravimid'],
+    synonyms: ['valveapteek', 'rohud', 'ravimid', 'pharmacy', 'chemist'],
+  },
+  pharmacy: {
+    categories: ['safety', 'health'],
+    subCategories: ['pharmacy'],
+    tags: ['pharmacy'],
+    synonyms: ['apteek', 'valveapteek', 'medicine'],
   },
   varjend: {
     categories: ['safety'],
     subCategories: ['shelter'],
     tags: ['shelter', 'civil_defense'],
-    synonyms: ['avalik varjend', 'pommitusvarjend', 'tsiviilkaitse', 'varjumiskoht'],
+    synonyms: ['avalik varjend', 'pommitusvarjend', 'tsiviilkaitse', 'varjumiskoht', 'shelter'],
+  },
+  shelter: {
+    categories: ['safety'],
+    subCategories: ['shelter'],
+    tags: ['shelter'],
+    synonyms: ['varjend', 'varjumiskoht'],
   },
   vesi: {
     categories: ['water'],
     subCategories: ['spring', 'tap', 'hydrant', 'well'],
-    tags: ['potable_water', 'natural_spring'],
-    synonyms: ['joogivesi', 'allikas', 'kraan', 'veevõtukoht', 'kaev'],
+    tags: ['potable_water', 'natural_spring', 'drinking_water'],
+    synonyms: ['joogivesi', 'allikas', 'kraan', 'veevõtukoht', 'kaev', 'water'],
+  },
+  water: {
+    categories: ['water'],
+    subCategories: ['spring', 'tap', 'hydrant', 'well'],
+    tags: ['potable_water', 'drinking_water'],
+    synonyms: ['vesi', 'joogivesi', 'allikas', 'kraan', 'well', 'tap', 'spring'],
   },
   uuskasutus: {
     categories: ['finds'],
@@ -92,15 +128,35 @@ const TERM_ALIASES: Record<string, { categories: string[]; subCategories: string
     categories: ['stores', 'food'],
     subCategories: ['supermarket', 'market', 'grocery', 'bakery'],
     tags: ['food'],
-    synonyms: ['toidupood', 'pood', 'turg', 'supermarket'],
+    synonyms: ['toidupood', 'pood', 'turg', 'supermarket', 'food'],
+  },
+  food: {
+    categories: ['stores', 'food'],
+    subCategories: ['supermarket', 'market', 'grocery'],
+    tags: ['food'],
+    synonyms: ['toit', 'toidupood', 'pood'],
   },
   ratas: {
     categories: ['tools', 'mobility'],
     subCategories: ['bicycle_shop', 'bike_rack'],
     tags: ['bicycle'],
-    synonyms: ['jalgratas', 'rattapood', 'rattaparandus', 'bike'],
+    synonyms: ['jalgratas', 'rattapood', 'rattaparandus', 'bike', 'bicycle'],
   },
 };
+
+/**
+ * Normalizes Estonian street suffixes (tn -> tänav, mnt -> maantee, pst -> puiestee)
+ */
+export function normalizeStreetSuffixes(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/\btn\.?\b/g, 'tänav')
+    .replace(/\bmnt\.?\b/g, 'maantee')
+    .replace(/\bpst\.?\b/g, 'puiestee')
+    .replace(/\bpk\.?\b/g, 'põik')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 export class PlaceSearchIndex {
   private invertedIndex: Map<string, InvertedIndexEntry[]> = new Map();
@@ -111,12 +167,12 @@ export class PlaceSearchIndex {
     this.buildIndex(places, streets);
   }
 
-  private tokenize(text: string): string[] {
+  public tokenize(text: string): string[] {
     return text
       .toLowerCase()
       .replace(/[^\p{L}\p{N}\s]/gu, ' ')
       .split(/\s+/)
-      .filter((t) => t.length > 1);
+      .filter((t) => t.length > 0);
   }
 
   public buildIndex(places: MapPlace[], streets: Street[]): void {
@@ -128,26 +184,32 @@ export class PlaceSearchIndex {
     for (const place of places) {
       this.placesMap.set(place.id, place);
 
-      // Name tokens (Weight 100)
+      // Name tokens
       const nameTokens = this.tokenize(place.name);
       nameTokens.forEach((token) => this.addIndexEntry(token, place.id, 'place', 'name', 100));
 
-      // Address tokens (Weight 60)
+      // Address tokens
       if (place.address) {
         const addrTokens = this.tokenize(place.address);
         addrTokens.forEach((token) => this.addIndexEntry(token, place.id, 'place', 'address', 60));
+        const normAddr = normalizeStreetSuffixes(place.address);
+        const normTokens = this.tokenize(normAddr);
+        normTokens.forEach((token) => this.addIndexEntry(token, place.id, 'place', 'address', 60));
       }
 
-      // Categories (Weight 75)
+      // Categories
       this.addIndexEntry(place.mainCategory.toLowerCase(), place.id, 'place', 'category', 75);
       if (place.subCategory) {
         this.addIndexEntry(place.subCategory.toLowerCase(), place.id, 'place', 'subcategory', 80);
       }
 
-      // Tags (Weight 40)
+      // Tags
       if (place.tags) {
-        Object.keys(place.tags).forEach((tag) => {
-          this.addIndexEntry(tag.toLowerCase(), place.id, 'place', 'tag', 40);
+        Object.entries(place.tags).forEach(([k, v]) => {
+          this.addIndexEntry(k.toLowerCase(), place.id, 'place', 'tag', 40);
+          if (typeof v === 'string') {
+            this.addIndexEntry(v.toLowerCase(), place.id, 'place', 'tag', 40);
+          }
         });
       }
     }
@@ -157,6 +219,10 @@ export class PlaceSearchIndex {
       this.streetsMap.set(street.id, street);
       const streetTokens = this.tokenize(street.name);
       streetTokens.forEach((token) => this.addIndexEntry(token, street.id, 'street', 'name', 90));
+      const normStreet = normalizeStreetSuffixes(street.name);
+      const normTokens = this.tokenize(normStreet);
+      normTokens.forEach((token) => this.addIndexEntry(token, street.id, 'street', 'name', 90));
+
       if (street.district) {
         this.addIndexEntry(street.district.toLowerCase(), street.id, 'street', 'address', 50);
       }
@@ -173,122 +239,172 @@ export class PlaceSearchIndex {
   }
 
   /**
-   * Performs deterministic offline search with multi-token index matching and ranking.
+   * Performs deterministic search according to strict ranking hierarchy:
+   * exact name -> exact street -> prefix -> alias -> category -> distance -> freshness
    */
   public search(query: string, userLocation?: GeoPoint, radiusMeters?: number): SearchHit[] {
-    const q = query.trim().toLowerCase();
-    if (!q) return [];
+    const rawQ = query.trim().toLowerCase();
+    if (!rawQ) return [];
 
-    const queryTokens = this.tokenize(q);
-    const candidateScores = new Map<string, { score: number; type: 'place' | 'street'; reason: string }>();
+    const normQ = normalizeStreetSuffixes(rawQ);
+    const queryTokens = this.tokenize(rawQ);
+    const normTokens = this.tokenize(normQ);
+    const allTokens = Array.from(new Set([...queryTokens, ...normTokens]));
 
-    // Check alias expansions
-    const matchedCategories = new Set<string>();
-    const matchedSubCategories = new Set<string>();
-    const aliasExpandedTokens: string[] = [...queryTokens];
+    // Parse structured query tokens (Category terms, Location/Street terms, Numbers)
+    const categoryMatches = new Set<string>();
+    const subCategoryMatches = new Set<string>();
+    const locationTokens: string[] = [];
+    const numberTokens: string[] = [];
 
-    Object.entries(TERM_ALIASES).forEach(([key, val]) => {
-      if (q.includes(key) || key.includes(q)) {
-        val.categories.forEach((c) => matchedCategories.add(c));
-        val.subCategories.forEach((sc) => matchedSubCategories.add(sc));
-        val.synonyms.forEach((syn) => aliasExpandedTokens.push(syn));
-      }
-    });
-
-    // Score from Inverted Index
-    for (const token of aliasExpandedTokens) {
-      // 1. Exact token matches
-      const exactEntries = this.invertedIndex.get(token) || [];
-      for (const entry of exactEntries) {
-        const current = candidateScores.get(entry.docId) || { score: 0, type: entry.type, reason: '' };
-        current.score += entry.weight * 2.0;
-        current.reason = `Exact token match on ${entry.field}`;
-        candidateScores.set(entry.docId, current);
-      }
-
-      // 2. Prefix token matches
-      for (const [indexedToken, entries] of this.invertedIndex.entries()) {
-        if (indexedToken !== token && (indexedToken.startsWith(token) || token.startsWith(indexedToken))) {
-          for (const entry of entries) {
-            const current = candidateScores.get(entry.docId) || { score: 0, type: entry.type, reason: '' };
-            current.score += entry.weight * 1.2;
-            current.reason = `Prefix match on ${indexedToken}`;
-            candidateScores.set(entry.docId, current);
-          }
-        }
+    for (const tok of allTokens) {
+      if (/^\d+[a-z]?$/i.test(tok)) {
+        numberTokens.push(tok);
+      } else if (TERM_ALIASES[tok]) {
+        TERM_ALIASES[tok].categories.forEach((c) => categoryMatches.add(c));
+        TERM_ALIASES[tok].subCategories.forEach((sc) => subCategoryMatches.add(sc));
+      } else {
+        locationTokens.push(tok);
       }
     }
 
-    // Direct string scanning for complete phrase matches
+    const candidateScores = new Map<
+      string,
+      { tier: number; score: number; type: 'place' | 'street'; reason: string }
+    >();
+
+    const recordCandidate = (
+      id: string,
+      type: 'place' | 'street',
+      tier: number,
+      scoreBonus: number,
+      reason: string
+    ) => {
+      const existing = candidateScores.get(id);
+      if (!existing || tier < existing.tier || (tier === existing.tier && scoreBonus > existing.score)) {
+        candidateScores.set(id, { tier, score: scoreBonus, type, reason });
+      }
+    };
+
+    // -------------------------------------------------------------
+    // TIER 1: Exact Place Name Match
+    // -------------------------------------------------------------
     this.placesMap.forEach((place, id) => {
-      const nameLower = place.name.toLowerCase();
-      const addrLower = (place.address || '').toLowerCase();
-
-      let boost = 0;
-      let reason = '';
-
-      if (nameLower === q) {
-        boost += 500; // Exact full match
-        reason = 'Exact name match';
-      } else if (nameLower.startsWith(q)) {
-        boost += 300; // Prefix match
-        reason = 'Prefix name match';
-      } else if (nameLower.includes(q)) {
-        boost += 200; // Substring match
-        reason = 'Substring name match';
-      } else if (addrLower.includes(q)) {
-        boost += 150; // Address match
-        reason = 'Address match';
-      }
-
-      if (matchedCategories.has(place.mainCategory)) {
-        boost += 180;
-        reason = reason || `Category match: ${place.mainCategory}`;
-      }
-      if (matchedSubCategories.has(place.subCategory)) {
-        boost += 220;
-        reason = reason || `Subcategory match: ${place.subCategory}`;
-      }
-
-      // Freshness & authoritative boost
-      if (place.provenanceStatus === 'official') {
-        boost += 40;
-      }
-
-      if (boost > 0) {
-        const current = candidateScores.get(id) || { score: 0, type: 'place', reason: '' };
-        current.score += boost;
-        current.reason = reason || current.reason;
-        candidateScores.set(id, current);
+      const pName = place.name.toLowerCase();
+      if (pName === rawQ || pName === normQ) {
+        recordCandidate(id, 'place', 1, 100000, 'Exact place name match');
       }
     });
 
-    // Street direct scanning
+    // -------------------------------------------------------------
+    // TIER 2: Exact Street Match (e.g. "Viru tänav", "Viru tn")
+    // -------------------------------------------------------------
     this.streetsMap.forEach((street, id) => {
-      const nameLower = street.name.toLowerCase();
-      let boost = 0;
-      let reason = '';
-
-      if (nameLower === q) {
-        boost += 500;
-        reason = 'Exact street match';
-      } else if (nameLower.startsWith(q)) {
-        boost += 300;
-        reason = 'Prefix street match';
-      } else if (nameLower.includes(q)) {
-        boost += 200;
-        reason = 'Street substring match';
-      }
-
-      if (boost > 0) {
-        const current = candidateScores.get(id) || { score: 0, type: 'street', reason: '' };
-        current.score += boost;
-        current.reason = reason || current.reason;
-        candidateScores.set(id, current);
+      const sName = street.name.toLowerCase();
+      const sNorm = normalizeStreetSuffixes(sName);
+      if (sName === rawQ || sNorm === rawQ || sName === normQ || sNorm === normQ) {
+        recordCandidate(id, 'street', 2, 50000, 'Exact street match');
       }
     });
 
-    // Format and rank results deterministically
+    // -------------------------------------------------------------
+    // TIER 3: Prefix Match on Place Name or Street
+    // -------------------------------------------------------------
+    this.placesMap.forEach((place, id) => {
+      const pName = place.name.toLowerCase();
+      if (pName.startsWith(rawQ) || pName.startsWith(normQ)) {
+        recordCandidate(id, 'place', 3, 25000 + (100 - pName.length), 'Prefix place match');
+      }
+    });
+
+    this.streetsMap.forEach((street, id) => {
+      const sName = street.name.toLowerCase();
+      const sNorm = normalizeStreetSuffixes(sName);
+      if (sName.startsWith(rawQ) || sNorm.startsWith(normQ) || sName.startsWith(normQ)) {
+        recordCandidate(id, 'street', 3, 24000 + (100 - sName.length), 'Prefix street match');
+      }
+    });
+
+    // -------------------------------------------------------------
+    // TIER 4: Alias / Compound Category+Location or Street+Number
+    // Examples: "apteek Viru", "water Viru", "Viru 4"
+    // -------------------------------------------------------------
+    this.placesMap.forEach((place, id) => {
+      const pName = place.name.toLowerCase();
+      const pAddr = (place.address || '').toLowerCase();
+      const pNormAddr = normalizeStreetSuffixes(pAddr);
+
+      // Check compound category + location (e.g. "apteek Viru", "water Viru")
+      if (categoryMatches.size > 0 || subCategoryMatches.size > 0) {
+        const matchesCat =
+          categoryMatches.has(place.mainCategory.toLowerCase()) ||
+          (place.subCategory && subCategoryMatches.has(place.subCategory.toLowerCase())) ||
+          (place.tags && Object.keys(place.tags).some((t) => categoryMatches.has(t) || subCategoryMatches.has(t)));
+
+        if (matchesCat) {
+          // Check if location tokens match this place or its street
+          const matchesLoc = locationTokens.length === 0 || locationTokens.some(
+            (loc) => pName.includes(loc) || pAddr.includes(loc) || pNormAddr.includes(loc)
+          );
+
+          if (matchesLoc) {
+            recordCandidate(
+              id,
+              'place',
+              4,
+              15000 + (locationTokens.length > 0 ? 3000 : 0),
+              `Alias category match: ${place.mainCategory} in ${place.name}`
+            );
+          }
+        }
+      }
+
+      // Check house number structured match (e.g. "Viru 4")
+      if (numberTokens.length > 0 && locationTokens.length > 0) {
+        const matchesStreet = locationTokens.every(
+          (loc) => pName.includes(loc) || pAddr.includes(loc) || pNormAddr.includes(loc)
+        );
+        const matchesNum = numberTokens.some(
+          (num) => pAddr.includes(num) || pName.includes(num)
+        );
+
+        if (matchesStreet && matchesNum) {
+          recordCandidate(id, 'place', 4, 18000, `Address match: ${place.address}`);
+        }
+      }
+    });
+
+    // -------------------------------------------------------------
+    // TIER 5: Category & Tag Search
+    // -------------------------------------------------------------
+    this.placesMap.forEach((place, id) => {
+      if (categoryMatches.has(place.mainCategory.toLowerCase()) || (place.subCategory && subCategoryMatches.has(place.subCategory.toLowerCase()))) {
+        recordCandidate(id, 'place', 5, 8000, `Category match: ${place.mainCategory}`);
+      }
+    });
+
+    // -------------------------------------------------------------
+    // TIER 6: Substring / Token Multi-Term Inverted Index Search
+    // -------------------------------------------------------------
+    this.placesMap.forEach((place, id) => {
+      const pName = place.name.toLowerCase();
+      const pAddr = (place.address || '').toLowerCase();
+      if (allTokens.some((tok) => pName.includes(tok) || pAddr.includes(tok))) {
+        recordCandidate(id, 'place', 6, 3000, `Token match: ${place.name}`);
+      }
+    });
+
+    this.streetsMap.forEach((street, id) => {
+      const sName = street.name.toLowerCase();
+      const sNorm = normalizeStreetSuffixes(sName);
+      if (allTokens.some((tok) => sName.includes(tok) || sNorm.includes(tok))) {
+        recordCandidate(id, 'street', 6, 2500, `Street token match: ${street.name}`);
+      }
+    });
+
+    // -------------------------------------------------------------
+    // Compile Hits & Apply Tier Rank + Distance + Freshness Modifiers
+    // -------------------------------------------------------------
     const hits: SearchHit[] = [];
 
     candidateScores.forEach((info, docId) => {
@@ -305,9 +421,18 @@ export class PlaceSearchIndex {
 
         if (radiusMeters && distanceMeters > radiusMeters) return;
 
-        // Deterministic distance penalty (logarithmic decay)
-        const distancePenalty = distanceMeters > 0 ? Math.log10(distanceMeters + 10) * 8 : 0;
-        const finalRank = info.score - distancePenalty;
+        // Base tier multiplier (Tier 1 gets highest base)
+        const tierBase = (7 - info.tier) * 20000;
+        
+        // Distance modifier: Closer items within tier get smooth boost (up to +500)
+        const distanceBonus = userLocation && distanceMeters > 0
+          ? Math.max(0, 500 - Math.min(500, distanceMeters / 20))
+          : 0;
+
+        // Freshness & official provenance boost
+        const freshnessBonus = place.provenanceStatus === 'official' ? 200 : 50;
+
+        const finalScore = tierBase + info.score + distanceBonus + freshnessBonus;
 
         hits.push({
           entityId: place.id,
@@ -322,14 +447,13 @@ export class PlaceSearchIndex {
           distanceMeters: userLocation ? distanceMeters : undefined,
           reason: info.reason,
           matchReason: info.reason,
-          score: finalRank,
-          _rank: finalRank,
+          score: finalScore,
+          _rank: finalScore,
         });
       } else {
         const street = this.streetsMap.get(docId);
         if (!street || !street.geometry.coordinates || street.geometry.coordinates.length === 0) return;
 
-        // Use midpoint of street geometry
         const midIdx = Math.floor(street.geometry.coordinates.length / 2);
         const [lng, lat] = street.geometry.coordinates[midIdx];
         const location = { lat, lng };
@@ -343,8 +467,12 @@ export class PlaceSearchIndex {
 
         if (radiusMeters && distanceMeters > radiusMeters) return;
 
-        const distancePenalty = distanceMeters > 0 ? Math.log10(distanceMeters + 10) * 8 : 0;
-        const finalRank = info.score - distancePenalty;
+        const tierBase = (7 - info.tier) * 20000;
+        const distanceBonus = userLocation && distanceMeters > 0
+          ? Math.max(0, 500 - Math.min(500, distanceMeters / 20))
+          : 0;
+
+        const finalScore = tierBase + info.score + distanceBonus;
 
         hits.push({
           entityId: street.id,
@@ -359,13 +487,13 @@ export class PlaceSearchIndex {
           distanceMeters: userLocation ? distanceMeters : undefined,
           reason: info.reason,
           matchReason: info.reason,
-          score: finalRank,
-          _rank: finalRank,
+          score: finalScore,
+          _rank: finalScore,
         });
       }
     });
 
-    // Deterministic sort: highest rank first, then alphabetical tie-breaker (no random ordering)
+    // Sort by rank descending
     return hits.sort((a, b) => {
       if (b._rank !== a._rank) return b._rank - a._rank;
       return a.name.localeCompare(b.name);

@@ -21,13 +21,17 @@ export interface MapPackManifest {
   cityId: string; // e.g. 'tallinn'
   region: string;
   regionName: string;
+  countryCode?: string;
   version: string;
+  updatedAt?: string;
   routingSnapshotVersion: string;
   sha256: string;
+  checksumSha256?: string;
   provenanceType?: 'official_published' | 'custom_unverified';
   isCustomUnverified?: boolean;
   pmtiles: string; // e.g. '/maps/tallinn.pmtiles'
   pmtilesUrl: string;
+  downloadUrl?: string;
   poiUrl?: string;
   remoteUrl: string;
   routing: string; // e.g. '/routing/tallinn.graph'
@@ -35,11 +39,13 @@ export interface MapPackManifest {
   streetIndexUrl?: string;
   fileName: string;
   bounds: [number, number, number, number]; // [minLng, minLat, maxLng, maxLat]
-  center: [number, number]; // [lat, lng]
+  bbox?: [number, number, number, number];
+  center: [number, number] | { lat: number; lng: number }; // [lat, lng] or { lat, lng }
   minZoom: number;
   maxZoom: number;
   sizeBytes: number;
   sizeFormatted: string;
+  formattedSize?: string;
   source: string;
   license: string;
   attribution: string;
@@ -54,6 +60,8 @@ export interface MapPackManifest {
     streetIndex: { path: string; sha256: string; sizeBytes: number; streetCount?: number };
     searchIndex?: { path: string; sha256: string; sizeBytes: number };
   };
+  artifactsMeta?: Record<string, string>;
+  sources?: string[];
 }
 
 /**
@@ -66,71 +74,56 @@ export const MAP_PACK_MANIFESTS: Record<string, MapPackManifest> = {
     name: 'Tallinn',
     cityName: 'Tallinn',
     cityId: 'tallinn',
-    region: 'Harju Biopiirkond & Pealinn',
-    regionName: 'Harju Biopiirkond & Pealinn',
+    region: 'tallinn',
+    regionName: 'Tallinn & Harjumaa Bioregion',
+    countryCode: 'EE',
     version: '2026.09.27-A',
     routingSnapshotVersion: '2026.09.27-A',
-    sha256: 'abe646ecb90cca1619f7fccf00aac754b54f35a2b6ea3a4b47426d6b2eac4e3c',
-    provenanceType: 'official_published',
-    isCustomUnverified: false,
-    pmtiles: '/maps/tallinn-basemap.pmtiles',
-    pmtilesUrl: '/maps/tallinn-basemap.pmtiles',
-    poiUrl: '/maps/tallinn-poi.pmtiles',
-    remoteUrl: '/maps/tallinn-basemap.pmtiles',
+    updatedAt: '2026-09-28T21:46:58.129Z',
+    sha256: '0976658f89da095f77848fb99811068b48634f6a15fcd493d5fa6927dc53f8cb',
+    checksumSha256: '0976658f89da095f77848fb99811068b48634f6a15fcd493d5fa6927dc53f8cb',
+    sizeBytes: 32109,
+    formattedSize: '0.0 MB',
+    sizeFormatted: '0.0 MB',
+    bbox: [24.50, 59.32, 25.00, 59.50],
+    bounds: [24.50, 59.32, 25.00, 59.50],
+    center: { lat: 59.4370, lng: 24.7535 },
+    minZoom: 10,
+    maxZoom: 16,
+    fileName: 'tallinn.pmtiles',
+    pmtiles: '/maps/tallinn.pmtiles',
+    pmtilesUrl: '/maps/tallinn.pmtiles',
+    downloadUrl: '/maps/tallinn.pmtiles',
+    remoteUrl: '/maps/tallinn.pmtiles',
     routing: '/routing/tallinn.graph',
     routingUrl: '/routing/tallinn.graph',
     streetIndexUrl: '/maps/street-index.bin',
-    fileName: 'tallinn.pmtiles',
     artifacts: {
-      basemap: {
-        path: 'tallinn-basemap.pmtiles',
-        sha256: 'abe646ecb90cca1619f7fccf00aac754b54f35a2b6ea3a4b47426d6b2eac4e3c',
-        sizeBytes: 1507141
-      },
-      poi: {
-        path: 'tallinn-poi.pmtiles',
-        sha256: '52915fde8101bb2c9ddbe51237b0c40734004a9abb7049a14aa3704bd078f8ed',
-        sizeBytes: 51909,
-        index: 'tallinn-poi.index',
-        count: 29
-      },
-      routing: {
-        path: 'routing.graph',
-        sha256: '38597029630387d90f45b7887e757bb46ade54b31a6bfade877e7de23234ed9a',
-        sizeBytes: 2916,
-        nodes: 79,
-        edges: 110
-      },
-      streetIndex: {
-        path: 'street-index.bin',
-        sha256: '0151500ade36532345b725a1259339457eab9d334ddab717008d1e9a1d7ab5f8',
-        sizeBytes: 1519,
-        streetCount: 24
-      },
-      searchIndex: {
-        path: 'search-index.bin',
-        sha256: '154170dda417866f20001adfb056e481e548968097611600bdeddae960a5527b',
-        sizeBytes: 784
-      }
+      basemap: { path: 'tallinn-basemap.pmtiles', sha256: '0976658f89da095f77848fb99811068b48634f6a15fcd493d5fa6927dc53f8cb', sizeBytes: 1919 },
+      poi: { path: 'tallinn-poi.pmtiles', sha256: '7b9a6becd5bb5c40c400b7b851bb50f9d115b9597f6e546dcd11aa35462f168c', sizeBytes: 1919, count: 31 },
+      routing: { path: 'routing.graph', sha256: 'a7f2f8d351b460fc7bf86a0b80b3df19bf7fcaa99b4607706b02f5f1fc06fd1a', sizeBytes: 5615, nodes: 97, edges: 198 },
+      streetIndex: { path: 'street-index.bin', sha256: '065967d96c6c798667b859942288a91a77b775893723525d5308e1cc1c4c6a28', sizeBytes: 11328, streetCount: 36 },
+      searchIndex: { path: 'search-index.bin', sha256: 'a22392f21848e4057e086c99e4f218bdd0fea679ee818bb8eb31857f9c5fe92b', sizeBytes: 11328 },
     },
-    center: [59.437, 24.7535],
-    bounds: [24.50, 59.32, 25.00, 59.50],
-    minZoom: 0,
-    maxZoom: 15,
-    sizeBytes: 1557083,
-    sizeFormatted: '1.5 MB',
-    source: 'OpenStreetMap',
-    license: 'ODbL',
-    attribution: '© OpenStreetMap contributors',
-    releaseDate: '2026-09-26',
-    description: 'Täielik Tallinna ja Harju ranniku vektorbaaskaart (Kesklinn, Mustamäe, Lasnamäe, Pirita, Nõmme, Kalamaja ja tänavavõrk).',
-    features: [
-      'Täielikud eestikeelsed tänavanimed (name:et)',
-      'Hoonestuse 3D/2D polügoonid ja kõrgused',
-      'Tallinna laht, Ülemiste järv, Pirita jõgi',
-      'Elroni ja trammide rööbasteed',
-      '6 taktikalist kaarditeemat (Day, Night, High-Contrast, Direct Sun, Eco, Crisis)',
+    artifactsMeta: {
+      basemapSha256: '0976658f89da095f77848fb99811068b48634f6a15fcd493d5fa6927dc53f8cb',
+      poiSha256: '7b9a6becd5bb5c40c400b7b851bb50f9d115b9597f6e546dcd11aa35462f168c',
+      routingSha256: 'a7f2f8d351b460fc7bf86a0b80b3df19bf7fcaa99b4607706b02f5f1fc06fd1a',
+      streetIndexSha256: '065967d96c6c798667b859942288a91a77b775893723525d5308e1cc1c4c6a28',
+      searchIndexSha256: 'a22392f21848e4057e086c99e4f218bdd0fea679ee818bb8eb31857f9c5fe92b',
+    },
+    sources: [
+      'OSM Pedestrian & Infrastructure Network (2026)',
+      'Tallinn Geoportal & Open Data',
+      'Päästeamet Official Rescue & Shelter Registry',
+      'Maa-amet ADS Address Register',
     ],
+    source: 'OSM + Tallinn Geoportal',
+    license: 'ODbL / Tallinn Open Data',
+    attribution: 'HÕIMU Bioregional Resilience Data',
+    description: 'Tallinn & Harjumaa Bioregional Vector Basemap & Routing Graph',
+    releaseDate: '2026.09.27',
+    features: ['Basemap Vector', 'POI Resilience', 'Offline Routing', 'Street Index', 'Full-Text Search', 'Estonian Localization (name:et)'],
     featureFlags: {
       streetLabels: true,
       buildings: true,

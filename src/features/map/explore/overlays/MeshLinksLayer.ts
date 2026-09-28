@@ -3,7 +3,7 @@
  */
 
 import type * as maplibregl from 'maplibre-gl';
-import { GeoPoint } from '../../../../types';
+import { GeoPoint, FieldProvenance } from '../../../../types';
 
 export const MESH_LINKS_SOURCE_ID = 'hoimu-meshlinks-source';
 export const MESH_LINKS_LINE_LAYER = 'mesh-links-line';
@@ -12,9 +12,12 @@ export interface MeshLink {
   id: string;
   from: GeoPoint;
   to: GeoPoint;
-  rssi: number;
-  snr: number;
-  quality: 'excellent' | 'good' | 'marginal';
+  rssi?: number;
+  rssiProvenance?: FieldProvenance;
+  snr?: number;
+  snrProvenance?: FieldProvenance;
+  quality?: 'excellent' | 'good' | 'marginal';
+  qualityProvenance?: FieldProvenance;
 }
 
 export function convertMeshLinksToGeoJson(links: MeshLink[]): GeoJSON.FeatureCollection<GeoJSON.LineString> {
@@ -31,9 +34,12 @@ export function convertMeshLinksToGeoJson(links: MeshLink[]): GeoJSON.FeatureCol
       },
       properties: {
         id: l.id,
-        rssi: l.rssi,
-        snr: l.snr,
-        quality: l.quality,
+        rssi: l.rssi ?? -80,
+        snr: l.snr ?? 5,
+        quality: l.quality || 'good',
+        rssiProvenance: l.rssiProvenance || 'observed',
+        snrProvenance: l.snrProvenance || 'observed',
+        qualityProvenance: l.qualityProvenance || 'observed',
       },
     })),
   };

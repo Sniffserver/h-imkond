@@ -582,12 +582,15 @@ export interface UserProfile {
 
 export type PeerRadioType = 'BLE' | 'Wi-Fi Direct';
 
+export type FieldProvenance = 'observed' | 'derived' | 'estimated' | 'unknown';
+
 export interface MeshNode {
   id: string;
   callsign: string;
   bio: string;
   skills: string[];
   lastRssi: number; // dBm e.g. -48 dBm
+  rssiProvenance?: FieldProvenance;
   hopDistance: number; // 1 = direct, 2 = relayed, 3+ = store_forward
   lastSeen: string;
   trustScore: number; // 0 - 100
@@ -607,8 +610,13 @@ export interface MeshNode {
   distanceRatio: number; // 0 to 1 distance from center in radar
   radioType?: PeerRadioType;
   linkQualityPercent?: number; // 0-100%
+  linkQualityProvenance?: FieldProvenance;
   channelOrFrequency?: string; // e.g. 'BLE Ch 37' or 'Wi-Fi Direct Ch 6'
   relayedPackets?: number;
+  location?: GeoPoint;
+  locationProvenance?: FieldProvenance;
+  batteryLevel?: number;
+  batteryProvenance?: FieldProvenance;
 }
 
 export interface MeshLeaderboardNode {

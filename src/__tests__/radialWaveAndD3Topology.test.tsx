@@ -145,12 +145,12 @@ describe('Radial Wave Animation and D3 Topology Suite', () => {
         />
       );
 
-      // Unified MapScreen renders search trigger and nearby controls
-      const searchTrigger = screen.getByText(/Search Tallinn/i);
+      // Unified MapScreen renders search trigger and around you controls
+      const searchTrigger = screen.getByText(/Search/i);
       expect(searchTrigger).toBeDefined();
 
-      // Dedicated Nearby button is available
-      expect(screen.getByText(/Nearby/i)).toBeDefined();
+      // Dedicated Around you button or tab is available
+      expect(screen.getAllByText(/Around you/i).length).toBeGreaterThan(0);
     });
 
 

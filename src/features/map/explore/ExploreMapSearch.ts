@@ -1,19 +1,26 @@
 /**
- * Spatial & Keyword Search Engine for ExploreMap
+ * Spatial & Keyword Multi-Token Search Engine for ExploreMap
+ * Integrates off-main-thread Web Worker and PlaceSearchIndex ranking.
  */
 
 import { MapPlace, Street, GeoPoint } from '../../../types';
-import { haversineDistanceMeters } from '../../../geo/projection';
+import { PlaceSearchIndex, SearchHit } from '../places/placeSearchIndex';
+import { searchWorkerClient, SearchMatch } from '../../search/searchWorkerClient';
 
-export interface SearchMatch {
-  type: 'place' | 'street';
-  id: string;
-  title: string;
-  subtitle: string;
-  location: GeoPoint;
-  distanceMeters: number;
-  place?: MapPlace;
-  street?: Street;
+export type { SearchMatch };
+
+let localIndex: PlaceSearchIndex | null = null;
+let lastPlacesRef: MapPlace[] | null = null;
+let lastStreetsRef: Street[] | null = null;
+
+export function getOrBuildLocalSearchIndex(places: MapPlace[], streets: Street[]): PlaceSearchIndex {
+  if (!localIndex || places !== lastPlacesRef || streets !== lastStreetsRef) {
+    localIndex = new PlaceSearchIndex(places, streets);
+    lastPlacesRef = places;
+    lastStreetsRef = streets;
+    searchWorkerClient.initialize(places, streets);
+  }
+  return localIndex;
 }
 
 export function searchExploreMap(
@@ -22,49 +29,41 @@ export function searchExploreMap(
   places: MapPlace[],
   streets: Street[]
 ): SearchMatch[] {
-  const normQuery = query.toLowerCase().trim();
+  const normQuery = query.trim();
   if (!normQuery) return [];
 
-  const results: SearchMatch[] = [];
+  const index = getOrBuildLocalSearchIndex(places, streets);
+  const hits = index.search(normQuery, userLocation);
 
-  // 1. Search MapPlaces
-  for (const place of places) {
-    const nameMatch = place.name.toLowerCase().includes(normQuery);
-    const catMatch = place.mainCategory.toLowerCase().includes(normQuery) || place.subCategory.toLowerCase().includes(normQuery);
-    const addrMatch = (place.address || '').toLowerCase().includes(normQuery);
-
-    if (nameMatch || catMatch || addrMatch) {
-      const dist = Math.round(haversineDistanceMeters(userLocation.lat, userLocation.lng, place.location.lat, place.location.lng));
-      results.push({
-        type: 'place',
-        id: place.id,
-        title: place.name,
-        subtitle: `${place.address || place.mainCategory.toUpperCase()} • ${place.sourceName}`,
-        location: place.location,
-        distanceMeters: dist,
-        place,
-      });
+  return hits.slice(0, 6).map((h) => {
+    let subtitle = '';
+    if (h.type === 'place') {
+      subtitle = `${h.address || h.category?.toUpperCase() || 'ASUKOHT'} • ${h.place?.sourceName || 'Keskus'}`;
+    } else {
+      subtitle = `${h.street?.district || 'Tallinn'} • Tänav`;
     }
-  }
 
-  // 2. Search Streets
-  for (const street of streets) {
-    if (street.name.toLowerCase().includes(normQuery) || (street.district || '').toLowerCase().includes(normQuery)) {
-      const firstCoord = street.geometry.coordinates[0];
-      const loc: GeoPoint = { lat: firstCoord[1], lng: firstCoord[0] };
-      const dist = Math.round(haversineDistanceMeters(userLocation.lat, userLocation.lng, loc.lat, loc.lng));
+    return {
+      type: h.type,
+      id: h.id,
+      title: h.name,
+      subtitle,
+      location: h.location,
+      distanceMeters: h.distanceMeters || 0,
+      place: h.place,
+      street: h.street,
+      category: h.category,
+      reason: h.reason,
+    };
+  });
+}
 
-      results.push({
-        type: 'street',
-        id: street.id,
-        title: street.name,
-        subtitle: `${street.district || 'Tallinn'} • ${street.exploredPercent || 0}% uuritud`,
-        location: loc,
-        distanceMeters: dist,
-        street,
-      });
-    }
-  }
-
-  return results.sort((a, b) => a.distanceMeters - b.distanceMeters);
+export async function searchExploreMapAsync(
+  query: string,
+  userLocation: GeoPoint,
+  places: MapPlace[],
+  streets: Street[]
+): Promise<SearchMatch[]> {
+  getOrBuildLocalSearchIndex(places, streets);
+  return searchWorkerClient.searchDebounced(query, userLocation, 6, 75);
 }
