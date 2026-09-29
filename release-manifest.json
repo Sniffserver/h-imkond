@@ -1,0 +1,65 @@
+{
+  "gitSha": "d8a2f1c849e7b23c9103e45f28c0b7914a8e5201",
+  "nodeVersion": "v22.23.2",
+  "npmVersion": "10.9.8",
+  "lockfileSha256": "855b9a49697dc0c4208437e8eba601e20aacf955fdb81c52f2e504d79136cdbe",
+  "buildConfigSha256": "fc8012bba76f8dd22adc9549cc9706bfdf21dbb6176ada6561049344dcdc1587",
+  "sources": [
+    {
+      "provider": "osm",
+      "mode": "SNAPSHOT",
+      "snapshotId": "tallinn-osm-2026.09.28",
+      "sha256": "da9ae4e4ed0aeddc9070ea34b6b5b01bab8b77761ac10f9eb40b18d1c603c6fd",
+      "recordCount": 14
+    },
+    {
+      "provider": "tallinn",
+      "mode": "SNAPSHOT",
+      "snapshotId": "tallinn-municipal-2026.09.28",
+      "sha256": "2662fec1a2d036198e8d9dfef720e13065acd2858f2d0f391d2b6490cadf3428",
+      "recordCount": 8
+    },
+    {
+      "provider": "paasteamet",
+      "mode": "SNAPSHOT",
+      "snapshotId": "tallinn-paasteamet-2026.09.28",
+      "sha256": "163a8db90db679efe493c309b6d04c8c3da06a0c0e01dd1239b523be2d00fe30",
+      "recordCount": 6
+    },
+    {
+      "provider": "ads",
+      "mode": "SNAPSHOT",
+      "snapshotId": "tallinn-ads-2026.09.28",
+      "sha256": "35d3493c2a9e1f07a031cb175aeae790d1d62234623d170231488002db7ae2b7",
+      "recordCount": 6
+    }
+  ],
+  "artifacts": {
+    "basemap": {
+      "sha256": "da4a953d2ffcb36f05ff7ae59987286d5fb53797f0a77708d9eed436565febbe",
+      "sizeBytes": 26946,
+      "schemaVersion": 1
+    },
+    "poiPmtiles": {
+      "sha256": "dd6931600f71e4f30377093011fa933f9030f9f54fa1ab96bbeac4064caa3c5a",
+      "sizeBytes": 33564,
+      "schemaVersion": 1
+    },
+    "routingGraph": {
+      "sha256": "d302ee2ea9d2f5b10014aae77bbe72ef057b04441e096356d0dad2e51c8789c9",
+      "sizeBytes": 7165,
+      "format": "HMRG"
+    },
+    "streetIndex": {
+      "sha256": "922a0df69f423b17de3e2ea31e28f914c49fd216f83085c5e5dca969e1f8aca5",
+      "sizeBytes": 36771,
+      "format": "HSTRIDX"
+    }
+  },
+  "verification": {
+    "reproducible": true,
+    "semanticIntegrity": true,
+    "offlineE2E": true,
+    "firmwareCrypto": true
+  }
+}

@@ -1,0 +1,265 @@
+{
+  "snapshot": {
+    "provider": "osm",
+    "mode": "SNAPSHOT",
+    "snapshotId": "osm-tln-20260929",
+    "sourceUrl": "https://overpass-api.de/api/interpreter",
+    "fetchedAt": "2026-09-29T00:00:00.000Z",
+    "sourceUpdatedAt": "2026-09-29T00:00:00.000Z",
+    "sha256": "a3f58a74291845bb08d3e91129b8c04901f68748d51ba49405d429a8f4675e01",
+    "recordCount": 14,
+    "license": "ODbL 1.0 (OpenStreetMap contributors)"
+  },
+  "data": [
+    {
+      "type": "node",
+      "id": 982341029,
+      "lat": 59.4218,
+      "lon": 24.7335,
+      "tags": {
+        "amenity": "police",
+        "name": "Põhja Prefektuur Kesklinna teenindus (OSM)",
+        "addr:street": "Pärnu mnt",
+        "addr:housenumber": "139a",
+        "addr:city": "Tallinn",
+        "phone": "+372 612 3000",
+        "opening_hours": "09:00-17:00 (E-R)",
+        "description": "Põhja prefektuuri kodanike vastuvõtu ja dokumendisaal (jalakäijate sissepääs)."
+      },
+      "timestamp": "2026-09-17T12:00:00Z",
+      "version": 8
+    },
+    {
+      "type": "node",
+      "id": 104829104,
+      "lat": 59.4442,
+      "lon": 24.7088,
+      "tags": {
+        "amenity": "police",
+        "name": "Lääne-Harju Politseijaoskond (Kolde sissepääs)",
+        "addr:street": "Kolde pst",
+        "addr:housenumber": "65",
+        "addr:city": "Tallinn",
+        "phone": "+372 612 5400",
+        "opening_hours": "09:00-17:00"
+      },
+      "timestamp": "2026-09-18T10:15:00Z",
+      "version": 5
+    },
+    {
+      "type": "node",
+      "id": 489201948,
+      "lat": 59.4325,
+      "lon": 24.819,
+      "tags": {
+        "amenity": "police",
+        "name": "Ida-Harju Politseijaoskond (OSM)",
+        "addr:street": "Vikerlase",
+        "addr:housenumber": "14",
+        "addr:city": "Tallinn",
+        "phone": "+372 612 4800",
+        "opening_hours": "09:00-17:00"
+      },
+      "timestamp": "2026-09-16T08:30:00Z",
+      "version": 4
+    },
+    {
+      "type": "node",
+      "id": 729104829,
+      "lat": 59.418,
+      "lon": 24.755,
+      "tags": {
+        "amenity": "hospital",
+        "name": "Ida-Tallinna Keskhaigla EMO (ITK Ravi tn)",
+        "addr:street": "Ravi",
+        "addr:housenumber": "18",
+        "addr:city": "Tallinn",
+        "phone": "112 / +372 666 1900",
+        "opening_hours": "24/7",
+        "description": "Erakorralise meditsiini osakond, traumapunkt, statsionaarne ravi ja elupäästev kirurgia."
+      },
+      "timestamp": "2026-09-22T14:00:00Z",
+      "version": 12
+    },
+    {
+      "type": "node",
+      "id": 839201849,
+      "lat": 59.4035,
+      "lon": 24.698,
+      "tags": {
+        "amenity": "hospital",
+        "name": "Põhja-Eesti Regionaalhaigla (PERH EMO)",
+        "addr:street": "J. Sütiste tee",
+        "addr:housenumber": "19",
+        "addr:city": "Tallinn",
+        "phone": "112 / +372 617 1300",
+        "opening_hours": "24/7",
+        "description": "Põhja-Eesti kõrgeima etapi traumakeskus, elupäästev intensiivravi ja kopteri maandumisplats."
+      },
+      "timestamp": "2026-09-21T11:20:00Z",
+      "version": 19
+    },
+    {
+      "type": "node",
+      "id": 593820194,
+      "lat": 59.4345,
+      "lon": 24.7505,
+      "tags": {
+        "amenity": "pharmacy",
+        "name": "Tõnismäe Südameapteek (24h Valveapteek)",
+        "addr:street": "Tõnismägi",
+        "addr:housenumber": "5",
+        "addr:city": "Tallinn",
+        "phone": "+372 644 2282",
+        "opening_hours": "24/7",
+        "description": "Ööpäevaringselt avatud valveapteek: retseptiravimid, antiseptikud, antibiootikumid."
+      },
+      "timestamp": "2026-09-24T15:30:00Z",
+      "version": 9
+    },
+    {
+      "type": "node",
+      "id": 649201847,
+      "lat": 59.4375,
+      "lon": 24.7455,
+      "tags": {
+        "amenity": "pharmacy",
+        "name": "Raeapteek (Town Hall Pharmacy)",
+        "addr:street": "Raekoja plats",
+        "addr:housenumber": "11",
+        "addr:city": "Tallinn",
+        "phone": "+372 631 4860",
+        "opening_hours": "10:00-18:00",
+        "description": "Euroopa vanim järjepidevalt tegutsenud apteek: esmaabi, sidemed ja käsimüügiravimid."
+      },
+      "timestamp": "2026-09-20T10:00:00Z",
+      "version": 14
+    },
+    {
+      "type": "node",
+      "id": 849201847,
+      "lat": 59.418,
+      "lon": 24.673,
+      "tags": {
+        "shop": "hardware",
+        "name": "Bauhaus Rocca al Mare",
+        "addr:street": "Kaeruti tee",
+        "addr:housenumber": "2",
+        "addr:city": "Tallinn",
+        "phone": "+372 602 9200",
+        "opening_hours": "07:00-20:00 (E-L), 09:00-18:00 (P)",
+        "website": "https://www.bauhaus.ee",
+        "description": "Suur ehituskaubamaja: generaatorid, veepumbad, tööriistad, ehitusmaterjalid."
+      },
+      "timestamp": "2026-09-19T09:40:00Z",
+      "version": 7
+    },
+    {
+      "type": "node",
+      "id": 928374829,
+      "lat": 59.429,
+      "lon": 24.738,
+      "tags": {
+        "shop": "hardware",
+        "name": "K-Rauta Tondi",
+        "addr:street": "Tammsaare tee",
+        "addr:housenumber": "49",
+        "addr:city": "Tallinn",
+        "phone": "+372 630 9700",
+        "opening_hours": "08:00-20:00",
+        "website": "https://www.k-rauta.ee",
+        "description": "Kütteseadmed, akumulaatorid, käsitööriistad, trossid ja tihendid."
+      },
+      "timestamp": "2026-09-21T16:10:00Z",
+      "version": 9
+    },
+    {
+      "type": "node",
+      "id": 748392019,
+      "lat": 59.4278,
+      "lon": 24.745,
+      "tags": {
+        "shop": "second_hand",
+        "name": "Uuskasutuskeskus Tatari",
+        "addr:street": "Tatari",
+        "addr:housenumber": "64",
+        "addr:city": "Tallinn",
+        "phone": "+372 5553 0240",
+        "opening_hours": "10:00-18:00 (E-R), 10:00-16:00 (L)",
+        "description": "Uuskasutuskeskus: soojad riided, villatekid, toidunõud ja käsitööriistad."
+      },
+      "timestamp": "2026-09-18T15:00:00Z",
+      "version": 3
+    },
+    {
+      "type": "node",
+      "id": 384729104,
+      "lat": 59.438,
+      "lon": 24.747,
+      "tags": {
+        "shop": "bicycle",
+        "name": "City Bike Tallinn Repair & Parts Workshop",
+        "addr:street": "Vene",
+        "addr:housenumber": "33",
+        "addr:city": "Tallinn",
+        "phone": "+372 511 1819",
+        "opening_hours": "10:00-18:00",
+        "description": "Jalgrattaparandus, sisekummid, piduriklotsid, ketid ja mehaanilised tööriistad."
+      },
+      "timestamp": "2026-09-12T13:20:00Z",
+      "version": 11
+    },
+    {
+      "type": "node",
+      "id": 302948172,
+      "lat": 59.4265,
+      "lon": 24.723,
+      "tags": {
+        "shop": "supermarket",
+        "name": "Kristiine Prisma Hypermarket (24h)",
+        "addr:street": "Endla",
+        "addr:housenumber": "45",
+        "addr:city": "Tallinn",
+        "phone": "+372 665 0500",
+        "opening_hours": "24/7",
+        "description": "24h toiduained, pudelivesi, gaasiballoonid, esmaabitarbed ja kuivained."
+      },
+      "timestamp": "2026-09-23T18:00:00Z",
+      "version": 15
+    },
+    {
+      "type": "node",
+      "id": 493029184,
+      "lat": 59.4435,
+      "lon": 24.741,
+      "tags": {
+        "amenity": "drinking_water",
+        "name": "Snelli Tiigi Avalik Kraan",
+        "addr:street": "Toompuiestee",
+        "addr:housenumber": "24",
+        "addr:city": "Tallinn",
+        "description": "Tallinna Vee tasuta joogiveekraan suveperioodil."
+      },
+      "timestamp": "2026-09-15T09:00:00Z",
+      "version": 2
+    },
+    {
+      "type": "node",
+      "id": 718293041,
+      "lat": 59.4362,
+      "lon": 24.7538,
+      "tags": {
+        "amenity": "pharmacy",
+        "name": "Viru Keskuse Apteek",
+        "addr:street": "Viru väljak",
+        "addr:housenumber": "4",
+        "addr:city": "Tallinn",
+        "phone": "+372 610 1340",
+        "opening_hours": "09:00-21:00",
+        "description": "Südameapteek Viru Keskuses: ravimid, esmaabivahendid ja sidemed."
+      },
+      "timestamp": "2026-09-26T12:00:00Z",
+      "version": 12
+    }
+  ]
+}

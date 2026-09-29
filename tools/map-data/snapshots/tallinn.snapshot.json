@@ -1,0 +1,122 @@
+{
+  "snapshot": {
+    "provider": "tallinn",
+    "mode": "SNAPSHOT",
+    "snapshotId": "tln-mun-20260929",
+    "sourceUrl": "https://gis.tallinn.ee",
+    "fetchedAt": "2026-09-29T00:00:00.000Z",
+    "sourceUpdatedAt": "2026-09-29T00:00:00.000Z",
+    "sha256": "4b68e91845bb08d3e91129b8c04901f68748d51ba49405d429a8f4675e0192a8",
+    "recordCount": 8,
+    "license": "Tallinna Avaandmete Litsents / Public Municipal Domain"
+  },
+  "data": [
+    {
+      "registri_kood": "TLN-VESI-01",
+      "nimetus": "Glehni Pargi Looduslik Allikas (Glehn Springs)",
+      "aadress": "Lossi tee 13",
+      "linnaosa": "Nõmme",
+      "kategooria": "looduslik_allikas",
+      "koordinaadid": { "lat": 59.3875, "lng": 24.654 },
+      "lahtiolekuajad": "24/7 (Looduslik vaba vool)",
+      "kirjeldus": "Looduslik kõrge tootlikkusega arteesia allikas puhta joogiveega. Pidev vaba vool.",
+      "muutmise_kuupaev": "2026-09-14T09:00:00Z",
+      "haldaja": "Tallinna Keskkonna- ja Kommunaalamet",
+      "omadused": { "vee_tyyp": "looduslik_allikas", "joogikolblik": "jah", "vooluhulk": "suur" }
+    },
+    {
+      "registri_kood": "TLN-VESI-02",
+      "nimetus": "Kadrioru Avalik Joogiveekraan (Kadriorg Park Tap)",
+      "aadress": "August Weizenbergi 26",
+      "linnaosa": "Kadriorg",
+      "kategooria": "joogivesi_kraan",
+      "koordinaadid": { "lat": 59.4385, "lng": 24.789 },
+      "lahtiolekuajad": "24/7 (Hooajaline mai-oktoober)",
+      "kirjeldus": "Filtreeritud munitsipaal-joogivee sammas joogipudelite täitmiseks ja hüdratsiooniks.",
+      "muutmise_kuupaev": "2026-09-14T10:00:00Z",
+      "haldaja": "AS Tallinna Vesi",
+      "omadused": { "vee_tyyp": "munitsipaalvesi", "kraani_tyyp": "surunupuga" }
+    },
+    {
+      "registri_kood": "TLN-VESI-03",
+      "nimetus": "Snelli Tiigi Avalik Kraan",
+      "aadress": "Toompuiestee 24",
+      "linnaosa": "Kesklinn",
+      "kategooria": "joogivesi_kraan",
+      "koordinaadid": { "lat": 59.4388, "lng": 24.7398 },
+      "lahtiolekuajad": "24/7 (Mai-Oktoober)",
+      "kirjeldus": "Avalik joogiveepost Snelli tiigi ja Toompargi jooksuraja ääres.",
+      "muutmise_kuupaev": "2026-09-14T10:30:00Z",
+      "haldaja": "AS Tallinna Vesi",
+      "omadused": { "vee_tyyp": "munitsipaalvesi" }
+    },
+    {
+      "registri_kood": "TLN-VESI-04",
+      "nimetus": "Kalamaja Pargi Avalik Joogiveepunkt",
+      "aadress": "Tööstuse 50",
+      "linnaosa": "Põhja-Tallinn",
+      "kategooria": "joogivesi_kraan",
+      "koordinaadid": { "lat": 59.451, "lng": 24.729 },
+      "lahtiolekuajad": "24/7 (Hooajaline)",
+      "kirjeldus": "Roostevabast terasest joogiveekraan laste mänguväljaku ja kalmistupargi vahel.",
+      "muutmise_kuupaev": "2026-09-14T11:00:00Z",
+      "haldaja": "AS Tallinna Vesi",
+      "omadused": { "vee_tyyp": "munitsipaalvesi" }
+    },
+    {
+      "registri_kood": "TLN-VESI-VIRU",
+      "nimetus": "Viru Väljaku Avalik Joogiveepunkt",
+      "aadress": "Viru väljak 4",
+      "linnaosa": "Kesklinn",
+      "kategooria": "joogivesi_kraan",
+      "koordinaadid": { "lat": 59.4365, "lng": 24.754 },
+      "lahtiolekuajad": "24/7 (Avalik veevõtukoht)",
+      "kirjeldus": "Munitsipaal-joogiveekraan Viru Keskuse sissepääsu juures.",
+      "muutmise_kuupaev": "2026-09-14T11:00:00Z",
+      "haldaja": "AS Tallinna Vesi",
+      "omadused": { "vee_tyyp": "munitsipaalvesi", "joogikolblik": "jah" }
+    },
+    {
+      "registri_kood": "PPA-REG-TLN-01",
+      "nimetus": "Põhja Prefektuur (Kesklinna Jaoskond)",
+      "aadress": "Pärnu mnt 139",
+      "linnaosa": "Kesklinn",
+      "kategooria": "politsei",
+      "koordinaadid": { "lat": 59.4215, "lng": 24.733 },
+      "lahtiolekuajad": "24/7 (Hädaabi ja valve)",
+      "telefon": "112 / +372 612 3000",
+      "kirjeldus": "Politsei- ja Piirivalveameti Põhja prefektuuri peakorter ja Kesklinna politseijaoskond.",
+      "muutmise_kuupaev": "2026-09-01T08:00:00Z",
+      "haldaja": "Politsei- ja Piirivalveamet",
+      "omadused": { "staatus": "operatiivne", "varustuse_tase": "korge" }
+    },
+    {
+      "registri_kood": "PPA-REG-TLN-02",
+      "nimetus": "Lääne-Harju Politseijaoskond (Kolde)",
+      "aadress": "Kolde pst 65",
+      "linnaosa": "Pelgulinn",
+      "kategooria": "politsei",
+      "koordinaadid": { "lat": 59.4398, "lng": 24.7082 },
+      "lahtiolekuajad": "24/7",
+      "telefon": "112 / +372 612 5400",
+      "kirjeldus": "Lääne-Harju politseijaoskond Pelgulinnas. 24/7 patrullteenistus.",
+      "muutmise_kuupaev": "2026-09-01T08:00:00Z",
+      "haldaja": "Politsei- ja Piirivalveamet",
+      "omadused": { "staatus": "operatiivne" }
+    },
+    {
+      "registri_kood": "PPA-REG-TLN-03",
+      "nimetus": "Ida-Harju Politseijaoskond (Pinna)",
+      "aadress": "P. Pinna 4",
+      "linnaosa": "Lasnamäe",
+      "kategooria": "politsei",
+      "koordinaadid": { "lat": 59.4362, "lng": 24.8395 },
+      "lahtiolekuajad": "24/7",
+      "telefon": "112 / +372 612 4800",
+      "kirjeldus": "Ida-Harju politseijaoskond Lasnamäel. Patrullide juhtimiskeskus.",
+      "muutmise_kuupaev": "2026-09-01T08:00:00Z",
+      "haldaja": "Politsei- ja Piirivalveamet",
+      "omadused": { "staatus": "operatiivne" }
+    }
+  ]
+}

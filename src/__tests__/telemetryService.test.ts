@@ -47,7 +47,8 @@ describe('Standardized Observability & Telemetry Engine', () => {
     expect(physical.length).toBeGreaterThan(0);
     physical.forEach((hw) => {
       expect(hw.category).toBe('Physical Hardware Measurement');
-      expect(hw.status).toBe('VERIFIED_PHYSICAL_BENCHMARK');
+      expect(hw.status).toBe('PHYSICAL_DEVICE_VERIFIED');
+      expect(hw.tier).toBe('PHYSICAL_LAB');
     });
   });
 });

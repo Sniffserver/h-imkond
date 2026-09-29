@@ -33,6 +33,10 @@ class SearchWorkerClient {
     this.initWorker();
   }
 
+  public isReady(): boolean {
+    return this.isInitialized || this.fallbackIndex !== null;
+  }
+
   private initWorker(): void {
     if (typeof window !== 'undefined' && typeof window.Worker !== 'undefined') {
       try {

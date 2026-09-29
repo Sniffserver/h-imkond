@@ -123,6 +123,11 @@ export function synthesizeCanonicalPlaces(
 ): MapPlace[] {
   const result: MapPlace[] = [];
 
+  const deterministicNow = process.env.SOURCE_DATE_EPOCH
+    ? parseInt(process.env.SOURCE_DATE_EPOCH, 10) * 1000
+    : 1780000000000;
+  const deterministicIso = new Date(deterministicNow).toISOString();
+
   // 1. Process Matched Pairs (Authoritative + OSM Candidate)
   for (const pair of dedupeResult.matchedPairs) {
     const auth = pair.primary;
@@ -149,8 +154,8 @@ export function synthesizeCanonicalPlaces(
       mainCategory: auth.mainCategory,
       subCategory: auth.subCategory,
       sources: [
-        { provider: auth.source, sourceId: auth.sourceId, retrievedAt: Date.now(), checksum: auth.checksum },
-        { provider: 'osm', sourceId: osm.sourceId, retrievedAt: Date.now(), checksum: osm.checksum },
+        { provider: auth.source, sourceId: auth.sourceId, retrievedAt: deterministicNow, checksum: auth.checksum },
+        { provider: 'osm', sourceId: osm.sourceId, retrievedAt: deterministicNow, checksum: osm.checksum },
       ],
       conflicts: conflictData,
       source: auth.source,
@@ -185,7 +190,7 @@ export function synthesizeCanonicalPlaces(
       mainCategory: auth.mainCategory,
       subCategory: auth.subCategory,
       sources: [
-        { provider: auth.source, sourceId: auth.sourceId, retrievedAt: Date.now(), checksum: auth.checksum },
+        { provider: auth.source, sourceId: auth.sourceId, retrievedAt: deterministicNow, checksum: auth.checksum },
       ],
       source: auth.source,
       sourceName: auth.sourceName,
@@ -214,7 +219,7 @@ export function synthesizeCanonicalPlaces(
       mainCategory: osm.mainCategory,
       subCategory: osm.subCategory,
       sources: [
-        { provider: 'osm', sourceId: osm.sourceId, retrievedAt: Date.now(), checksum: osm.checksum },
+        { provider: 'osm', sourceId: osm.sourceId, retrievedAt: deterministicNow, checksum: osm.checksum },
       ],
       source: 'osm',
       sourceName: osm.sourceName,
@@ -253,7 +258,7 @@ export function synthesizeCanonicalPlaces(
         {
           provider: 'hoimu',
           sourceId: hoimu.nodeObservationId,
-          retrievedAt: Date.now(),
+          retrievedAt: deterministicNow,
           signature: hoimu.signature,
           signerPublicKey: hoimu.signerPublicKey,
         },
@@ -267,7 +272,7 @@ export function synthesizeCanonicalPlaces(
       lastConfirmed: hoimu.lastConfirmed,
       sourceUpdatedAt: hoimu.sourceUpdatedAt || '2026-09-25T00:00:00Z',
       snapshotDate: hoimu.sourceUpdatedAt ? hoimu.sourceUpdatedAt.substring(0, 10) : '2026-09-25',
-      ingestedAt: new Date().toISOString(),
+      ingestedAt: deterministicIso,
       snapshotId: hoimu.snapshotId || 'mesh-obs-tln-current',
       address: hoimu.address,
       description: hoimu.description,

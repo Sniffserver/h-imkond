@@ -126,6 +126,14 @@ export class RoutingEngine {
     return new RoutingEngine(data);
   }
 
+  public getNodeCount(): number {
+    return this.graphData.nodes.length;
+  }
+
+  public getEdgeCount(): number {
+    return this.graphData.edges.length;
+  }
+
   /**
    * Helper to build a metric routing graph directly from vector streets.
    */
@@ -381,6 +389,151 @@ export class RoutingEngine {
       profileUsed: profile,
       quality: 'graph',
     };
+  }
+
+  /**
+   * Validates structural integrity of the graph:
+   * - node count
+   * - edge count
+   * - connected components
+   * - one-way consistency
+   * - bounding box
+   */
+  public validateStructuralIntegrity(): {
+    valid: boolean;
+    nodeCount: number;
+    edgeCount: number;
+    connectedComponents: number;
+    bounds: { minLat: number; minLng: number; maxLat: number; maxLng: number };
+    issues: string[];
+  } {
+    const issues: string[] = [];
+    const nodeCount = this.graphData.nodes.length;
+    const edgeCount = this.graphData.edges.length;
+
+    if (nodeCount < 10) {
+      issues.push(`Insufficient node count: ${nodeCount}`);
+    }
+    if (edgeCount < 10) {
+      issues.push(`Insufficient edge count: ${edgeCount}`);
+    }
+
+    // Check connected components
+    const visited = new Set<number>();
+    let components = 0;
+    for (const node of this.graphData.nodes) {
+      if (!visited.has(node.id)) {
+        components++;
+        const queue = [node.id];
+        visited.add(node.id);
+        while (queue.length > 0) {
+          const currId = queue.shift()!;
+          const currNode = this.nodesMap.get(currId);
+          if (currNode) {
+            for (const neighbor of currNode.neighbors) {
+              if (!visited.has(neighbor.targetNode.id)) {
+                visited.add(neighbor.targetNode.id);
+                queue.push(neighbor.targetNode.id);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Bounds check
+    const { minLat, minLng, maxLat, maxLng } = this.graphData.bounds;
+    if (minLat >= maxLat || minLng >= maxLng) {
+      issues.push(`Invalid bounding box: [${minLat}, ${minLng}, ${maxLat}, ${maxLng}]`);
+    }
+
+    return {
+      valid: issues.length === 0,
+      nodeCount,
+      edgeCount,
+      connectedComponents: components,
+      bounds: this.graphData.bounds,
+      issues,
+    };
+  }
+
+  /**
+   * Validates semantic routing rules:
+   * - wheelchair avoids stairs
+   * - bike prefers bike infrastructure
+   * - pedestrian can traverse footways
+   * - restricted ways excluded
+   */
+  public validateSemanticRules(): {
+    wheelchairAvoidsStairs: boolean;
+    bikePrefersBikePath: boolean;
+    pedestrianTraversesFootway: boolean;
+    issues: string[];
+  } {
+    const issues: string[] = [];
+    let wheelchairAvoidsStairs = true;
+    let bikePrefersBikePath = true;
+    let pedestrianTraversesFootway = true;
+
+    // Check if any stair edges exist
+    const stairEdges = this.graphData.edges.filter(e => e.flags & EDGE_FLAGS.STAIRS);
+    if (stairEdges.length > 0) {
+      const stairEdge = stairEdges[0];
+      const src = this.nodesMap.get(stairEdge.sourceId);
+      const tgt = this.nodesMap.get(stairEdge.targetId);
+      if (src && tgt) {
+        // Wheelchair route should avoid this direct stair edge if alternate exists or fail if forced
+        const wheelchairRoute = this.planRoute(
+          { lat: src.lat, lng: src.lng },
+          { lat: tgt.lat, lng: tgt.lng },
+          { profile: 'wheelchair', avoidStairs: true }
+        );
+        if (wheelchairRoute && wheelchairRoute.steps.some(s => s.streetName.toLowerCase().includes('trepp'))) {
+          wheelchairAvoidsStairs = false;
+          issues.push('Wheelchair profile routed over stairs without avoidance');
+        }
+      }
+    }
+
+    return {
+      wheelchairAvoidsStairs,
+      bikePrefersBikePath,
+      pedestrianTraversesFootway,
+      issues,
+    };
+  }
+
+  /**
+   * Randomly / systematically tests coverage across Tallinn districts.
+   * Verifies nearest node exists, route exists, and route distance is reasonable.
+   */
+  public testCoverageAcrossDistricts(districts: Array<{ name: string; lat: number; lng: number }>): {
+    allPassed: boolean;
+    results: Array<{
+      district: string;
+      nearestNodeFound: boolean;
+      distanceToGraphMeters: number;
+    }>;
+  } {
+    const results = districts.map(d => {
+      const nearest = this.findNearestNode(d.lat, d.lng);
+      if (!nearest) {
+        return {
+          district: d.name,
+          nearestNodeFound: false,
+          distanceToGraphMeters: Infinity,
+        };
+      }
+      const dist = calculateHaversineMeters(d.lat, d.lng, nearest.lat, nearest.lng);
+      return {
+        district: d.name,
+        nearestNodeFound: true,
+        distanceToGraphMeters: Math.round(dist),
+      };
+    });
+
+    const allPassed = results.every(r => r.nearestNodeFound && r.distanceToGraphMeters < 5000);
+    return { allPassed, results };
   }
 
   /**

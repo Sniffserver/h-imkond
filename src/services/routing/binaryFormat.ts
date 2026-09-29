@@ -125,8 +125,16 @@ export function encodeRoutingBin(data: RoutingGraphData): ArrayBuffer {
  * Decodes a `routing.bin` ArrayBuffer into a structured graph representation.
  */
 export function decodeRoutingBin(buffer: ArrayBuffer): RoutingGraphData {
-  const view = new DataView(buffer);
-  const uint8View = new Uint8Array(buffer);
+  let view = new DataView(buffer);
+  let uint8View = new Uint8Array(buffer);
+
+  let startOffset = 0;
+  const initialMagic = view.getUint32(0, false);
+  if (initialMagic === 0x48524f55) { // "HROU" - meaning the 16-byte "HROUTG" header is present!
+    startOffset = 16;
+    view = new DataView(buffer, 16);
+    uint8View = new Uint8Array(buffer, 16);
+  }
 
   const magic = view.getUint32(0, false);
   if (magic !== ROUTING_BIN_MAGIC) {

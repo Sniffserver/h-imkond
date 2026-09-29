@@ -1,6 +1,6 @@
 [
   {
-    "id": "place_police_ppa_ppa_reg_tln_01",
+    "id": "place_police_tln_ppa_reg_tln_01",
     "name": "Põhja Prefektuur (Kesklinna Jaoskond)",
     "location": {
       "lat": 59.4215,
@@ -10,29 +10,29 @@
     "subCategory": "police",
     "sources": [
       {
-        "provider": "ppa",
+        "provider": "tallinn",
         "sourceId": "PPA-REG-TLN-01",
-        "retrievedAt": 1790632018122,
+        "retrievedAt": 1780000000000,
         "checksum": "5c9a24a49cf30eb9"
       },
       {
         "provider": "osm",
         "sourceId": "node/982341029",
-        "retrievedAt": 1790632018122,
+        "retrievedAt": 1780000000000,
         "checksum": "37e572fb1a6e8fb7"
       }
     ],
     "conflicts": [
       {
-        "id": "conf_0_auth_ppa_ppa_reg_tln_01",
+        "id": "conf_0_tln_ppa_reg_tln_01",
         "field": "Address & Parcel Designation",
         "status": "sources_disagree",
         "summary": "State registry references official land parcel; OSM tag records pedestrian entrance doorway.",
         "claims": [
           {
-            "provider": "ppa",
-            "value": "Pärnu mnt 139, Kesklinn",
-            "sourceName": "Politsei- ja Piirivalveamet (PPA Official Register)"
+            "provider": "tallinn",
+            "value": "Pärnu mnt 139, Kesklinn, Tallinn",
+            "sourceName": "Tallinna Avaandmed (PPA-REG-TLN-01)"
           },
           {
             "provider": "osm",
@@ -42,15 +42,15 @@
         ]
       },
       {
-        "id": "conf_1_auth_ppa_ppa_reg_tln_01",
+        "id": "conf_1_tln_ppa_reg_tln_01",
         "field": "Geographic Pin Offset",
         "status": "sources_disagree",
         "summary": "Displacement of 44 meters detected between registry footprint and mapped entryway.",
         "claims": [
           {
-            "provider": "ppa",
+            "provider": "tallinn",
             "value": "59.42150, 24.73300 (Parcel Center)",
-            "sourceName": "Politsei- ja Piirivalveamet (PPA Official Register)"
+            "sourceName": "Tallinna Avaandmed (PPA-REG-TLN-01)"
           },
           {
             "provider": "osm",
@@ -60,15 +60,15 @@
         ]
       },
       {
-        "id": "conf_2_auth_ppa_ppa_reg_tln_01",
+        "id": "conf_2_tln_ppa_reg_tln_01",
         "field": "Operating Hours",
         "status": "sources_disagree",
         "summary": "Registry reflects 24/7 emergency dispatch duty; OSM tag specifies public desk schedule.",
         "claims": [
           {
-            "provider": "ppa",
+            "provider": "tallinn",
             "value": "24/7 (Hädaabi ja valve)",
-            "sourceName": "Politsei- ja Piirivalveamet (PPA Official Register)"
+            "sourceName": "Tallinna Avaandmed (PPA-REG-TLN-01)"
           },
           {
             "provider": "osm",
@@ -78,24 +78,24 @@
         ]
       }
     ],
-    "source": "ppa",
-    "sourceName": "Politsei- ja Piirivalveamet (PPA Official Register)",
+    "source": "tallinn",
+    "sourceName": "Tallinna Avaandmed (PPA-REG-TLN-01)",
     "sourceId": "PPA-REG-TLN-01",
     "secondarySource": "osm",
     "secondarySourceName": "OpenStreetMap (node/982341029)",
     "hasMismatch": true,
-    "mismatchDetails": "Discrepancy identified between Politsei- ja Piirivalveamet (PPA Official Register) and OpenStreetMap (node/982341029) (3 field variance)",
+    "mismatchDetails": "Discrepancy identified between Tallinna Avaandmed (PPA-REG-TLN-01) and OpenStreetMap (node/982341029) (3 field variance)",
     "discrepancies": [
       {
-        "sourceA": "Politsei- ja Piirivalveamet (PPA Official Register)",
+        "sourceA": "Tallinna Avaandmed (PPA-REG-TLN-01)",
         "sourceB": "OpenStreetMap (node/982341029)",
         "field": "Address & Parcel Designation",
-        "valueA": "Pärnu mnt 139, Kesklinn",
+        "valueA": "Pärnu mnt 139, Kesklinn, Tallinn",
         "valueB": "Pärnu mnt 139a, Tallinn",
         "warningNote": "State registry references official land parcel; OSM tag records pedestrian entrance doorway."
       },
       {
-        "sourceA": "Politsei- ja Piirivalveamet (PPA Official Register)",
+        "sourceA": "Tallinna Avaandmed (PPA-REG-TLN-01)",
         "sourceB": "OpenStreetMap (node/982341029)",
         "field": "Geographic Pin Offset",
         "valueA": "59.42150, 24.73300 (Parcel Center)",
@@ -103,7 +103,7 @@
         "warningNote": "Displacement of 44 meters detected between registry footprint and mapped entryway."
       },
       {
-        "sourceA": "Politsei- ja Piirivalveamet (PPA Official Register)",
+        "sourceA": "Tallinna Avaandmed (PPA-REG-TLN-01)",
         "sourceB": "OpenStreetMap (node/982341029)",
         "field": "Operating Hours",
         "valueA": "24/7 (Hädaabi ja valve)",
@@ -114,14 +114,16 @@
     "provenanceStatus": "conflict",
     "sourceUpdatedAt": "2026-09-01T08:00:00Z",
     "snapshotDate": "2026-09-01",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "tln-mun-5c9a24a49cf3",
     "checksum": "5c9a24a49cf30eb9",
-    "address": "Pärnu mnt 139, Kesklinn",
+    "address": "Pärnu mnt 139, Kesklinn, Tallinn",
     "phone": "112 / +372 612 3000",
     "openingHours": "24/7 (Hädaabi ja valve)",
     "description": "Politsei- ja Piirivalveameti Põhja prefektuuri peakorter ja Kesklinna politseijaoskond.",
     "tags": {
+      "registri_kood": "PPA-REG-TLN-01",
+      "haldaja": "Politsei- ja Piirivalveamet",
       "staatus": "operatiivne",
       "varustuse_tase": "korge",
       "amenity": "police",
@@ -135,7 +137,7 @@
     }
   },
   {
-    "id": "place_spring_tallinn_tln_vesi_01",
+    "id": "place_spring_tln_tln_vesi_01",
     "name": "Glehni Pargi Looduslik Allikas (Glehn Springs)",
     "location": {
       "lat": 59.3875,
@@ -147,30 +149,32 @@
       {
         "provider": "tallinn",
         "sourceId": "TLN-VESI-01",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "checksum": "5c9a24a49cf30eb9"
       }
     ],
     "source": "tallinn",
-    "sourceName": "Tallinn Open Data (Keskkonna- ja Kommunaalamet)",
+    "sourceName": "Tallinna Avaandmed (TLN-VESI-01)",
     "sourceId": "TLN-VESI-01",
     "provenanceStatus": "official",
     "sourceUpdatedAt": "2026-09-14T09:00:00Z",
     "snapshotDate": "2026-09-14",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "tln-mun-5c9a24a49cf3",
     "checksum": "5c9a24a49cf30eb9",
-    "address": "Lossi tee 13, Nõmme",
+    "address": "Lossi tee 13, Nõmme, Tallinn",
     "openingHours": "24/7 (Looduslik vaba vool)",
     "description": "Looduslik kõrge tootlikkusega arteesia allikas puhta joogiveega. Pidev vaba vool.",
     "tags": {
+      "registri_kood": "TLN-VESI-01",
+      "haldaja": "Tallinna Keskkonna- ja Kommunaalamet",
       "vee_tyyp": "looduslik_allikas",
       "joogikolblik": "jah",
       "vooluhulk": "suur"
     }
   },
   {
-    "id": "place_tap_tallinn_tln_vesi_02",
+    "id": "place_tap_tln_tln_vesi_02",
     "name": "Kadrioru Avalik Joogiveekraan (Kadriorg Park Tap)",
     "location": {
       "lat": 59.4385,
@@ -182,29 +186,31 @@
       {
         "provider": "tallinn",
         "sourceId": "TLN-VESI-02",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "checksum": "5c9a24a49cf30eb9"
       }
     ],
     "source": "tallinn",
-    "sourceName": "Tallinn Open Data (AS Tallinna Vesi)",
+    "sourceName": "Tallinna Avaandmed (TLN-VESI-02)",
     "sourceId": "TLN-VESI-02",
     "provenanceStatus": "official",
     "sourceUpdatedAt": "2026-09-14T10:00:00Z",
     "snapshotDate": "2026-09-14",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "tln-mun-5c9a24a49cf3",
     "checksum": "5c9a24a49cf30eb9",
-    "address": "August Weizenbergi 26, Kadriorg",
+    "address": "August Weizenbergi 26, Kadriorg, Tallinn",
     "openingHours": "24/7 (Hooajaline mai-oktoober)",
     "description": "Filtreeritud munitsipaal-joogivee sammas joogipudelite täitmiseks ja hüdratsiooniks.",
     "tags": {
+      "registri_kood": "TLN-VESI-02",
+      "haldaja": "AS Tallinna Vesi",
       "vee_tyyp": "munitsipaalvesi",
       "kraani_tyyp": "surunupuga"
     }
   },
   {
-    "id": "place_tap_tallinn_tln_vesi_03",
+    "id": "place_tap_tln_tln_vesi_03",
     "name": "Snelli Tiigi Avalik Kraan",
     "location": {
       "lat": 59.4388,
@@ -216,28 +222,30 @@
       {
         "provider": "tallinn",
         "sourceId": "TLN-VESI-03",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "checksum": "5c9a24a49cf30eb9"
       }
     ],
     "source": "tallinn",
-    "sourceName": "Tallinn Open Data (AS Tallinna Vesi)",
+    "sourceName": "Tallinna Avaandmed (TLN-VESI-03)",
     "sourceId": "TLN-VESI-03",
     "provenanceStatus": "official",
     "sourceUpdatedAt": "2026-09-14T10:30:00Z",
     "snapshotDate": "2026-09-14",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "tln-mun-5c9a24a49cf3",
     "checksum": "5c9a24a49cf30eb9",
-    "address": "Toompuiestee 24, Kesklinn",
+    "address": "Toompuiestee 24, Kesklinn, Tallinn",
     "openingHours": "24/7 (Mai-Oktoober)",
     "description": "Avalik joogiveepost Snelli tiigi ja Toompargi jooksuraja ääres.",
     "tags": {
+      "registri_kood": "TLN-VESI-03",
+      "haldaja": "AS Tallinna Vesi",
       "vee_tyyp": "munitsipaalvesi"
     }
   },
   {
-    "id": "place_tap_tallinn_tln_vesi_04",
+    "id": "place_tap_tln_tln_vesi_04",
     "name": "Kalamaja Pargi Avalik Joogiveepunkt",
     "location": {
       "lat": 59.451,
@@ -249,28 +257,30 @@
       {
         "provider": "tallinn",
         "sourceId": "TLN-VESI-04",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "checksum": "5c9a24a49cf30eb9"
       }
     ],
     "source": "tallinn",
-    "sourceName": "Tallinn Open Data (AS Tallinna Vesi)",
+    "sourceName": "Tallinna Avaandmed (TLN-VESI-04)",
     "sourceId": "TLN-VESI-04",
     "provenanceStatus": "official",
     "sourceUpdatedAt": "2026-09-14T11:00:00Z",
     "snapshotDate": "2026-09-14",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "tln-mun-5c9a24a49cf3",
     "checksum": "5c9a24a49cf30eb9",
-    "address": "Tööstuse 50, Põhja-Tallinn",
+    "address": "Tööstuse 50, Põhja-Tallinn, Tallinn",
     "openingHours": "24/7 (Hooajaline)",
     "description": "Roostevabast terasest joogiveekraan laste mänguväljaku ja kalmistupargi vahel.",
     "tags": {
+      "registri_kood": "TLN-VESI-04",
+      "haldaja": "AS Tallinna Vesi",
       "vee_tyyp": "munitsipaalvesi"
     }
   },
   {
-    "id": "place_tap_tallinn_tln_vesi_viru",
+    "id": "place_tap_tln_tln_vesi_viru",
     "name": "Viru Väljaku Avalik Joogiveepunkt",
     "location": {
       "lat": 59.4365,
@@ -282,29 +292,31 @@
       {
         "provider": "tallinn",
         "sourceId": "TLN-VESI-VIRU",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "checksum": "5c9a24a49cf30eb9"
       }
     ],
     "source": "tallinn",
-    "sourceName": "Tallinn Open Data (AS Tallinna Vesi)",
+    "sourceName": "Tallinna Avaandmed (TLN-VESI-VIRU)",
     "sourceId": "TLN-VESI-VIRU",
     "provenanceStatus": "official",
     "sourceUpdatedAt": "2026-09-14T11:00:00Z",
     "snapshotDate": "2026-09-14",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "tln-mun-5c9a24a49cf3",
     "checksum": "5c9a24a49cf30eb9",
-    "address": "Viru väljak 4, Kesklinn",
+    "address": "Viru väljak 4, Kesklinn, Tallinn",
     "openingHours": "24/7 (Avalik veevõtukoht)",
     "description": "Munitsipaal-joogiveekraan Viru Keskuse sissepääsu juures.",
     "tags": {
+      "registri_kood": "TLN-VESI-VIRU",
+      "haldaja": "AS Tallinna Vesi",
       "vee_tyyp": "munitsipaalvesi",
       "joogikolblik": "jah"
     }
   },
   {
-    "id": "place_police_ppa_ppa_reg_tln_02",
+    "id": "place_police_tln_ppa_reg_tln_02",
     "name": "Lääne-Harju Politseijaoskond (Kolde)",
     "location": {
       "lat": 59.4398,
@@ -314,31 +326,33 @@
     "subCategory": "police",
     "sources": [
       {
-        "provider": "ppa",
+        "provider": "tallinn",
         "sourceId": "PPA-REG-TLN-02",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "checksum": "5c9a24a49cf30eb9"
       }
     ],
-    "source": "ppa",
-    "sourceName": "Politsei- ja Piirivalveamet (PPA Official Register)",
+    "source": "tallinn",
+    "sourceName": "Tallinna Avaandmed (PPA-REG-TLN-02)",
     "sourceId": "PPA-REG-TLN-02",
     "provenanceStatus": "official",
     "sourceUpdatedAt": "2026-09-01T08:00:00Z",
     "snapshotDate": "2026-09-01",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "tln-mun-5c9a24a49cf3",
     "checksum": "5c9a24a49cf30eb9",
-    "address": "Kolde pst 65, Pelgulinn",
+    "address": "Kolde pst 65, Pelgulinn, Tallinn",
     "phone": "112 / +372 612 5400",
     "openingHours": "24/7",
     "description": "Lääne-Harju politseijaoskond Pelgulinnas. 24/7 patrullteenistus.",
     "tags": {
+      "registri_kood": "PPA-REG-TLN-02",
+      "haldaja": "Politsei- ja Piirivalveamet",
       "staatus": "operatiivne"
     }
   },
   {
-    "id": "place_police_ppa_ppa_reg_tln_03",
+    "id": "place_police_tln_ppa_reg_tln_03",
     "name": "Ida-Harju Politseijaoskond (Pinna)",
     "location": {
       "lat": 59.4362,
@@ -348,31 +362,33 @@
     "subCategory": "police",
     "sources": [
       {
-        "provider": "ppa",
+        "provider": "tallinn",
         "sourceId": "PPA-REG-TLN-03",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "checksum": "5c9a24a49cf30eb9"
       }
     ],
-    "source": "ppa",
-    "sourceName": "Politsei- ja Piirivalveamet (PPA Official Register)",
+    "source": "tallinn",
+    "sourceName": "Tallinna Avaandmed (PPA-REG-TLN-03)",
     "sourceId": "PPA-REG-TLN-03",
     "provenanceStatus": "official",
     "sourceUpdatedAt": "2026-09-01T08:00:00Z",
     "snapshotDate": "2026-09-01",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "tln-mun-5c9a24a49cf3",
     "checksum": "5c9a24a49cf30eb9",
-    "address": "P. Pinna 4, Lasnamäe",
+    "address": "P. Pinna 4, Lasnamäe, Tallinn",
     "phone": "112 / +372 612 4800",
     "openingHours": "24/7",
     "description": "Ida-Harju politseijaoskond Lasnamäel. Patrullide juhtimiskeskus.",
     "tags": {
+      "registri_kood": "PPA-REG-TLN-03",
+      "haldaja": "Politsei- ja Piirivalveamet",
       "staatus": "operatiivne"
     }
   },
   {
-    "id": "place_shelter_paaste_varj_tln_001",
+    "id": "place_shelter_rescue_varj_tln_001",
     "name": "Vabaduse Väljaku Maa-alune Parkla ja Jalakäijate Tunnel",
     "location": {
       "lat": 59.436,
@@ -384,33 +400,33 @@
       {
         "provider": "paasteamet",
         "sourceId": "VARJ-TLN-001",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "checksum": "0c904aa0c9b0f495"
       }
     ],
     "source": "paasteamet",
-    "sourceName": "Päästeamet (Estonian Rescue Board)",
+    "sourceName": "Päästeamet (VARJ-TLN-001)",
     "sourceId": "VARJ-TLN-001",
     "provenanceStatus": "official",
     "sourceUpdatedAt": "2026-09-18T10:00:00Z",
     "snapshotDate": "2026-09-18",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "rescue-tln-0c904aa0c9b0",
     "checksum": "0c904aa0c9b0f495",
     "address": "Vabaduse väljak 9, Tallinn",
     "phone": "112",
-    "openingHours": "24/7 (Kriisiolukorras või häire korral avatud)",
+    "openingHours": "Hädaolukorras avatud 24/7",
     "description": "Tugevdatud raudbetoonist maa-alune rajatis. Varustatud sundventilatsiooni ja avariielektriga.",
     "tags": {
-      "official_code": "VARJ-TLN-001",
-      "authority": "Päästeamet",
-      "subterranean": "true",
-      "capacity": "2100",
-      "level": "-2"
+      "objekti_kood": "VARJ-TLN-001",
+      "mahutavus": "2100",
+      "maa_alune": "jah",
+      "korruselisus": "-2",
+      "viimati_kontrollitud": "2026-09-18T10:00:00Z"
     }
   },
   {
-    "id": "place_shelter_paaste_varj_tln_002",
+    "id": "place_shelter_rescue_varj_tln_002",
     "name": "Kalamaja Põhikooli Varjumiskoht",
     "location": {
       "lat": 59.4445,
@@ -422,33 +438,33 @@
       {
         "provider": "paasteamet",
         "sourceId": "VARJ-TLN-002",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "checksum": "0c904aa0c9b0f495"
       }
     ],
     "source": "paasteamet",
-    "sourceName": "Päästeamet (Estonian Rescue Board)",
+    "sourceName": "Päästeamet (VARJ-TLN-002)",
     "sourceId": "VARJ-TLN-002",
     "provenanceStatus": "official",
     "sourceUpdatedAt": "2026-09-18T10:30:00Z",
     "snapshotDate": "2026-09-18",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "rescue-tln-0c904aa0c9b0",
     "checksum": "0c904aa0c9b0f495",
     "address": "Vabriku 18, Tallinn",
     "phone": "112",
-    "openingHours": "24/7 (Kriisiolukorras või häire korral avatud)",
+    "openingHours": "Hädaolukorras avatud 24/7",
     "description": "Koolimaja massiivne keldrikorrus, paksud kandeseinad ja kaks eraldiseisvat väljapääsu.",
     "tags": {
-      "official_code": "VARJ-TLN-002",
-      "authority": "Päästeamet",
-      "subterranean": "true",
-      "capacity": "320",
-      "level": "-1"
+      "objekti_kood": "VARJ-TLN-002",
+      "mahutavus": "320",
+      "maa_alune": "jah",
+      "korruselisus": "-1",
+      "viimati_kontrollitud": "2026-09-18T10:30:00Z"
     }
   },
   {
-    "id": "place_shelter_paaste_varj_tln_003",
+    "id": "place_shelter_rescue_varj_tln_003",
     "name": "Salme Kultuurikeskuse Varjumiskoht",
     "location": {
       "lat": 59.443,
@@ -460,33 +476,33 @@
       {
         "provider": "paasteamet",
         "sourceId": "VARJ-TLN-003",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "checksum": "0c904aa0c9b0f495"
       }
     ],
     "source": "paasteamet",
-    "sourceName": "Päästeamet (Estonian Rescue Board)",
+    "sourceName": "Päästeamet (VARJ-TLN-003)",
     "sourceId": "VARJ-TLN-003",
     "provenanceStatus": "official",
     "sourceUpdatedAt": "2026-09-18T11:00:00Z",
     "snapshotDate": "2026-09-18",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "rescue-tln-0c904aa0c9b0",
     "checksum": "0c904aa0c9b0f495",
     "address": "Salme 12, Tallinn",
     "phone": "112",
-    "openingHours": "24/7 (Kriisiolukorras või häire korral avatud)",
+    "openingHours": "Hädaolukorras avatud 24/7",
     "description": "Kultuurikeskuse tugevdatud keldrikorrus, mitu erakorralist evakuatsioonitunnelit.",
     "tags": {
-      "official_code": "VARJ-TLN-003",
-      "authority": "Päästeamet",
-      "subterranean": "true",
-      "capacity": "850",
-      "level": "-1"
+      "objekti_kood": "VARJ-TLN-003",
+      "mahutavus": "850",
+      "maa_alune": "jah",
+      "korruselisus": "-1",
+      "viimati_kontrollitud": "2026-09-18T11:00:00Z"
     }
   },
   {
-    "id": "place_shelter_paaste_varj_tln_004",
+    "id": "place_shelter_rescue_varj_tln_004",
     "name": "Tallinna Tehnikaülikooli (TalTech) Maa-alune Tunnelivõrk",
     "location": {
       "lat": 59.3955,
@@ -498,33 +514,33 @@
       {
         "provider": "paasteamet",
         "sourceId": "VARJ-TLN-004",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "checksum": "0c904aa0c9b0f495"
       }
     ],
     "source": "paasteamet",
-    "sourceName": "Päästeamet (Estonian Rescue Board)",
+    "sourceName": "Päästeamet (VARJ-TLN-004)",
     "sourceId": "VARJ-TLN-004",
     "provenanceStatus": "official",
     "sourceUpdatedAt": "2026-09-18T11:30:00Z",
     "snapshotDate": "2026-09-18",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "rescue-tln-0c904aa0c9b0",
     "checksum": "0c904aa0c9b0f495",
     "address": "Ehitajate tee 5, Tallinn",
     "phone": "112",
-    "openingHours": "24/7 (Kriisiolukorras või häire korral avatud)",
+    "openingHours": "Hädaolukorras avatud 24/7",
     "description": "TalTechi õppehoonete vahelised maa-alused betoontunnelid ja varjendid.",
     "tags": {
-      "official_code": "VARJ-TLN-004",
-      "authority": "Päästeamet",
-      "subterranean": "true",
-      "capacity": "1500",
-      "level": "-1"
+      "objekti_kood": "VARJ-TLN-004",
+      "mahutavus": "1500",
+      "maa_alune": "jah",
+      "korruselisus": "-1",
+      "viimati_kontrollitud": "2026-09-18T11:30:00Z"
     }
   },
   {
-    "id": "place_fire_station_paaste_kom_tln_001",
+    "id": "place_fire_station_rescue_kom_tln_001",
     "name": "Kesklinna Päästekomando (Tallinn Fire & Rescue)",
     "location": {
       "lat": 59.4365,
@@ -536,17 +552,17 @@
       {
         "provider": "paasteamet",
         "sourceId": "KOM-TLN-001",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "checksum": "0c904aa0c9b0f495"
       }
     ],
     "source": "paasteamet",
-    "sourceName": "Päästeamet (Estonian Rescue Board)",
+    "sourceName": "Päästeamet (KOM-TLN-001)",
     "sourceId": "KOM-TLN-001",
     "provenanceStatus": "official",
     "sourceUpdatedAt": "2026-09-18T12:00:00Z",
     "snapshotDate": "2026-09-18",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "rescue-tln-0c904aa0c9b0",
     "checksum": "0c904aa0c9b0f495",
     "address": "Raua 2, Tallinn",
@@ -554,14 +570,15 @@
     "openingHours": "24/7",
     "description": "Põhja päästekeskuse Kesklinna komando. 24/7 päästetehnika, kustutusvee pumbad ja elupääste.",
     "tags": {
-      "official_code": "KOM-TLN-001",
-      "authority": "Päästeamet",
-      "subterranean": "false",
-      "capacity": "100"
+      "objekti_kood": "KOM-TLN-001",
+      "mahutavus": "100",
+      "maa_alune": "ei",
+      "korruselisus": "0",
+      "viimati_kontrollitud": "2026-09-18T12:00:00Z"
     }
   },
   {
-    "id": "place_fire_station_paaste_kom_tln_002",
+    "id": "place_fire_station_rescue_kom_tln_002",
     "name": "Lilleküla Päästekomando",
     "location": {
       "lat": 59.433,
@@ -573,17 +590,17 @@
       {
         "provider": "paasteamet",
         "sourceId": "KOM-TLN-002",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "checksum": "0c904aa0c9b0f495"
       }
     ],
     "source": "paasteamet",
-    "sourceName": "Päästeamet (Estonian Rescue Board)",
+    "sourceName": "Päästeamet (KOM-TLN-002)",
     "sourceId": "KOM-TLN-002",
     "provenanceStatus": "official",
     "sourceUpdatedAt": "2026-09-18T12:30:00Z",
     "snapshotDate": "2026-09-18",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "rescue-tln-0c904aa0c9b0",
     "checksum": "0c904aa0c9b0f495",
     "address": "Paldiski mnt 47, Tallinn",
@@ -591,10 +608,11 @@
     "openingHours": "24/7",
     "description": "Lilleküla tuletõrje- ja päästekomando Lääne-Tallinna piirkonnas.",
     "tags": {
-      "official_code": "KOM-TLN-002",
-      "authority": "Päästeamet",
-      "subterranean": "false",
-      "capacity": "80"
+      "objekti_kood": "KOM-TLN-002",
+      "mahutavus": "80",
+      "maa_alune": "ei",
+      "korruselisus": "0",
+      "viimati_kontrollitud": "2026-09-18T12:30:00Z"
     }
   },
   {
@@ -610,7 +628,7 @@
       {
         "provider": "osm",
         "sourceId": "node/104829104",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "checksum": "37e572fb1a6e8fb7"
       }
     ],
@@ -620,7 +638,7 @@
     "provenanceStatus": "osm",
     "sourceUpdatedAt": "2026-09-18T10:15:00Z",
     "snapshotDate": "2026-09-18",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "osm-tln-37e572fb1a6e",
     "checksum": "37e572fb1a6e8fb7",
     "address": "Kolde pst 65, Tallinn",
@@ -649,7 +667,7 @@
       {
         "provider": "osm",
         "sourceId": "node/489201948",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "checksum": "37e572fb1a6e8fb7"
       }
     ],
@@ -659,7 +677,7 @@
     "provenanceStatus": "osm",
     "sourceUpdatedAt": "2026-09-16T08:30:00Z",
     "snapshotDate": "2026-09-16",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "osm-tln-37e572fb1a6e",
     "checksum": "37e572fb1a6e8fb7",
     "address": "Vikerlase 14, Tallinn",
@@ -688,7 +706,7 @@
       {
         "provider": "osm",
         "sourceId": "node/729104829",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "checksum": "37e572fb1a6e8fb7"
       }
     ],
@@ -698,7 +716,7 @@
     "provenanceStatus": "osm",
     "sourceUpdatedAt": "2026-09-22T14:00:00Z",
     "snapshotDate": "2026-09-22",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "osm-tln-37e572fb1a6e",
     "checksum": "37e572fb1a6e8fb7",
     "address": "Ravi 18, Tallinn",
@@ -729,7 +747,7 @@
       {
         "provider": "osm",
         "sourceId": "node/839201849",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "checksum": "37e572fb1a6e8fb7"
       }
     ],
@@ -739,7 +757,7 @@
     "provenanceStatus": "osm",
     "sourceUpdatedAt": "2026-09-21T11:20:00Z",
     "snapshotDate": "2026-09-21",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "osm-tln-37e572fb1a6e",
     "checksum": "37e572fb1a6e8fb7",
     "address": "J. Sütiste tee 19, Tallinn",
@@ -770,7 +788,7 @@
       {
         "provider": "osm",
         "sourceId": "node/593820194",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "checksum": "37e572fb1a6e8fb7"
       }
     ],
@@ -780,7 +798,7 @@
     "provenanceStatus": "osm",
     "sourceUpdatedAt": "2026-09-24T15:30:00Z",
     "snapshotDate": "2026-09-24",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "osm-tln-37e572fb1a6e",
     "checksum": "37e572fb1a6e8fb7",
     "address": "Tõnismägi 5, Tallinn",
@@ -811,7 +829,7 @@
       {
         "provider": "osm",
         "sourceId": "node/649201847",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "checksum": "37e572fb1a6e8fb7"
       }
     ],
@@ -821,7 +839,7 @@
     "provenanceStatus": "osm",
     "sourceUpdatedAt": "2026-09-20T10:00:00Z",
     "snapshotDate": "2026-09-20",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "osm-tln-37e572fb1a6e",
     "checksum": "37e572fb1a6e8fb7",
     "address": "Raekoja plats 11, Tallinn",
@@ -852,7 +870,7 @@
       {
         "provider": "osm",
         "sourceId": "node/849201847",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "checksum": "37e572fb1a6e8fb7"
       }
     ],
@@ -862,7 +880,7 @@
     "provenanceStatus": "osm",
     "sourceUpdatedAt": "2026-09-19T09:40:00Z",
     "snapshotDate": "2026-09-19",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "osm-tln-37e572fb1a6e",
     "checksum": "37e572fb1a6e8fb7",
     "address": "Kaeruti tee 2, Tallinn",
@@ -895,7 +913,7 @@
       {
         "provider": "osm",
         "sourceId": "node/928374829",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "checksum": "37e572fb1a6e8fb7"
       }
     ],
@@ -905,7 +923,7 @@
     "provenanceStatus": "osm",
     "sourceUpdatedAt": "2026-09-21T16:10:00Z",
     "snapshotDate": "2026-09-21",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "osm-tln-37e572fb1a6e",
     "checksum": "37e572fb1a6e8fb7",
     "address": "Tammsaare tee 49, Tallinn",
@@ -938,7 +956,7 @@
       {
         "provider": "osm",
         "sourceId": "node/748392019",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "checksum": "37e572fb1a6e8fb7"
       }
     ],
@@ -948,7 +966,7 @@
     "provenanceStatus": "osm",
     "sourceUpdatedAt": "2026-09-18T15:00:00Z",
     "snapshotDate": "2026-09-18",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "osm-tln-37e572fb1a6e",
     "checksum": "37e572fb1a6e8fb7",
     "address": "Tatari 64, Tallinn",
@@ -979,7 +997,7 @@
       {
         "provider": "osm",
         "sourceId": "node/384729104",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "checksum": "37e572fb1a6e8fb7"
       }
     ],
@@ -989,7 +1007,7 @@
     "provenanceStatus": "osm",
     "sourceUpdatedAt": "2026-09-12T13:20:00Z",
     "snapshotDate": "2026-09-12",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "osm-tln-37e572fb1a6e",
     "checksum": "37e572fb1a6e8fb7",
     "address": "Vene 33, Tallinn",
@@ -1020,7 +1038,7 @@
       {
         "provider": "osm",
         "sourceId": "node/302948172",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "checksum": "37e572fb1a6e8fb7"
       }
     ],
@@ -1030,7 +1048,7 @@
     "provenanceStatus": "osm",
     "sourceUpdatedAt": "2026-09-23T18:00:00Z",
     "snapshotDate": "2026-09-23",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "osm-tln-37e572fb1a6e",
     "checksum": "37e572fb1a6e8fb7",
     "address": "Endla 45, Tallinn",
@@ -1061,7 +1079,7 @@
       {
         "provider": "osm",
         "sourceId": "node/493029184",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "checksum": "37e572fb1a6e8fb7"
       }
     ],
@@ -1071,7 +1089,7 @@
     "provenanceStatus": "osm",
     "sourceUpdatedAt": "2026-09-15T09:00:00Z",
     "snapshotDate": "2026-09-15",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "osm-tln-37e572fb1a6e",
     "checksum": "37e572fb1a6e8fb7",
     "address": "Toompuiestee 24, Tallinn",
@@ -1098,7 +1116,7 @@
       {
         "provider": "osm",
         "sourceId": "node/718293041",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "checksum": "37e572fb1a6e8fb7"
       }
     ],
@@ -1108,7 +1126,7 @@
     "provenanceStatus": "osm",
     "sourceUpdatedAt": "2026-09-26T12:00:00Z",
     "snapshotDate": "2026-09-26",
-    "ingestedAt": "2026-09-28T21:46:58.120Z",
+    "ingestedAt": "2026-09-29T00:00:00.000Z",
     "snapshotId": "osm-tln-37e572fb1a6e",
     "checksum": "37e572fb1a6e8fb7",
     "address": "Viru väljak 4, Tallinn",
@@ -1139,7 +1157,7 @@
       {
         "provider": "hoimu",
         "sourceId": "HOIMU-NODE-TLN-TEL-01",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "signature": "SIG_ED25519_TEL_01_7c41b899a19d",
         "signerPublicKey": "pub_ed25519_node_tln_tel_01"
       }
@@ -1153,7 +1171,7 @@
     "lastConfirmed": "2026-09-24 (Yesterday)",
     "sourceUpdatedAt": "2026-09-24T18:00:00Z",
     "snapshotDate": "2026-09-24",
-    "ingestedAt": "2026-09-28T21:46:58.123Z",
+    "ingestedAt": "2026-05-28T20:26:40.000Z",
     "snapshotId": "mesh-obs-tln-01",
     "address": "Telliskivi 60a (Hoov), Kalamaja",
     "description": "Community-maintained open tool chest: angle grinders, torque wrenches, multimeter, wire strippers, bolt cutters, and socket sets.",
@@ -1177,7 +1195,7 @@
       {
         "provider": "hoimu",
         "sourceId": "HOIMU-NODE-TLN-KOP-02",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "signature": "SIG_ED25519_KOP_02_3b118da49c02",
         "signerPublicKey": "pub_ed25519_node_tln_kop_02"
       }
@@ -1191,7 +1209,7 @@
     "lastConfirmed": "2026-09-25 (Today)",
     "sourceUpdatedAt": "2026-09-25T09:00:00Z",
     "snapshotDate": "2026-09-25",
-    "ingestedAt": "2026-09-28T21:46:58.123Z",
+    "ingestedAt": "2026-05-28T20:26:40.000Z",
     "snapshotId": "mesh-obs-tln-02",
     "address": "Kopli 93, Põhja-Tallinn",
     "description": "Free resource box: dry sealed oats, warm socks, matchboxes, spare 18650 batteries, and water purification tablets.",
@@ -1215,7 +1233,7 @@
       {
         "provider": "hoimu",
         "sourceId": "HOIMU-NODE-TLN-PEL-03",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "signature": "SIG_ED25519_PEL_03_9d28ba1207e4",
         "signerPublicKey": "pub_ed25519_node_tln_pel_03"
       }
@@ -1229,7 +1247,7 @@
     "lastConfirmed": "2026-09-23",
     "sourceUpdatedAt": "2026-09-23T17:00:00Z",
     "snapshotDate": "2026-09-23",
-    "ingestedAt": "2026-09-28T21:46:58.123Z",
+    "ingestedAt": "2026-05-28T20:26:40.000Z",
     "snapshotId": "mesh-obs-tln-03",
     "address": "Roo 21b, Pelgulinn",
     "description": "Weekly community repair space with soldering stations, 3D printer for spare gears, sewing machines, and bicycle truing stand.",
@@ -1252,7 +1270,7 @@
       {
         "provider": "hoimu",
         "sourceId": "HOIMU-NODE-TLN-KAD-04",
-        "retrievedAt": 1790632018123,
+        "retrievedAt": 1780000000000,
         "signature": "SIG_ED25519_KAD_04_e5762a19fb66",
         "signerPublicKey": "pub_ed25519_node_tln_kad_04"
       }
@@ -1266,7 +1284,7 @@
     "lastConfirmed": "2026-09-25 (Today)",
     "sourceUpdatedAt": "2026-09-25T11:00:00Z",
     "snapshotDate": "2026-09-25",
-    "ingestedAt": "2026-09-28T21:46:58.123Z",
+    "ingestedAt": "2026-05-28T20:26:40.000Z",
     "snapshotId": "mesh-obs-tln-04",
     "address": "Mäekalda 2, Kadriorg",
     "description": "Off-grid autonomous solar and LoRa relay station with emergency device charging ports.",

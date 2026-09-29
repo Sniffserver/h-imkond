@@ -336,7 +336,7 @@ export class OsmSourceAdapter implements SourceAdapter<RawOsmElement> {
     const metadata: SourceMetadata = {
       provider: 'osm',
       mode: isLiveSuccess ? 'LIVE' : 'SNAPSHOT',
-      fetchedAt,
+      fetchedAt: isLiveSuccess ? fetchedAt : '2026-09-29T00:00:00.000Z',
       sourceUrl: isLiveSuccess ? 'https://overpass-api.de/api/interpreter' : undefined,
       recordCount: elements.length,
       checksum,

@@ -122,6 +122,7 @@ export class AdsSourceAdapter implements SourceAdapter<RawAdsAddressRecord> {
     const fetchedAt = new Date().toISOString();
     let records: RawAdsAddressRecord[] = [];
     let isLiveSuccess = false;
+    let fallbackReason: string | undefined;
 
     if (forceLive) {
       try {
@@ -134,16 +135,49 @@ export class AdsSourceAdapter implements SourceAdapter<RawAdsAddressRecord> {
         if (res.ok) {
           const data: any = await res.json();
           if (Array.isArray(data?.addresses) && data.addresses.length > 0) {
-            isLiveSuccess = true;
+            const parsedRecords: RawAdsAddressRecord[] = [];
+            for (const addr of data.addresses) {
+              if (addr.adr_id || addr.taisaadress) {
+                parsedRecords.push({
+                  adr_id: Number(addr.adr_id) || Math.floor(Math.random() * 10000000),
+                  koodaadress: addr.koodaadress || '',
+                  taisaadress: addr.taisaadress || 'Tallinn',
+                  lahiaadress: addr.lahiaadress || addr.taisaadress || 'Tallinn',
+                  tanav: addr.tanav || '',
+                  majanumber: addr.majanumber || '',
+                  linnaosa: addr.linnaosa || '',
+                  omavalitsus: addr.omavalitsus || 'Tallinn',
+                  postiindeks: addr.postiindeks,
+                  lat: Number(addr.lat) || 59.43,
+                  lng: Number(addr.lng) || 24.74,
+                  viimati_muudetud: addr.viimati_muudetud || fetchedAt,
+                });
+              }
+            }
+            if (parsedRecords.length >= 5) {
+              records = parsedRecords;
+              isLiveSuccess = true;
+            } else {
+              fallbackReason = 'Live ADS response did not contain at least 5 valid records';
+            }
+          } else {
+            fallbackReason = 'Live ADS response contained no addresses or invalid structure';
           }
+        } else {
+          fallbackReason = `Live ADS API returned status: ${res.status}`;
         }
-      } catch {
-        // Fall back gracefully
+      } catch (err: any) {
+        fallbackReason = `Network error or parsing failure: ${err?.message || err}`;
       }
+    } else {
+      fallbackReason = 'Live ingestion was not requested (forceLive is false)';
     }
 
     if (!isLiveSuccess || records.length === 0) {
       records = ADS_SNAPSHOT_RECORDS;
+      if (!fallbackReason) {
+        fallbackReason = 'Using offline snapshot';
+      }
     }
 
     const payloadStr = JSON.stringify(records);
@@ -152,11 +186,12 @@ export class AdsSourceAdapter implements SourceAdapter<RawAdsAddressRecord> {
     const metadata: SourceMetadata = {
       provider: 'ads',
       mode: isLiveSuccess ? 'LIVE' : 'SNAPSHOT',
-      fetchedAt,
+      fetchedAt: isLiveSuccess ? fetchedAt : '2026-09-29T00:00:00.000Z',
       sourceUrl: isLiveSuccess ? 'https://inaadress.maaamet.ee' : undefined,
       recordCount: records.length,
       checksum,
-      license: 'Maa-ameti Avaandmete Litsents / Public Official Register',
+      license: 'Maa-ameti Aadressiandmete Litsents / Public Official Register',
+      fallbackReason: isLiveSuccess ? undefined : fallbackReason,
     };
 
     return { records, metadata };
@@ -178,6 +213,7 @@ export async function fetchAdsData(forceLive = false): Promise<RawAdsFetchResult
       checksum: metadata.checksum,
       snapshotId,
       recordCount: records.length,
+      fallbackReason: metadata.fallbackReason,
     },
     records,
   };

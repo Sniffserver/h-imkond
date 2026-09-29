@@ -19,15 +19,15 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { fetchOsmData } from './osm/fetch';
-import { normalizeOsmBatch } from './osm/normalize';
-import { validateOsmBatch } from './osm/validate';
-import { fetchTallinnMunicipalData } from './tallinn/fetch';
-import { normalizeTallinnBatch } from './tallinn/normalize';
-import { validateTallinnBatch } from './tallinn/validate';
-import { fetchPaasteametData } from './paasteamet/fetch';
-import { normalizePaasteametBatch } from './paasteamet/normalize';
-import { fetchAdsData } from './ads/fetch';
+import { fetchOsmData } from './sources/osm/fetch';
+import { normalizeOsmBatch } from './normalize/osm';
+import { validateOsmBatch } from './validate/osm';
+import { fetchTallinnMunicipalData } from './sources/tallinn/fetch';
+import { normalizeTallinnBatch } from './normalize/tallinn';
+import { validateTallinnBatch } from './validate/tallinn';
+import { fetchPaasteametData } from './sources/paasteamet/fetch';
+import { normalizePaasteametBatch } from './normalize/paasteamet';
+import { fetchAdsData } from './sources/ads/fetch';
 import { deduplicateRecords } from './merge/dedupe';
 import { synthesizeCanonicalPlaces } from './merge/provenance';
 import { writePMTilesFile } from './build/pmtiles';
@@ -106,6 +106,7 @@ export async function runIngestionPipeline(options?: { forceLive?: boolean }): P
     outputPath: basemapOutput,
     name: 'Tallinn Vector Basemap',
     description: 'HÕIMU Harju & Tallinn Bioregional Offline Vector Basemap',
+    osmElements: osmFetch.elements,
   });
   // Mirror for convenience
   fs.copyFileSync(basemapOutput, basemapSymlink);
@@ -119,13 +120,16 @@ export async function runIngestionPipeline(options?: { forceLive?: boolean }): P
     name: 'Tallinn Civilian Resilience POI Layer',
     description: 'Civilian shelters, water points, police, hospitals, and repair hubs',
     layers: [
-      { id: 'places' },
-      { id: 'shelters' },
+      { id: 'safety' },
+      { id: 'health' },
       { id: 'water' },
-      { id: 'police' },
       { id: 'tools' },
+      { id: 'stores' },
+      { id: 'shelters' },
+      { id: 'community' },
     ],
     isPoi: true,
+    canonicalPlaces,
   });
   fs.copyFileSync(poiPmtilesOutput, poiPmtilesGenerated);
 
@@ -144,6 +148,12 @@ export async function runIngestionPipeline(options?: { forceLive?: boolean }): P
 
   // Step 7: Cryptographic Manifest Generation (Gandalf Gate #2 Enforcement)
   console.log('[Gandalf Gate #2] Running artifact verification & manifest generation pipeline...');
+  const sourcesMetadata = [
+    osmFetch.metadata,
+    tallinnFetch.metadata,
+    paasteametFetch.metadata,
+    adsFetch.metadata,
+  ];
   const manifestData = verifyArtifactsAndGenerateManifest(
     {
       basemapPmtiles: basemapGenerated,
@@ -161,7 +171,8 @@ export async function runIngestionPipeline(options?: { forceLive?: boolean }): P
       routingNodes: streetArtifacts.nodeCount,
       routingEdges: streetArtifacts.edgeCount,
       streetCount: streetArtifacts.streetCount,
-    }
+    },
+    sourcesMetadata
   );
 
   const manifestPath = path.join(generatedDataDir, 'manifest.json');

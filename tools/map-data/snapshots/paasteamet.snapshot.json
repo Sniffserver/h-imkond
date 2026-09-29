@@ -1,0 +1,103 @@
+{
+  "snapshot": {
+    "provider": "paasteamet",
+    "mode": "SNAPSHOT",
+    "snapshotId": "rescue-tln-20260929",
+    "sourceUrl": "https://avaandmed.eesti.ee/dataset/avalikud-varjumiskohad",
+    "fetchedAt": "2026-09-29T00:00:00.000Z",
+    "sourceUpdatedAt": "2026-09-29T00:00:00.000Z",
+    "sha256": "9b12847a98bc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "recordCount": 6,
+    "license": "Päästeameti Avaandmete Kasutustingimused / CC BY 4.0"
+  },
+  "data": [
+    {
+      "objekti_kood": "VARJ-TLN-001",
+      "nimetus": "Vabaduse Väljaku Maa-alune Parkla ja Jalakäijate Tunnel",
+      "aadress": "Vabaduse väljak 9",
+      "omavalitsus": "Tallinn",
+      "maakond": "Harjumaa",
+      "mahutavus": 2100,
+      "korruselisus": "-2",
+      "maa_alune": true,
+      "lat": 59.436,
+      "lng": 24.744,
+      "viimati_kontrollitud": "2026-09-18T10:00:00Z",
+      "kontakt_telefon": "112",
+      "kirjeldus": "Tugevdatud raudbetoonist maa-alune rajatis. Varustatud sundventilatsiooni ja avariielektriga."
+    },
+    {
+      "objekti_kood": "VARJ-TLN-002",
+      "nimetus": "Kalamaja Põhikooli Varjumiskoht",
+      "aadress": "Vabriku 18",
+      "omavalitsus": "Tallinn",
+      "maakond": "Harjumaa",
+      "mahutavus": 320,
+      "korruselisus": "-1",
+      "maa_alune": true,
+      "lat": 59.4445,
+      "lng": 24.73,
+      "viimati_kontrollitud": "2026-09-18T10:30:00Z",
+      "kontakt_telefon": "112",
+      "kirjeldus": "Koolimaja massiivne keldrikorrus, paksud kandeseinad ja kaks eraldiseisvat väljapääsu."
+    },
+    {
+      "objekti_kood": "VARJ-TLN-003",
+      "nimetus": "Salme Kultuurikeskuse Varjumiskoht",
+      "aadress": "Salme 12",
+      "omavalitsus": "Tallinn",
+      "maakond": "Harjumaa",
+      "mahutavus": 850,
+      "korruselisus": "-1",
+      "maa_alune": true,
+      "lat": 59.443,
+      "lng": 24.726,
+      "viimati_kontrollitud": "2026-09-18T11:00:00Z",
+      "kontakt_telefon": "112",
+      "kirjeldus": "Kultuurikeskuse tugevdatud keldrikorrus, mitu erakorralist evakuatsioonitunnelit."
+    },
+    {
+      "objekti_kood": "VARJ-TLN-004",
+      "nimetus": "Tallinna Tehnikaülikooli (TalTech) Maa-alune Tunnelivõrk",
+      "aadress": "Ehitajate tee 5",
+      "omavalitsus": "Tallinn",
+      "maakond": "Harjumaa",
+      "mahutavus": 1500,
+      "korruselisus": "-1",
+      "maa_alune": true,
+      "lat": 59.3955,
+      "lng": 24.671,
+      "viimati_kontrollitud": "2026-09-18T11:30:00Z",
+      "kontakt_telefon": "112",
+      "kirjeldus": "TalTechi õppehoonete vahelised maa-alused betoontunnelid ja varjendid."
+    },
+    {
+      "objekti_kood": "KOM-TLN-001",
+      "nimetus": "Kesklinna Päästekomando (Tallinn Fire & Rescue)",
+      "aadress": "Raua 2",
+      "omavalitsus": "Tallinn",
+      "maakond": "Harjumaa",
+      "mahutavus": 100,
+      "maa_alune": false,
+      "lat": 59.4365,
+      "lng": 24.7645,
+      "viimati_kontrollitud": "2026-09-18T12:00:00Z",
+      "kontakt_telefon": "112",
+      "kirjeldus": "Põhja päästekeskuse Kesklinna komando. 24/7 päästetehnika, kustutusvee pumbad ja elupääste."
+    },
+    {
+      "objekti_kood": "KOM-TLN-002",
+      "nimetus": "Lilleküla Päästekomando",
+      "aadress": "Paldiski mnt 47",
+      "omavalitsus": "Tallinn",
+      "maakond": "Harjumaa",
+      "mahutavus": 80,
+      "maa_alune": false,
+      "lat": 59.433,
+      "lng": 24.712,
+      "viimati_kontrollitud": "2026-09-18T12:30:00Z",
+      "kontakt_telefon": "112",
+      "kirjeldus": "Lilleküla tuletõrje- ja päästekomando Lääne-Tallinna piirkonnas."
+    }
+  ]
+}

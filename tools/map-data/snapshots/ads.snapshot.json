@@ -1,0 +1,99 @@
+{
+  "snapshot": {
+    "provider": "ads",
+    "mode": "SNAPSHOT",
+    "snapshotId": "ads-tln-20260929",
+    "sourceUrl": "https://inaadress.maaamet.ee",
+    "fetchedAt": "2026-09-29T00:00:00.000Z",
+    "sourceUpdatedAt": "2026-09-29T00:00:00.000Z",
+    "sha256": "3c78491845bb08d3e91129b8c04901f68748d51ba49405d429a8f4675e0161bc",
+    "recordCount": 6,
+    "license": "Maa-ameti Aadressiandmete Litsents / Public Official Register"
+  },
+  "data": [
+    {
+      "adr_id": 2139482,
+      "koodaadress": "377840000000003010000213948200000",
+      "taisaadress": "Harju maakond, Tallinn, Kesklinna linnaosa, Pärnu mnt 139",
+      "lahiaadress": "Pärnu mnt 139",
+      "tanav": "Pärnu mnt",
+      "majanumber": "139",
+      "linnaosa": "Kesklinna linnaosa",
+      "omavalitsus": "Tallinn",
+      "postiindeks": "11317",
+      "lat": 59.4215,
+      "lng": 24.733,
+      "viimati_muudetud": "2026-09-01T00:00:00Z"
+    },
+    {
+      "adr_id": 2139483,
+      "koodaadress": "377840000000003010000213948300000",
+      "taisaadress": "Harju maakond, Tallinn, Kesklinna linnaosa, Pärnu mnt 139a",
+      "lahiaadress": "Pärnu mnt 139a",
+      "tanav": "Pärnu mnt",
+      "majanumber": "139a",
+      "linnaosa": "Kesklinna linnaosa",
+      "omavalitsus": "Tallinn",
+      "postiindeks": "11317",
+      "lat": 59.4218,
+      "lng": 24.7335,
+      "viimati_muudetud": "2026-09-01T00:00:00Z"
+    },
+    {
+      "adr_id": 3049281,
+      "koodaadress": "377840000000001020000304928100000",
+      "taisaadress": "Harju maakond, Tallinn, Põhja-Tallinna linnaosa, Kolde pst 65",
+      "lahiaadress": "Kolde pst 65",
+      "tanav": "Kolde pst",
+      "majanumber": "65",
+      "linnaosa": "Põhja-Tallinna linnaosa",
+      "omavalitsus": "Tallinn",
+      "postiindeks": "10321",
+      "lat": 59.444,
+      "lng": 24.7085,
+      "viimati_muudetud": "2026-09-01T00:00:00Z"
+    },
+    {
+      "adr_id": 4892018,
+      "koodaadress": "377840000000002040000489201800000",
+      "taisaadress": "Harju maakond, Tallinn, Kesklinna linnaosa, Vabaduse väljak 9",
+      "lahiaadress": "Vabaduse väljak 9",
+      "tanav": "Vabaduse väljak",
+      "majanumber": "9",
+      "linnaosa": "Kesklinna linnaosa",
+      "omavalitsus": "Tallinn",
+      "postiindeks": "10141",
+      "lat": 59.436,
+      "lng": 24.744,
+      "viimati_muudetud": "2026-09-01T00:00:00Z"
+    },
+    {
+      "adr_id": 5928194,
+      "koodaadress": "377840000000001010000592819400000",
+      "taisaadress": "Harju maakond, Tallinn, Põhja-Tallinna linnaosa, Vabriku tn 18",
+      "lahiaadress": "Vabriku tn 18",
+      "tanav": "Vabriku tn",
+      "majanumber": "18",
+      "linnaosa": "Põhja-Tallinna linnaosa",
+      "omavalitsus": "Tallinn",
+      "postiindeks": "10411",
+      "lat": 59.4445,
+      "lng": 24.73,
+      "viimati_muudetud": "2026-09-01T00:00:00Z"
+    },
+    {
+      "adr_id": 6102948,
+      "koodaadress": "377840000000002010000610294800000",
+      "taisaadress": "Harju maakond, Tallinn, Kesklinna linnaosa, Ravi tn 18",
+      "lahiaadress": "Ravi tn 18",
+      "tanav": "Ravi tn",
+      "majanumber": "18",
+      "linnaosa": "Kesklinna linnaosa",
+      "omavalitsus": "Tallinn",
+      "postiindeks": "10138",
+      "lat": 59.418,
+      "lng": 24.755,
+      "viimati_muudetud": "2026-09-01T00:00:00Z"
+    }
+  ]
+}

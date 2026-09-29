@@ -1,4 +1,8 @@
 import { describe, it, expect } from 'vitest';
+import { createRequire } from 'module';
+const requireFn = createRequire(import.meta.url);
+(globalThis as any).nodeZlib = requireFn('zlib');
+
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';

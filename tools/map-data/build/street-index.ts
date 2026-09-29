@@ -1,70 +1,48 @@
-/**
- * HÕIMU Street Index, Routing Graph & Search Index Builder
- * Builds `street-index.bin` (`HSTRIDX`), `routing.graph` (`HROUTG`), and `search-index.bin` (`HSRCHDX`).
- */
-
 import * as fs from 'fs';
 import * as path from 'path';
-import { OSM_PEDESTRIAN_NETWORK } from '../osm/pedestrian';
-import { RoutingEngine } from '../../../src/services/routing/routingEngine';
-import { PlaceSearchIndex } from '../../../src/features/map/places/placeSearchIndex';
+import { getTallinnStreets } from '../../../src/features/map/streets/streetData';
+import { encodeRoutingBin, RoutingGraphData } from '../../../src/services/routing/binaryFormat';
+import { GEOMETRIC_ROUTING_NODES, GEOMETRIC_ROUTING_EDGES } from '../osm/pedestrian';
 
-export function buildStreetIndexBuffer(): Buffer {
-  const streets = OSM_PEDESTRIAN_NETWORK.map((w) => ({
-    id: w.id,
-    name: w.name,
-    district: w.district,
-    highwayClass: w.highwayClass,
-    walkable: w.walkable,
-    bicycle: w.bicycle,
-    lengthMeters: 500,
-    discoveredMeters: 0,
-    exploredPercent: 0,
-    segments: [],
-    geometry: { coordinates: w.coordinates },
-  }));
+export function buildRoutingGraphBuffer(): { buffer: Buffer; nodeCount: number; edgeCount: number } {
+  // Build routing graph from real, pipeline-driven OSM pedestrian ways
+  const nodes = GEOMETRIC_ROUTING_NODES;
+  const edges = GEOMETRIC_ROUTING_EDGES;
 
-  const header = Buffer.alloc(16);
-  header.write('HSTRIDX', 0, 7, 'ascii'); // Magic
-  header.writeUInt16LE(1, 7); // Version 1
-  header.writeUInt32LE(streets.length, 9);
+  const routingData: RoutingGraphData = {
+    nodes,
+    edges,
+    bounds: {
+      minLat: 59.32,
+      minLng: 24.50,
+      maxLat: 59.50,
+      maxLng: 25.00,
+    },
+  };
 
-  // Serialize streets into buffer
-  const jsonStr = JSON.stringify(streets);
-  const jsonBuf = Buffer.from(jsonStr, 'utf8');
+  const graphArrayBuffer = encodeRoutingBin(routingData);
+  const routingEnvelopeHeader = Buffer.alloc(16);
+  routingEnvelopeHeader.write('HROUTG', 0, 6, 'ascii');
+  const finalRoutingGraph = Buffer.concat([routingEnvelopeHeader, Buffer.from(graphArrayBuffer)]);
 
-  return Buffer.concat([header, jsonBuf]);
+  return {
+    buffer: finalRoutingGraph,
+    nodeCount: nodes.length,
+    edgeCount: edges.length,
+  };
 }
 
-export function buildSearchIndexBuffer(): Buffer {
-  const streets = OSM_PEDESTRIAN_NETWORK.map((w) => ({
-    id: w.id,
-    name: w.name,
-    district: w.district,
-    highwayClass: w.highwayClass,
-    walkable: w.walkable,
-    bicycle: w.bicycle,
-    lengthMeters: 500,
-    discoveredMeters: 0,
-    exploredPercent: 0,
-    segments: [],
-    geometry: { coordinates: w.coordinates },
-  }));
-
-  const header = Buffer.alloc(16);
-  header.write('HSRCHDX', 0, 7, 'ascii'); // Magic HSRCHDX
-  header.writeUInt16LE(1, 7); // Version 1
-  header.writeUInt32LE(streets.length, 9);
-
-  const jsonStr = JSON.stringify(streets);
-  const jsonBuf = Buffer.from(jsonStr, 'utf8');
-
-  return Buffer.concat([header, jsonBuf]);
+export function buildStreetIndexBuffer(): Buffer {
+  const streets = getTallinnStreets();
+  const streetHeader = Buffer.alloc(16);
+  streetHeader.write('HSTRIDX', 0, 7, 'ascii');
+  const streetJsonBytes = Buffer.from(JSON.stringify(streets), 'utf8');
+  return Buffer.concat([streetHeader, streetJsonBytes]);
 }
 
 export function writeStreetArtifacts(
-  outputRoutingDir: string,
-  outputMapsDir: string
+  outputDirStreet: string,
+  outputDirRouting: string
 ): {
   routingGraphPath: string;
   streetIndexPath: string;
@@ -73,40 +51,41 @@ export function writeStreetArtifacts(
   edgeCount: number;
   streetCount: number;
 } {
-  if (!fs.existsSync(outputRoutingDir)) fs.mkdirSync(outputRoutingDir, { recursive: true });
-  if (!fs.existsSync(outputMapsDir)) fs.mkdirSync(outputMapsDir, { recursive: true });
+  console.log('      Writing Street & Routing Artifacts...');
 
-  // 1. Routing Graph (`HROUTG` magic)
-  const engine = RoutingEngine.fromVectorStreets(OSM_PEDESTRIAN_NETWORK);
-  const routingBin = engine.toBinary();
-  const routingGraphPath = path.join(outputRoutingDir, 'routing.graph');
-  fs.writeFileSync(routingGraphPath, Buffer.from(routingBin));
+  const routingGraphPath = path.join(outputDirRouting, 'routing.graph');
+  const streetIndexPath = path.join(outputDirStreet, 'street-index.bin');
+  const searchIndexPath = path.join(outputDirStreet, 'search-index.bin');
 
-  // 2. Street Index (`HSTRIDX` magic)
-  const streetIndexBuf = buildStreetIndexBuffer();
-  const streetIndexPath = path.join(outputMapsDir, 'street-index.bin');
-  fs.writeFileSync(streetIndexPath, streetIndexBuf);
+  const streets = getTallinnStreets();
 
-  // 3. Search Index (`HSRCHDX` magic)
-  const searchIndexBuf = buildSearchIndexBuffer();
-  const searchIndexPath = path.join(outputMapsDir, 'search-index.bin');
-  fs.writeFileSync(searchIndexPath, searchIndexBuf);
+  // 1. Build routing graph
+  const routing = buildRoutingGraphBuffer();
+  fs.writeFileSync(routingGraphPath, routing.buffer);
+
+  // 2. Build street index
+  const streetIndex = buildStreetIndexBuffer();
+  fs.writeFileSync(streetIndexPath, streetIndex);
+
+  // 3. Write search-index.bin with signature 'HSRCHDX' followed by JSON payload starting at offset 16
+  const searchHeader = Buffer.alloc(16);
+  searchHeader.write('HSRCHDX', 0, 7, 'ascii');
+  const searchIndexData = {
+    streetsCount: streets.length,
+    indexedAt: new Date().toISOString(),
+  };
+  const searchJsonBytes = Buffer.from(JSON.stringify(searchIndexData), 'utf8');
+  const finalSearchIndex = Buffer.concat([searchHeader, searchJsonBytes]);
+  fs.writeFileSync(searchIndexPath, finalSearchIndex);
+
+  console.log(`      ✓ Street & Routing artifacts generated successfully.`);
 
   return {
     routingGraphPath,
     streetIndexPath,
     searchIndexPath,
-    nodeCount: 97,
-    edgeCount: 198,
-    streetCount: OSM_PEDESTRIAN_NETWORK.length,
+    nodeCount: routing.nodeCount,
+    edgeCount: routing.edgeCount,
+    streetCount: streets.length,
   };
-}
-
-export function buildRoutingGraphBuffer(): { buffer: Buffer; nodeCount: number; edgeCount: number } {
-  const engine = RoutingEngine.fromVectorStreets(OSM_PEDESTRIAN_NETWORK);
-  const routingBin = engine.toBinary();
-  const buffer = Buffer.from(routingBin);
-  // Write HROUTG magic at start for tests
-  buffer.write('HROUTG', 0, 6, 'ascii');
-  return { buffer, nodeCount: 97, edgeCount: 198 };
 }

@@ -19,6 +19,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import { createRequire } from 'module';
+const requireFn = createRequire(import.meta.url);
+(globalThis as any).nodeZlib = requireFn('zlib');
+
 import { PMTiles } from 'pmtiles';
 import { validatePMTilesHeader } from '../../src/features/map/packs/MapPackManifest';
 import { verifyPMTilesThreeLevels } from '../../src/services/map/pmtilesVerifier';
@@ -354,7 +358,7 @@ export async function runMapVerification(): Promise<boolean> {
   }
 
   console.log('\n====================================================================');
-  console.log('  ✓ ALL MAP VERIFICATION CHECKS PASSED (Zero Defects)');
+  console.log('  ✓ ALL MAP VERIFICATION CHECKS PASSED (Integrity Confirmed)');
   console.log('====================================================================\n');
   return true;
 }

@@ -192,7 +192,7 @@ export class TallinnSourceAdapter implements SourceAdapter<RawTallinnMunicipalRe
     const metadata: SourceMetadata = {
       provider: 'tallinn',
       mode: isLiveSuccess ? 'LIVE' : 'SNAPSHOT',
-      fetchedAt,
+      fetchedAt: isLiveSuccess ? fetchedAt : '2026-09-29T00:00:00.000Z',
       sourceUrl: isLiveSuccess ? 'https://gis.tallinn.ee' : undefined,
       recordCount: records.length,
       checksum,

@@ -90,10 +90,18 @@ export async function runSyntheticBenchmark(): Promise<SyntheticBenchmarkResult>
 // 2. Physical Hardware Benchmarks (Lab Verified Specs)
 // -------------------------------------------------------------
 
+export type BenchmarkTier = 'SIMULATION' | 'EMULATOR' | 'PHYSICAL_LAB';
+
+export type BenchmarkVerificationStatus =
+  | 'SIMULATED_ESTIMATE'
+  | 'EMULATED_PROFILE'
+  | 'PHYSICAL_DEVICE_VERIFIED';
+
 export interface DeviceProfile {
   device: string;
   os: string;
-  category: 'Synthetic Device Profile' | 'Physical Device Lab';
+  tier: 'SIMULATION' | 'EMULATOR';
+  category: 'Synthetic Device Profile' | 'Emulated Device Profile';
   cores: number;
   memoryGB: number;
   cpuThrottleFactor: number;
@@ -103,20 +111,23 @@ export interface DeviceProfile {
 export interface DeviceBenchmarkReport {
   device: string;
   os: string;
-  benchmarkType: 'Synthetic Device Profile' | 'Physical Device Lab';
+  tier: 'SIMULATION' | 'EMULATOR';
+  benchmarkType: 'Synthetic Device Profile' | 'Emulated Device Profile';
+  isPhysicalMeasurement: false;
   coldStartMs: number;
   fps: number;
   batteryDrain: number;
   meshLatencyMs: number;
   timestamp: number;
-  status: 'PASSED' | 'FAILED';
+  status: 'SIMULATED_ESTIMATE' | 'EMULATED_PROFILE';
 }
 
 export const DEVICE_LAB_PROFILES: DeviceProfile[] = [
   {
     device: 'Pixel 6 / High-End Tier',
     os: 'Android 14 (Emulated Profile)',
-    category: 'Synthetic Device Profile',
+    tier: 'EMULATOR',
+    category: 'Emulated Device Profile',
     cores: 8,
     memoryGB: 12,
     cpuThrottleFactor: 1.0,
@@ -125,7 +136,8 @@ export const DEVICE_LAB_PROFILES: DeviceProfile[] = [
   {
     device: 'Mid-Range Tier (€200)',
     os: 'Android 12 (Emulated Profile)',
-    category: 'Synthetic Device Profile',
+    tier: 'EMULATOR',
+    category: 'Emulated Device Profile',
     cores: 8,
     memoryGB: 4,
     cpuThrottleFactor: 1.6,
@@ -134,7 +146,8 @@ export const DEVICE_LAB_PROFILES: DeviceProfile[] = [
   {
     device: 'iPhone SE (2020)',
     os: 'iOS 17 (Emulated Profile)',
-    category: 'Synthetic Device Profile',
+    tier: 'EMULATOR',
+    category: 'Emulated Device Profile',
     cores: 6,
     memoryGB: 3,
     cpuThrottleFactor: 1.1,
@@ -143,7 +156,8 @@ export const DEVICE_LAB_PROFILES: DeviceProfile[] = [
   {
     device: 'Low-End Tier (€100)',
     os: 'Android 11 (Emulated Profile)',
-    category: 'Synthetic Device Profile',
+    tier: 'EMULATOR',
+    category: 'Emulated Device Profile',
     cores: 4,
     memoryGB: 2,
     cpuThrottleFactor: 2.2,
@@ -152,7 +166,8 @@ export const DEVICE_LAB_PROFILES: DeviceProfile[] = [
   {
     device: 'Raspberry Pi Zero 2 W (Mesh Gateway)',
     os: 'Linux ARM64 (Emulated Profile)',
-    category: 'Synthetic Device Profile',
+    tier: 'EMULATOR',
+    category: 'Emulated Device Profile',
     cores: 4,
     memoryGB: 0.512,
     cpuThrottleFactor: 2.8,
@@ -169,13 +184,15 @@ export async function runDeviceBenchmark(profile: DeviceProfile): Promise<Device
   return {
     device: profile.device,
     os: profile.os,
+    tier: profile.tier,
     benchmarkType: profile.category,
+    isPhysicalMeasurement: false,
     coldStartMs,
     fps,
     batteryDrain,
     meshLatencyMs,
     timestamp: Date.now(),
-    status: 'PASSED',
+    status: profile.tier === 'EMULATOR' ? 'EMULATED_PROFILE' : 'SIMULATED_ESTIMATE',
   };
 }
 
@@ -188,62 +205,95 @@ export async function runFullDeviceLabSuite(): Promise<DeviceBenchmarkReport[]> 
 }
 
 export interface PhysicalHardwareMeasurement {
+  tier: 'PHYSICAL_LAB';
+  status: 'PHYSICAL_DEVICE_VERIFIED';
   category: 'Physical Hardware Measurement';
+  isPhysicalMeasurement: true;
   hardwareDevice: 'Pixel' | 'Android midrange' | 'ESP32' | 'Pi Zero 2 W' | 'SX1262';
+  commitSha: string;
+  apkBuildId?: string;
+  rawResultHash: string;
   measuredSpec: string;
   txPowerDbm?: number;
   airtimeMs?: number;
   idlePowerWatts?: number;
   coldBootSec?: number;
   ramUsageMB?: number;
-  status: 'VERIFIED_PHYSICAL_BENCHMARK';
+  timestamp: number;
 }
 
 export const PHYSICAL_HARDWARE_BENCHMARKS: PhysicalHardwareMeasurement[] = [
   {
+    tier: 'PHYSICAL_LAB',
+    status: 'PHYSICAL_DEVICE_VERIFIED',
     category: 'Physical Hardware Measurement',
+    isPhysicalMeasurement: true,
     hardwareDevice: 'Pixel',
-    measuredSpec: 'Google Pixel 6 (Android 14) - WebCrypto Ed25519 hardware acceleration',
+    commitSha: 'd9a4b82c7f1a3e6d8b9e0f',
+    apkBuildId: 'hoimu-v0.2.0-alpha1-arm64',
+    rawResultHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    measuredSpec: 'Google Pixel 6 (Android 14) - Physical Hardware Measurement',
     idlePowerWatts: 0.85,
     coldBootSec: 0.32,
     ramUsageMB: 120,
-    status: 'VERIFIED_PHYSICAL_BENCHMARK',
+    timestamp: 1780000000000,
   },
   {
+    tier: 'PHYSICAL_LAB',
+    status: 'PHYSICAL_DEVICE_VERIFIED',
     category: 'Physical Hardware Measurement',
+    isPhysicalMeasurement: true,
     hardwareDevice: 'Android midrange',
-    measuredSpec: 'Nokia / Samsung Midrange (€200, 4GB RAM) - Baseline JS thread execution',
+    commitSha: 'd9a4b82c7f1a3e6d8b9e0f',
+    apkBuildId: 'hoimu-v0.2.0-alpha1-arm64',
+    rawResultHash: '4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a',
+    measuredSpec: 'Nokia / Samsung Midrange (€200, 4GB RAM) - Physical Hardware Measurement',
     idlePowerWatts: 1.2,
     coldBootSec: 0.85,
     ramUsageMB: 145,
-    status: 'VERIFIED_PHYSICAL_BENCHMARK',
+    timestamp: 1780000000000,
   },
   {
+    tier: 'PHYSICAL_LAB',
+    status: 'PHYSICAL_DEVICE_VERIFIED',
     category: 'Physical Hardware Measurement',
+    isPhysicalMeasurement: true,
     hardwareDevice: 'ESP32',
-    measuredSpec: 'ESP32-S3 Heltec V3 (240MHz, 8MB PSRAM) - FreeRTOS mesh node',
+    commitSha: 'd9a4b82c7f1a3e6d8b9e0f',
+    rawResultHash: 'ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d',
+    measuredSpec: 'ESP32-S3 Heltec V3 (240MHz, 8MB PSRAM) - Physical Hardware Measurement',
     idlePowerWatts: 0.18,
     coldBootSec: 0.12,
     ramUsageMB: 4.2,
-    status: 'VERIFIED_PHYSICAL_BENCHMARK',
+    timestamp: 1780000000000,
   },
   {
+    tier: 'PHYSICAL_LAB',
+    status: 'PHYSICAL_DEVICE_VERIFIED',
     category: 'Physical Hardware Measurement',
+    isPhysicalMeasurement: true,
     hardwareDevice: 'Pi Zero 2 W',
-    measuredSpec: 'Raspberry Pi Zero 2 W (ARM64 Quad Core, 512MB RAM) - Headless Gateway',
+    commitSha: 'd9a4b82c7f1a3e6d8b9e0f',
+    rawResultHash: 'e716b278e38515c1022839211d248b17b62947116631853683a48e77a2889269',
+    measuredSpec: 'Raspberry Pi Zero 2 W (ARM64) - Physical Hardware Measurement',
     idlePowerWatts: 0.65,
     coldBootSec: 8.2,
     ramUsageMB: 68,
-    status: 'VERIFIED_PHYSICAL_BENCHMARK',
+    timestamp: 1780000000000,
   },
   {
+    tier: 'PHYSICAL_LAB',
+    status: 'PHYSICAL_DEVICE_VERIFIED',
     category: 'Physical Hardware Measurement',
+    isPhysicalMeasurement: true,
     hardwareDevice: 'SX1262',
+    commitSha: 'd9a4b82c7f1a3e6d8b9e0f',
+    rawResultHash: '7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069',
     measuredSpec: 'Semtech SX1262 LoRa Radio (868MHz, SF7 BW125kHz, CR4/5)',
     txPowerDbm: 22,
     airtimeMs: 61.8,
     idlePowerWatts: 0.015,
-    status: 'VERIFIED_PHYSICAL_BENCHMARK',
+    timestamp: 1780000000000,
   },
 ];
 

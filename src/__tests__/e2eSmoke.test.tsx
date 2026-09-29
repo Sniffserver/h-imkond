@@ -1,6 +1,6 @@
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, cleanup } from '@testing-library/react';
 import React from 'react';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import App from '../App';
 import { useMeshStore } from '../store/meshStore';
 import { broadcastSOS } from '../services/utils/sosService';
@@ -16,6 +16,11 @@ describe('E2E Smoke Scenarios (Vitest Suite)', () => {
       peers: new Map(),
       bridgePeers: new Map(),
     });
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
   });
 
   it('1. Cold-start and route test: loads App cleanly without crashes', () => {

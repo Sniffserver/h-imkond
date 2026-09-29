@@ -8,7 +8,7 @@ import { systemCapabilityService } from '../runtime/SystemCapabilityService';
 import { LocationManager } from '../location/LocationManager';
 import { performanceBudgetManager } from '../runtime/performanceBudgetManager';
 
-export type SubsystemStatus = 'ready' | 'starting' | 'degraded' | 'failed';
+export type SubsystemStatus = 'ready' | 'starting' | 'degraded' | 'failed' | 'missing' | 'unavailable';
 
 export interface SubsystemDiagnosticsRecord {
   subsystemId: 'app' | 'map' | 'location' | 'routing' | 'mesh' | 'storage' | 'data' | 'performance';
@@ -104,8 +104,8 @@ export class DiagnosticsManager {
       lastUpdateIso: nowIso,
       source: 'RoutingEngine / AStarMinHeap',
       metrics: {
-        topologyNodes: 97,
-        topologyEdges: 198,
+        topologyNodes: caps.subsystems.routing.details?.nodes ?? 0,
+        topologyEdges: caps.subsystems.routing.details?.edges ?? 0,
         engine: 'Contiguous ArrayBuffer Graph',
       },
       recoveryAction: caps.subsystems.routing.status === 'failed' ? {
@@ -122,7 +122,7 @@ export class DiagnosticsManager {
       lastUpdateIso: nowIso,
       source: 'MeshTransportManager (BLE / BroadcastChannel)',
       metrics: {
-        activePeers: caps.subsystems.mesh.details?.peersCount || 2,
+        activePeers: caps.subsystems.mesh.details?.peersCount ?? 0,
         transports: 'BLE, BroadcastChannel, LoRa Bridge',
       },
     };
@@ -134,7 +134,7 @@ export class DiagnosticsManager {
       lastUpdateIso: nowIso,
       source: 'MapPackStorageEngine (OPFS / Capacitor)',
       metrics: {
-        freeMb: caps.subsystems.storage.details?.freeMb || 812,
+        freeMb: caps.subsystems.storage.details?.freeMb ?? 0,
         storageType: 'OPFS / Capacitor Native Filesystem',
       },
     };

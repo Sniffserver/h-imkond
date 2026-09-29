@@ -1,9 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { createRequire } from 'module';
+const requireFn = createRequire(import.meta.url);
+(globalThis as any).nodeZlib = requireFn('zlib');
+
 import { locationManager } from '../services/location/LocationManager';
 import { mapPackStorageEngine } from '../services/storage/mapPackStorageEngine';
 import { MapPackInstaller } from '../features/map/packs/MapPackInstaller';
 import { MAP_PACK_MANIFESTS } from '../features/map/packs/MapPackManifest';
 import * as mapPackServiceModule from '../services/map/mapPackService';
+import { compilePMTilesBuffer } from '../../tools/map-data/build/pmtiles';
 
 describe('Unified LocationContext Stream & Atomic Map Pack Storage Engine', () => {
   beforeEach(() => {
@@ -72,16 +77,37 @@ describe('Unified LocationContext Stream & Atomic Map Pack Storage Engine', () =
     expect(packManifest.routingSnapshotVersion).toBeDefined();
 
     // Mock fetch response returning valid artifact bytes with corresponding binary headers
-    const mockPmtilesBytes = new Uint8Array(200);
-    // Write PMTiles magic bytes
-    mockPmtilesBytes[0] = 0x50; // P
-    mockPmtilesBytes[1] = 0x4d; // M
-    mockPmtilesBytes[2] = 0x54; // T
-    mockPmtilesBytes[3] = 0x69; // i
-    mockPmtilesBytes[4] = 0x6c; // l
-    mockPmtilesBytes[5] = 0x65; // e
-    mockPmtilesBytes[6] = 0x73; // s
-    mockPmtilesBytes[7] = 0x03; // PMTiles v3 specVersion
+    const mockPmtilesBytes = compilePMTilesBuffer({
+      outputPath: 'mock-basemap.pmtiles',
+      name: 'Mock Tallinn Vector Basemap',
+      description: 'Mock Tallinn Vector Basemap Description',
+      layers: [
+        { id: 'roads' },
+        { id: 'paths' },
+        { id: 'buildings' },
+        { id: 'water' },
+        { id: 'landuse' },
+        { id: 'transit' },
+        { id: 'places' },
+        { id: 'labels' },
+      ],
+    });
+
+    const mockPoiPmtilesBytes = compilePMTilesBuffer({
+      outputPath: 'mock-poi.pmtiles',
+      name: 'Mock Tallinn POI',
+      description: 'Mock Tallinn POI Description',
+      layers: [
+        { id: 'safety' },
+        { id: 'health' },
+        { id: 'water' },
+        { id: 'tools' },
+        { id: 'stores' },
+        { id: 'shelters' },
+        { id: 'community' },
+      ],
+      isPoi: true,
+    });
 
     const mockRoutingBytes = new Uint8Array(32);
     'HROUTG'.split('').forEach((c, i) => { mockRoutingBytes[i] = c.charCodeAt(0); });
@@ -95,6 +121,7 @@ describe('Unified LocationContext Stream & Atomic Map Pack Storage Engine', () =
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url: any) => {
       const urlStr = String(url);
       let data = mockPmtilesBytes;
+      if (urlStr.includes('-poi')) data = mockPoiPmtilesBytes;
       if (urlStr.includes('.graph')) data = mockRoutingBytes;
       if (urlStr.includes('street-index')) data = mockStreetIndexBytes;
       if (urlStr.includes('search-index')) data = mockSearchIndexBytes;

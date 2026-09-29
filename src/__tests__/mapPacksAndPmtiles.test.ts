@@ -1,4 +1,8 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { createRequire } from 'module';
+const requireFn = createRequire(import.meta.url);
+(globalThis as any).nodeZlib = requireFn('zlib');
+
 import {
   mapPackService,
   AVAILABLE_MAP_PACKS,

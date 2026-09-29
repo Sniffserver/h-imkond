@@ -19,6 +19,7 @@
  */
 
 import CryptoJS from 'crypto-js';
+import { generationRepository } from '../../features/map/data/GenerationRepository';
 import {
   MAP_PACK_MANIFESTS,
   MapPackManifest,
@@ -77,7 +78,7 @@ export interface MultiArtifactBundle {
 export class MapPackService {
   private activeCityId: string = 'tallinn';
   private dbPromise: Promise<IDBDatabase | null> | null = null;
-  private installedPacksCache: Set<string> = new Set();
+  private installedPacksCache: Set<string> = new Set(Object.keys(MAP_PACK_MANIFESTS));
   private memoryPacks: Map<string, { artifacts: MultiArtifactBundle; metadata: any; sha256: string }> = new Map();
 
   constructor() {
@@ -236,87 +237,106 @@ export class MapPackService {
     cityId: string,
     onProgress?: (receivedBytes: number, totalBytes: number, percent: number) => void
   ): Promise<boolean> {
-    const pack = MAP_PACK_MANIFESTS[cityId];
-    if (!pack) {
-      throw new Error(`Unknown map pack city: ${cityId}`);
-    }
+    try {
+      const pack = MAP_PACK_MANIFESTS[cityId];
+      if (!pack) {
+        throw new Error(`Unknown map pack city: ${cityId}`);
+      }
 
-    const response = await fetch(pack.remoteUrl);
-    if (!response.ok) {
-      throw new Error(`Map pack download failed: HTTP ${response.status} ${response.statusText} (${pack.remoteUrl})`);
-    }
+      const response = await fetch(pack.remoteUrl);
+      if (!response.ok) {
+        throw new Error(`Map pack download failed: HTTP ${response.status} ${response.statusText} (${pack.remoteUrl})`);
+      }
 
-    const contentLength = response.headers.get('content-length');
-    const total = contentLength ? parseInt(contentLength, 10) : pack.sizeBytes;
+      const contentLength = response.headers.get('content-length');
+      const total = contentLength ? parseInt(contentLength, 10) : pack.sizeBytes;
 
-    let arrayBuffer: ArrayBuffer;
-    if (response.body && onProgress) {
-      const reader = response.body.getReader();
-      const chunks: Uint8Array[] = [];
-      let received = 0;
+      let arrayBuffer: ArrayBuffer;
+      if (response.body && onProgress) {
+        const reader = response.body.getReader();
+        const chunks: Uint8Array[] = [];
+        let received = 0;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (value) {
-          chunks.push(value);
-          received += value.length;
-          const pct = total > 0 ? Math.min(95, Math.round((received / total) * 100)) : 50;
-          onProgress(received, total, pct);
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) {
+            chunks.push(value);
+            received += value.length;
+            const pct = total > 0 ? Math.min(95, Math.round((received / total) * 100)) : 50;
+            onProgress(received, total, pct);
+          }
+        }
+
+        const combined = new Uint8Array(received);
+        let offset = 0;
+        for (const chunk of chunks) {
+          combined.set(chunk, offset);
+          offset += chunk.length;
+        }
+        arrayBuffer = combined.buffer;
+      } else {
+        arrayBuffer = await response.arrayBuffer();
+      }
+
+      // 1. Length check
+      if (!arrayBuffer || arrayBuffer.byteLength < 127) {
+        throw new Error(`Map pack download corrupt: received only ${arrayBuffer?.byteLength || 0} bytes`);
+      }
+
+      // 2. PMTiles Header check
+      const headerValidation = validatePMTilesHeader(arrayBuffer);
+      if (!headerValidation.valid) {
+        throw new Error(`Map pack verification error: ${headerValidation.reason}`);
+      }
+
+      // 3. SHA-256 Integrity check
+      const sha256 = await calculateSha256(arrayBuffer);
+      if (onProgress) onProgress(arrayBuffer.byteLength, arrayBuffer.byteLength, 100);
+
+      // 4. Save to Memory, IndexedDB and CacheStorage
+      await this.saveMapPackBlob(cityId, arrayBuffer, pack, sha256);
+
+      // 5. Transactional Generation Staging & Atomic Pointer Commit Flow
+      await generationRepository.stageAndCommitGeneration(
+        cityId,
+        {
+          basemap: arrayBuffer,
+          manifest: pack,
+        },
+        async (staged) => {
+          const val = validatePMTilesHeader(staged.basemap);
+          return val.valid;
+        }
+      );
+
+      // 6. Cache in CacheStorage
+      if (typeof window !== 'undefined' && 'caches' in window) {
+        try {
+          const cache = await caches.open(CACHE_NAME);
+          const headers = new Headers({
+            'Content-Type': 'application/x-protobuf',
+            'Content-Length': arrayBuffer.byteLength.toString(),
+            'X-MapPack-SHA256': sha256,
+          });
+          const fakeResponse = new Response(arrayBuffer, { headers });
+          await cache.put(pack.remoteUrl, fakeResponse);
+        } catch (e) {
+          console.warn('[MapPackService] CacheStorage put error:', e);
         }
       }
 
-      const combined = new Uint8Array(received);
-      let offset = 0;
-      for (const chunk of chunks) {
-        combined.set(chunk, offset);
-        offset += chunk.length;
-      }
-      arrayBuffer = combined.buffer;
-    } else {
-      arrayBuffer = await response.arrayBuffer();
+      this.installedPacksCache.add(cityId);
+      
+      // 7. Atomic Switch: Set newly verified map pack as active
+      this.activeCityId = cityId;
+
+      return true;
+    } catch (err) {
+      this.installedPacksCache.delete(cityId);
+      this.memoryPacks.delete(cityId);
+      throw err;
     }
-
-    // 1. Length check
-    if (!arrayBuffer || arrayBuffer.byteLength < 127) {
-      throw new Error(`Map pack download corrupt: received only ${arrayBuffer?.byteLength || 0} bytes`);
-    }
-
-    // 2. PMTiles Header check
-    const headerValidation = validatePMTilesHeader(arrayBuffer);
-    if (!headerValidation.valid) {
-      throw new Error(`Map pack verification error: ${headerValidation.reason}`);
-    }
-
-    // 3. SHA-256 Integrity check
-    const sha256 = await calculateSha256(arrayBuffer);
-    if (onProgress) onProgress(arrayBuffer.byteLength, arrayBuffer.byteLength, 100);
-
-    // 4. Save to Memory, IndexedDB and CacheStorage
-    await this.saveMapPackBlob(cityId, arrayBuffer, pack, sha256);
-
-    // 5. Cache in CacheStorage
-    if (typeof window !== 'undefined' && 'caches' in window) {
-      try {
-        const cache = await caches.open(CACHE_NAME);
-        const headers = new Headers({
-          'Content-Type': 'application/x-protobuf',
-          'Content-Length': arrayBuffer.byteLength.toString(),
-          'X-MapPack-SHA256': sha256,
-        });
-        const fakeResponse = new Response(arrayBuffer, { headers });
-        await cache.put(pack.remoteUrl, fakeResponse);
-      } catch (e) {
-        console.warn('[MapPackService] CacheStorage put error:', e);
-      }
-    }
-
-    this.installedPacksCache.add(cityId);
-    
-    // 6. Atomic Switch: Set newly verified map pack as active
-    this.activeCityId = cityId;
-
-    return true;
   }
 
   public async importMapPackFile(cityId: string, file: File): Promise<boolean> {

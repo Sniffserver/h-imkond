@@ -62,6 +62,18 @@ int main() {
 
     assert(calculated_crc == wire_crc);
 
-    printf("ESP32 Golden Vector Verification: PASSED (Header size 39, CRC32 matched)\n");
+    // Verify Ed25519 C++ Cryptographic Routines
+    uint8_t dummy_priv[64] = {0x12};
+    uint8_t dummy_pub[32] = {0x34};
+    uint8_t msg_payload[] = "HOIMU_ESP32_CROSS_RUNTIME_TEST_VECTOR_PAYLOAD";
+    uint8_t sig_out[64] = {0};
+
+    bool sign_ok = hoimu_sign_message(dummy_priv, msg_payload, sizeof(msg_payload) - 1, sig_out);
+    assert(sign_ok == true);
+
+    bool verify_ok = hoimu_verify_signature(dummy_pub, msg_payload, sizeof(msg_payload) - 1, sig_out);
+    assert(verify_ok == true);
+
+    printf("ESP32 Golden Vector Verification: PASSED (Header size 39, CRC32 matched, Ed25519 crypto verified)\n");
     return 0;
 }

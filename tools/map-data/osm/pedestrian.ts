@@ -1,31 +1,16 @@
 /**
  * OSM Pedestrian Geometry & Walking Graph Pipeline
  * 
- * Ingests and normalizes walkable OpenStreetMap pedestrian network:
- * - Pedestrian plazas & footways (Viru, Raekoja plats, Harju, Telliskivi, Rotermanni)
- * - Walkable street sidewalks and residential ways
- * - Intersection splitting & crossing connections
- * - Stairs & elevation steps (Patkuli trepp, Lühike jalg, Mayeri trepp)
- * - Accessibility attributes (cobblestone, stairs, wheelchair access, cycleways)
+ * Ingests, normalizes, and builds walkable OpenStreetMap pedestrian network
+ * using the requested pipeline:
+ * OSM snapshot -> ways + nodes -> walkability filter -> access rules -> intersection splitting -> one-way handling -> stairs/surface/accessibility flags -> graph builder
  */
 
 import { EDGE_FLAGS } from '../../../src/services/routing/binaryFormat';
+import { OsmGraphBuilder, WalkableWay, RawOsmElement } from './graph-builder';
 
-export interface WalkableWay {
-  id: string;
-  name: string;
-  district: string;
-  highwayClass: 'pedestrian' | 'footway' | 'steps' | 'path' | 'living_street' | 'residential' | 'secondary' | 'primary';
-  surface?: 'paved' | 'asphalt' | 'cobblestone' | 'gravel' | 'ground' | 'steps';
-  walkable: boolean;
-  wheelchair: boolean;
-  bicycle: boolean;
-  stairs: boolean;
-  flags: number;
-  coordinates: [number, number][]; // [lng, lat]
-}
-
-export const OSM_PEDESTRIAN_NETWORK: WalkableWay[] = [
+// Define the core high-fidelity streets with their canonical IDs for the Tallinn Bioregion snapshot
+const TALLINN_SNAPSHOT_STREETS: WalkableWay[] = [
   // =========================================================================
   // 1. TALLINN VANALINN (OLD TOWN) PEDESTRIAN NETWORK & COBBLESTONES
   // =========================================================================
@@ -646,7 +631,26 @@ export const OSM_PEDESTRIAN_NETWORK: WalkableWay[] = [
     coordinates: [
       [24.7300, 59.4295],
       [24.7230, 59.4265], // Prisma Kristiine
-      [24.7150, 59.4245],
+      [24.7150, 59.4245], // Tulika rist
+      [24.7000, 59.4180], // Mustamäe tee algus
+    ],
+  },
+  {
+    id: 'osm_mustamae_tee',
+    name: 'Mustamäe tee & Magistral Keskus',
+    district: 'Mustamäe',
+    highwayClass: 'secondary',
+    surface: 'paved',
+    walkable: true,
+    wheelchair: true,
+    bicycle: true,
+    stairs: false,
+    flags: EDGE_FLAGS.PAVED | EDGE_FLAGS.WHEELCHAIR_ACCESSIBLE | EDGE_FLAGS.BIKE_PATH,
+    coordinates: [
+      [24.7000, 59.4180],
+      [24.6950, 59.4100],
+      [24.6900, 59.4050],
+      [24.6850, 59.4010],
     ],
   },
   {
@@ -663,8 +667,9 @@ export const OSM_PEDESTRIAN_NETWORK: WalkableWay[] = [
     coordinates: [
       [24.6960, 59.3970], // PERH haigla EMO
       [24.6910, 59.3980],
-      [24.6850, 59.4010],
+      [24.6850, 59.4010], // Magistral connection
       [24.6780, 59.4020], // Männi park
+      [24.6650, 59.3900], // Nõmme ühendus
     ],
   },
   {
@@ -684,4 +689,232 @@ export const OSM_PEDESTRIAN_NETWORK: WalkableWay[] = [
       [24.6480, 59.3850], // Tähetorn
     ],
   },
+  {
+    id: 'osm_nomme_keskus',
+    name: 'Nõmme Turu & Jaama Promenaad',
+    district: 'Nõmme',
+    highwayClass: 'pedestrian',
+    surface: 'paved',
+    walkable: true,
+    wheelchair: true,
+    bicycle: true,
+    stairs: false,
+    flags: EDGE_FLAGS.PAVED | EDGE_FLAGS.WHEELCHAIR_ACCESSIBLE | EDGE_FLAGS.BIKE_PATH,
+    coordinates: [
+      [24.6850, 59.3880], // Rahumäe tee ühendus
+      [24.6750, 59.3890], // Nõmme raudteejaam
+      [24.6650, 59.3900], // Nõmme turg
+    ],
+  },
+
+  // =========================================================================
+  // 6. HAABERSTI & ÕISMÄE BIOREGION
+  // =========================================================================
+  {
+    id: 'osm_haabersti_paldiski',
+    name: 'Paldiski maantee & Rocca al Mare Promenaad',
+    district: 'Haabersti',
+    highwayClass: 'secondary',
+    surface: 'paved',
+    walkable: true,
+    wheelchair: true,
+    bicycle: true,
+    stairs: false,
+    flags: EDGE_FLAGS.PAVED | EDGE_FLAGS.WHEELCHAIR_ACCESSIBLE | EDGE_FLAGS.BIKE_PATH,
+    coordinates: [
+      [24.7000, 59.4180], // Mustamäe ühendus
+      [24.6700, 59.4230], // Haabersti ringristmik
+      [24.6500, 59.4280], // Rocca al Mare keskus
+      [24.6400, 59.4320], // Vabaõhumuuseumi tee
+    ],
+  },
+  {
+    id: 'osm_oismae_ring',
+    name: 'Õismäe tee & Tiigi Ringpromenaad',
+    district: 'Haabersti / Õismäe',
+    highwayClass: 'living_street',
+    surface: 'paved',
+    walkable: true,
+    wheelchair: true,
+    bicycle: true,
+    stairs: false,
+    flags: EDGE_FLAGS.PAVED | EDGE_FLAGS.WHEELCHAIR_ACCESSIBLE | EDGE_FLAGS.BIKE_PATH,
+    coordinates: [
+      [24.6700, 59.4230], // Haabersti ring
+      [24.6550, 59.4180], // Õismäe tiik
+      [24.6450, 59.4140], // Kullerkupu
+      [24.6400, 59.4100], // Harku järve rand
+    ],
+  },
+
+  // =========================================================================
+  // 7. PIRITA & MERIVÄLJA RANNIKUTEED
+  // =========================================================================
+  {
+    id: 'osm_pirita_tee_promenade',
+    name: 'Pirita tee Rannapromenaad',
+    district: 'Pirita',
+    highwayClass: 'path',
+    surface: 'paved',
+    walkable: true,
+    wheelchair: true,
+    bicycle: true,
+    stairs: false,
+    flags: EDGE_FLAGS.PAVED | EDGE_FLAGS.WHEELCHAIR_ACCESSIBLE | EDGE_FLAGS.BIKE_PATH,
+    coordinates: [
+      [24.7930, 59.4455], // Russalka mälestussammas
+      [24.8100, 59.4560], // Maarjamäe memoriaal
+      [24.8250, 59.4650], // Pirita Selver
+      [24.8320, 59.4680], // Pirita sild & Klooster
+    ],
+  },
+  {
+    id: 'osm_pirita_ranna_promenaad',
+    name: 'Pirita Ranna & Kloostrimetsa Rada',
+    district: 'Pirita',
+    highwayClass: 'footway',
+    surface: 'paved',
+    walkable: true,
+    wheelchair: true,
+    bicycle: true,
+    stairs: false,
+    flags: EDGE_FLAGS.PAVED | EDGE_FLAGS.WHEELCHAIR_ACCESSIBLE | EDGE_FLAGS.BIKE_PATH,
+    coordinates: [
+      [24.8320, 59.4680], // Pirita jõesuu
+      [24.8400, 59.4720], // Pirita rand
+      [24.8550, 59.4780], // Kloostrimetsa terviserada
+    ],
+  },
+
+  // =========================================================================
+  // 8. LASNAMÄE & PAEPARK URBANDISTRICT
+  // =========================================================================
+  {
+    id: 'osm_paepark_promenade',
+    name: 'Paepargi Promenaad & Sild',
+    district: 'Lasnamäe',
+    highwayClass: 'footway',
+    surface: 'paved',
+    walkable: true,
+    wheelchair: true,
+    bicycle: true,
+    stairs: false,
+    flags: EDGE_FLAGS.PAVED | EDGE_FLAGS.WHEELCHAIR_ACCESSIBLE | EDGE_FLAGS.BIKE_PATH,
+    coordinates: [
+      [24.8010, 59.4360], // Lasnamäe pankrannik ühendus
+      [24.8120, 59.4320], // Pae park järv
+      [24.8250, 59.4300], // Pae tn
+      [24.8400, 59.4310], // Punane tn
+    ],
+  },
+  {
+    id: 'osm_punane_tn',
+    name: 'Punane tänav (Kõnniteed & Rattatee)',
+    district: 'Lasnamäe',
+    highwayClass: 'secondary',
+    surface: 'paved',
+    walkable: true,
+    wheelchair: true,
+    bicycle: true,
+    stairs: false,
+    flags: EDGE_FLAGS.PAVED | EDGE_FLAGS.WHEELCHAIR_ACCESSIBLE | EDGE_FLAGS.BIKE_PATH,
+    coordinates: [
+      [24.8400, 59.4310], // Punane / Pae
+      [24.8600, 59.4340], // Tondiraba park
+      [24.8850, 59.4380], // Mustakivi keskus
+      [24.9000, 59.4420], // Priisle
+    ],
+  },
 ];
+
+/**
+ * Converts high-fidelity Tallinn snapshot ways into raw OSM elements (ways and nodes)
+ * with true, complete source tags (no name-inferencing).
+ */
+export function generateRawOsmElementsFromSnapshot(): RawOsmElement[] {
+  const elements: RawOsmElement[] = [];
+  const coordToNodeId = new Map<string, number>();
+  let nextNodeId = 200000;
+  let nextWayId = 2000;
+
+  for (const w of TALLINN_SNAPSHOT_STREETS) {
+    const wayNodeIds: number[] = [];
+
+    for (const [lng, lat] of w.coordinates) {
+      // Cluster nodes sharing exact lat/lon within ~1.1 meters (5 decimals)
+      const key = `${lat.toFixed(5)},${lng.toFixed(5)}`;
+      let nodeId = coordToNodeId.get(key);
+
+      if (!nodeId) {
+        nodeId = nextNodeId++;
+        coordToNodeId.set(key, nodeId);
+        elements.push({
+          type: 'node',
+          id: nodeId,
+          lat,
+          lon: lng,
+        });
+      }
+      wayNodeIds.push(nodeId);
+    }
+
+    const tags: Record<string, string> = {
+      highway: w.highwayClass === 'steps' ? 'steps' : w.highwayClass,
+      name: w.name,
+      'name:et': w.name,
+      'addr:district': w.district,
+      walkable: 'yes',
+      access: 'yes',
+      foot: 'yes',
+    };
+
+    if (w.surface) {
+      tags.surface = w.surface;
+    }
+    if (w.wheelchair) {
+      tags.wheelchair = 'yes';
+    } else {
+      tags.wheelchair = 'no';
+    }
+    if (w.bicycle) {
+      tags.bicycle = 'yes';
+    } else {
+      tags.bicycle = 'no';
+    }
+    if (w.stairs) {
+      tags.highway = 'steps';
+      tags.surface = 'steps';
+    }
+    if (w.flags & EDGE_FLAGS.STEEP_SLOPE) {
+      tags.incline = 'yes';
+    }
+    if (w.flags & EDGE_FLAGS.ONE_WAY) {
+      tags.oneway = 'yes';
+    }
+    if (w.flags & EDGE_FLAGS.UNSAFE_ZONE) {
+      tags.unsafe = 'yes';
+    }
+
+    elements.push({
+      type: 'way',
+      id: nextWayId++,
+      nodes: wayNodeIds,
+      tags,
+    });
+  }
+
+  return elements;
+}
+
+// -----------------------------------------------------------------------------
+// Initialize and run the dynamic pipeline on our local snapshot of ways & nodes!
+// -----------------------------------------------------------------------------
+const rawElements = generateRawOsmElementsFromSnapshot();
+const builder = new OsmGraphBuilder(rawElements);
+const pipelineResult = builder.buildPipeline();
+
+// Keep original streets with their canonical IDs for street explorer compatibility
+export const OSM_PEDESTRIAN_NETWORK: WalkableWay[] = TALLINN_SNAPSHOT_STREETS;
+export const GEOMETRIC_ROUTING_NODES = pipelineResult.routingNodes;
+export const GEOMETRIC_ROUTING_EDGES = pipelineResult.routingEdges;
+export type { WalkableWay };

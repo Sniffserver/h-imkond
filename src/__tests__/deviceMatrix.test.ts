@@ -58,7 +58,8 @@ describe('Week 8 Release Hardening & Device Matrix Tests', () => {
         expect(report.coldStartMs).toBeLessThan(2000); // Max allowable SLA budget
         expect(report.fps).toBeGreaterThanOrEqual(30);  // Min allowable UI frame rate
         expect(report.batteryDrain).toBeGreaterThan(0);
-        expect(report.status).toBe('PASSED');
+        expect(['EMULATED_PROFILE', 'SIMULATED_ESTIMATE']).toContain(report.status);
+        expect(report.isPhysicalMeasurement).toBe(false);
       });
     });
 
@@ -68,7 +69,8 @@ describe('Week 8 Release Hardening & Device Matrix Tests', () => {
 
       expect(result.device).toContain('Pixel 6');
       expect(result.fps).toBeGreaterThanOrEqual(45);
-      expect(result.status).toBe('PASSED');
+      expect(result.status).toBe('EMULATED_PROFILE');
+      expect(result.isPhysicalMeasurement).toBe(false);
     });
 
     it('handles offline mode with graceful fallback', () => {
