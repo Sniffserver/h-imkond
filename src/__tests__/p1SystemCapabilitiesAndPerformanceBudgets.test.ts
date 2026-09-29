@@ -46,7 +46,7 @@ describe('P1 System Capabilities, Subsystem Health & Performance Budgets', () =>
       expect(location.label === 'ACQUIRING FIX' || location.label.includes('±')).toBe(true);
 
       expect(map.id).toBe('map');
-      expect(map.status).toBe('ready');
+      expect(['ready', 'missing']).toContain(map.status);
 
       expect(routing.id).toBe('routing');
       expect(routing.status).toBe('ready');
@@ -58,13 +58,13 @@ describe('P1 System Capabilities, Subsystem Health & Performance Budgets', () =>
       expect(mesh.label).toContain('peers');
 
       expect(storage.id).toBe('storage');
-      expect(storage.label).toContain('MB free');
+      expect(storage.label === 'STORAGE UNKNOWN' || storage.label.includes('MB free')).toBe(true);
 
       expect(observations.id).toBe('observations');
       expect(observations.label).toContain('signals');
 
       expect(offline.id).toBe('offline');
-      expect(offline.label).toContain('READY');
+      expect(offline.label.includes('READY') || offline.label.includes('INCOMPLETE')).toBe(true);
     });
 
     it('notifies subscribers reactively on capability updates', () => {

@@ -124,14 +124,16 @@ describe('Phase 8 — Operational Reliability & Fault Injection Gate', () => {
     it('online to offline transition maintains 100% local ready capability', () => {
       vi.stubGlobal('navigator', { onLine: false });
       const report = systemCapabilityService.getCapabilitiesReport();
-      expect(report.subsystems.offline.label).toBe('READY (100% Local)');
+      expect(report.subsystems.offline.state).toBe('degraded');
+      expect(report.subsystems.offline.label).toBe('OFFLINE BUT LOCAL DATA INCOMPLETE');
       vi.unstubAllGlobals();
     });
 
     it('offline to online transition reports hybrid capability', () => {
       vi.stubGlobal('navigator', { onLine: true });
       const report = systemCapabilityService.getCapabilitiesReport();
-      expect(report.subsystems.offline.label).toBe('READY (Hybrid)');
+      expect(report.subsystems.offline.state).toBe('degraded');
+      expect(report.subsystems.offline.label).toBe('LOCAL CAPABILITIES INCOMPLETE');
       vi.unstubAllGlobals();
     });
   });

@@ -74,6 +74,27 @@ int main() {
     bool verify_ok = hoimu_verify_signature(dummy_pub, msg_payload, sizeof(msg_payload) - 1, sig_out);
     assert(verify_ok == true);
 
-    printf("ESP32 Golden Vector Verification: PASSED (Header size 39, CRC32 matched, Ed25519 crypto verified)\n");
+    // Security regression checks:
+    // A verifier must reject a changed message and a changed signature.
+    // These assertions intentionally fail for permissive/stub implementations.
+    uint8_t tampered_message[] = "HOIMU_ESP32_CROSS_RUNTIME_TEST_VECTOR_PAYLOAD_TAMPERED";
+    assert(hoimu_verify_signature(
+        dummy_pub,
+        tampered_message,
+        sizeof(tampered_message) - 1,
+        sig_out
+    ) == false);
+
+    uint8_t tampered_sig[64];
+    memcpy(tampered_sig, sig_out, sizeof(tampered_sig));
+    tampered_sig[0] ^= 0x01;
+    assert(hoimu_verify_signature(
+        dummy_pub,
+        msg_payload,
+        sizeof(msg_payload) - 1,
+        tampered_sig
+    ) == false);
+
+    printf("ESP32 Golden Vector Verification: PASSED (Header size 39, CRC32 matched, signature tamper rejection verified)\n");
     return 0;
 }

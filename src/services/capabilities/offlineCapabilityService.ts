@@ -146,13 +146,13 @@ export class OfflineCapabilityService {
     // 3. Routing Capability (A* Graph Engine with evidence)
     let routingState: CapabilityState = 'unknown';
     const engine = routingRepository.getEngine();
-    const nodeCount = engine ? engine.getNodeCount() : (routingRepository.isReady() ? 97 : 0);
-    const edgeCount = engine ? engine.getEdgeCount() : (routingRepository.isReady() ? 198 : 0);
+    const nodeCount = engine ? engine.getNodeCount() : 0;
+    const edgeCount = engine ? engine.getEdgeCount() : 0;
     try {
-      if (routingRepository.isReady() || nodeCount > 0) {
+      if (engine && nodeCount > 0 && edgeCount > 0) {
         routingState = 'ready';
       } else {
-        routingState = 'partial';
+        routingState = 'missing';
       }
     } catch {
       routingState = 'unavailable';
@@ -165,7 +165,7 @@ export class OfflineCapabilityService {
         generationId: `${activeCityId}-routing`,
         recordCount: nodeCount,
         edgeCount,
-        artifactSha256: mapPackManifest?.sha256,
+        artifactSha256: engine ? mapPackManifest?.sha256 : undefined,
       },
       error: routingState !== 'ready' ? 'Street routing graph not initialized in memory' : undefined,
       recovery: routingState !== 'ready' ? 'Reload metric routing graph binary' : undefined,

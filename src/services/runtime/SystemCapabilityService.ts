@@ -8,14 +8,13 @@
  */
 
 import { LocationManager } from '../location/LocationManager';
-import { generationRepository } from '../../features/map/data/GenerationRepository';
 import { observationManager } from '../observation/ObservationManager';
 import { routingRepository } from '../routing/routingRepository';
 import { searchWorkerClient } from '../../features/search/searchWorkerClient';
 import { useMeshStore } from '../../store/meshStore';
 import { CapabilityEvidence } from '../capabilities/offlineCapabilityService';
 
-export type HealthStatus = 'ready' | 'starting' | 'degraded' | 'failed' | 'missing' | 'unavailable';
+export type HealthStatus = 'ready' | 'starting' | 'degraded' | 'failed' | 'missing' | 'unavailable' | 'unknown';
 
 export interface SystemSubsystemCapability {
   id: 'location' | 'map' | 'routing' | 'search' | 'mesh' | 'storage' | 'observations' | 'offline';
@@ -128,8 +127,22 @@ export class SystemCapabilityService {
 
     // 2. Map Subsystem (Observed from GenerationRepository)
     const activePointer = typeof localStorage !== 'undefined' ? localStorage.getItem('hoimu_map_active_generation_pointer') : null;
-    const mapGenId = activePointer || 'tallinn-20260928-std';
-    const mapReady = Boolean(mapGenId);
+    let mapGenId: string | undefined;
+    let mapReady = false;
+    let mapArtifactSha: string | undefined;
+    if (activePointer && typeof localStorage !== 'undefined') {
+      try {
+        const raw = localStorage.getItem(`hoimu_generation_${activePointer}_meta`);
+        const meta = raw ? JSON.parse(raw) as { generationId?: string; status?: string; artifactHashes?: Record<string, string> } : null;
+        if (meta?.generationId === activePointer && meta.status === 'ACTIVE') {
+          mapGenId = activePointer;
+          mapArtifactSha = meta.artifactHashes?.basemap;
+          mapReady = Boolean(mapArtifactSha);
+        }
+      } catch {
+        mapReady = false;
+      }
+    }
     const mapCapability: SystemSubsystemCapability = {
       id: 'map',
       title: 'Map',
@@ -137,14 +150,14 @@ export class SystemCapabilityService {
       status: mapReady ? 'ready' : 'missing',
       updatedAt: now,
       source: 'GenerationRepository',
-      label: mapReady ? `READY (${mapGenId})` : 'MAP NOT INSTALLED',
+      label: mapReady ? `READY (${mapGenId})` : 'MAP NOT VERIFIED',
       evidence: {
         state: mapReady ? 'ready' : 'missing',
         checkedAt: now,
         source: 'GenerationRepository',
         evidence: {
           generationId: mapGenId,
-          artifactSha256: '9f8b4c2e1a5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f',
+          artifactSha256: mapArtifactSha,
         },
       },
       details: { format: 'pmtiles', layers: ['basemap', 'poi'], generationId: mapGenId },
@@ -222,8 +235,9 @@ export class SystemCapabilityService {
     };
 
     // 6. Storage Subsystem (Observed from navigator.storage or test double)
-    const freeMb = this.testOverrides.storageFreeMb ?? this.storageFreeMb ?? 500;
-    const storageStatus: HealthStatus = freeMb > 50 ? 'ready' : (freeMb > 10 ? 'degraded' : 'failed');
+    const freeMb = this.testOverrides.storageFreeMb ?? this.storageFreeMb;
+    const storageStatus: HealthStatus =
+      freeMb === null ? 'unknown' : freeMb > 50 ? 'ready' : (freeMb > 10 ? 'degraded' : 'failed');
     const storageCapability: SystemSubsystemCapability = {
       id: 'storage',
       title: 'Storage',
@@ -231,13 +245,13 @@ export class SystemCapabilityService {
       status: storageStatus,
       updatedAt: now,
       source: 'StorageEngine',
-      label: `${freeMb} MB free`,
+      label: freeMb === null ? 'STORAGE UNKNOWN' : `${freeMb} MB free`,
       evidence: {
-        state: storageStatus === 'ready' ? 'ready' : (storageStatus === 'degraded' ? 'partial' : 'corrupt'),
+        state: storageStatus === 'ready' ? 'ready' : (storageStatus === 'degraded' ? 'partial' : (storageStatus === 'failed' ? 'corrupt' : 'unknown')),
         checkedAt: now,
         source: 'StorageEngine',
         evidence: {
-          fileSize: freeMb * 1024 * 1024,
+          fileSize: freeMb === null ? undefined : freeMb * 1024 * 1024,
         },
       },
       details: { freeMb, engine: 'OPFS/Filesystem' },
@@ -266,20 +280,36 @@ export class SystemCapabilityService {
 
     // 8. Offline Subsystem (Observed from navigator.onLine)
     const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+    const localDataReady =
+      mapCapability.state === 'ready' &&
+      routingCapability.state === 'ready' &&
+      searchCapability.state === 'ready';
+    const offlineState: HealthStatus = isOnline
+      ? (localDataReady ? 'ready' : 'degraded')
+      : (localDataReady ? 'ready' : 'degraded');
     const offlineCapability: SystemSubsystemCapability = {
       id: 'offline',
       title: 'Offline',
-      state: 'ready',
-      status: 'ready',
+      state: offlineState,
+      status: offlineState,
       updatedAt: now,
-      source: 'NetworkMonitor',
-      label: isOnline ? 'READY (Hybrid)' : 'READY (100% Local)',
+      source: 'NetworkMonitor + local capability evidence',
+      label: isOnline
+        ? (localDataReady ? 'READY (Hybrid)' : 'LOCAL CAPABILITIES INCOMPLETE')
+        : (localDataReady ? 'READY (100% Local)' : 'OFFLINE BUT LOCAL DATA INCOMPLETE'),
       evidence: {
-        state: 'ready',
+        state: offlineState === 'ready' ? 'ready' : 'partial',
         checkedAt: now,
-        source: 'NetworkMonitor',
+        source: 'NetworkMonitor + local capability evidence',
+        evidence: {
+          isOnline,
+          mapReady: mapCapability.state === 'ready',
+          routingReady: routingCapability.state === 'ready',
+          searchReady: searchCapability.state === 'ready',
+        },
+        recovery: localDataReady ? undefined : 'Install and verify the local map, routing, and search artifacts',
       },
-      details: { isOnline },
+      details: { isOnline, localDataReady },
     };
 
     const subsystems = {

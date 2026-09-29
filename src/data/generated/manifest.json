@@ -93,7 +93,7 @@
     },
     "searchIndex": {
       "path": "search-index.bin",
-      "sha256": "481af02ff9e0d9764dfc25a5ad162c495164044dad9b5f0d4e2cbc0cd4554dc8",
+      "sha256": "ce4154f942a1a89b4712f9afc841cdda99572a7d2d0f6ffc505fe40c326eb8c2",
       "sizeBytes": 74
     }
   },
@@ -159,7 +159,7 @@
   "searchIndex": {
     "filename": "search-index.bin",
     "path": "search-index.bin",
-    "sha256": "481af02ff9e0d9764dfc25a5ad162c495164044dad9b5f0d4e2cbc0cd4554dc8",
+    "sha256": "ce4154f942a1a89b4712f9afc841cdda99572a7d2d0f6ffc505fe40c326eb8c2",
     "sizeBytes": 74
   }
 }

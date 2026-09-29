@@ -8,7 +8,7 @@ import { systemCapabilityService } from '../runtime/SystemCapabilityService';
 import { LocationManager } from '../location/LocationManager';
 import { performanceBudgetManager } from '../runtime/performanceBudgetManager';
 
-export type SubsystemStatus = 'ready' | 'starting' | 'degraded' | 'failed' | 'missing' | 'unavailable';
+export type SubsystemStatus = 'ready' | 'starting' | 'degraded' | 'failed' | 'missing' | 'unavailable' | 'unknown';
 
 export interface SubsystemDiagnosticsRecord {
   subsystemId: 'app' | 'map' | 'location' | 'routing' | 'mesh' | 'storage' | 'data' | 'performance';

@@ -137,9 +137,23 @@ export class AdsSourceAdapter implements SourceAdapter<RawAdsAddressRecord> {
           if (Array.isArray(data?.addresses) && data.addresses.length > 0) {
             const parsedRecords: RawAdsAddressRecord[] = [];
             for (const addr of data.addresses) {
-              if (addr.adr_id || addr.taisaadress) {
+              const adrId = Number(addr.adr_id);
+              const lat = Number(addr.lat);
+              const lng = Number(addr.lng);
+              if (
+                Number.isFinite(adrId) &&
+                adrId > 0 &&
+                typeof addr.taisaadress === 'string' &&
+                addr.taisaadress.trim() &&
+                Number.isFinite(lat) &&
+                Number.isFinite(lng) &&
+                lat >= 59.30 &&
+                lat <= 59.55 &&
+                lng >= 24.45 &&
+                lng <= 25.10
+              ) {
                 parsedRecords.push({
-                  adr_id: Number(addr.adr_id) || Math.floor(Math.random() * 10000000),
+                  adr_id: adrId,
                   koodaadress: addr.koodaadress || '',
                   taisaadress: addr.taisaadress || 'Tallinn',
                   lahiaadress: addr.lahiaadress || addr.taisaadress || 'Tallinn',
@@ -148,8 +162,8 @@ export class AdsSourceAdapter implements SourceAdapter<RawAdsAddressRecord> {
                   linnaosa: addr.linnaosa || '',
                   omavalitsus: addr.omavalitsus || 'Tallinn',
                   postiindeks: addr.postiindeks,
-                  lat: Number(addr.lat) || 59.43,
-                  lng: Number(addr.lng) || 24.74,
+                  lat,
+                  lng,
                   viimati_muudetud: addr.viimati_muudetud || fetchedAt,
                 });
               }
