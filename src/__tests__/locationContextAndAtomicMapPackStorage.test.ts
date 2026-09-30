@@ -120,7 +120,7 @@ describe('Unified LocationContext Stream & Atomic Map Pack Storage Engine', () =
 
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url: any) => {
       const urlStr = String(url);
-      let data = mockPmtilesBytes;
+      let data: Uint8Array | Buffer = mockPmtilesBytes;
       if (urlStr.includes('-poi')) data = mockPoiPmtilesBytes;
       if (urlStr.includes('.graph')) data = mockRoutingBytes;
       if (urlStr.includes('street-index')) data = mockStreetIndexBytes;

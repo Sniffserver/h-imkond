@@ -12,6 +12,7 @@ import { DaoProposal } from '../../types';
 import { getIdentityProvider } from '../../core/identity';
 import { canonicalize, canonicalizeToBytes } from '../../protocol/canonical';
 import { signBytes, verifySignature } from '../../core/crypto/ed25519';
+import { secureId } from '../../core/crypto/entropy';
 import { crdtEventLogEngine, CRDTEvent } from '../mesh/crdt/signedEventLog';
 
 export type VoteChoice = 'yes' | 'no' | 'abstain';
@@ -77,7 +78,7 @@ export async function createSignedVoteEvent(params: {
   const votesCount = Math.max(1, params.votesCount || 1);
   const creditCost = calculateQuadraticVoteCost(votesCount);
   const timestamp = Date.now();
-  const nonce = Math.random().toString(36).substring(2, 10);
+  const nonce = secureId('gov_nonce');
   const opId = `vote_${params.voterId}_${params.proposalId}_${nonce}`;
 
   const identityProvider = getIdentityProvider();

@@ -14,6 +14,7 @@ import { PacketStore } from '../storage/packets';
 import { OutboxStore, OutboxItem, OutboxState } from '../storage/outbox';
 import { PeerStore } from '../storage/peers';
 import { peerIdentityStore } from '../services/identity/peerIdentityStore';
+import { secureId } from '../core/crypto/entropy';
 
 export type MeshRoutingMode = 'bounded_epidemic' | 'route_aware';
 
@@ -545,7 +546,7 @@ export class MeshRouter {
       header: {
         version: PROTOCOL_VERSION,
         type: HoimuPacketType.ACK,
-        packetId: `ACK_${Math.random().toString(36).substring(2, 9)}`.toUpperCase(),
+        packetId: secureId('ACK').toUpperCase(),
         senderId: this.localNodeId.slice(0, 8),
         originId: this.localNodeId,
         destinationId: destId,

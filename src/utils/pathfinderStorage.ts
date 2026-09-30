@@ -2,6 +2,7 @@
 // Manages WiFi Spots, Bluetooth BLE Beacons, LoRa Nodes, and Walk Sessions in IndexedDB with LocalStorage Fallback
 
 import { WifiSpot, BluetoothSpot, LoraNode, WalkSession, GeoPoint } from '../types';
+import { secureId } from '../core/crypto/entropy';
 import {
   openWardriveDB,
   WARDRIVE_STORES,

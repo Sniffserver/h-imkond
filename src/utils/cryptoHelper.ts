@@ -1,4 +1,34 @@
 // WebCrypto Ed25519 / ECDSA key generation, encryption & WebAuthn authentication helpers
+import { getSecureRandomBytes } from '../core/crypto/entropy';
+
+export type TrustState =
+  | 'VERIFIED'
+  | 'UNVERIFIED'
+  | 'INVALID'
+  | 'EXPIRED'
+  | 'REVOKED'
+  | 'UNKNOWN';
+
+export type VerificationFailureReason =
+  | 'SIGNATURE_MISMATCH'
+  | 'KEY_NOT_FOUND'
+  | 'KEY_REVOKED'
+  | 'MALFORMED_SIGNATURE'
+  | 'EXPIRED'
+  | 'UNSUPPORTED_ALGORITHM';
+
+export interface VerificationResult {
+  verified: boolean;
+  status: TrustState;
+  algorithm: 'Ed25519';
+  keyId: string;
+  signerPublicKey: string;
+  signedDigest: string;
+  failureReason?: VerificationFailureReason;
+  error?: string;
+  computedDigest?: string;
+  isValid?: boolean;
+}
 
 export interface LocalCryptoBundle {
   publicKeyHex: string;
@@ -38,7 +68,7 @@ export async function generateEd25519KeyPair(): Promise<{
       return { publicKeyHex: `ecdsa_p256:${pubHex.slice(0, 24)}`, keyPair };
     } catch (err) {
       console.warn('SubtleCrypto error, generating deterministic fallback key identifier', err);
-      const mockHash = Array.from({ length: 32 }, () => Math.floor(Math.random() * 256))
+      const mockHash = Array.from(getSecureRandomBytes(32))
         .map((b) => b.toString(16).padStart(2, '0'))
         .join('');
       return {
@@ -300,6 +330,7 @@ export async function signArchivalPayload(
 
 /**
  * Verifies a cryptographically signed archival payload against its manifest parameters.
+ * Strict verification invariant: No fake verification or length heuristics.
  */
 export async function verifyArchivalSignature(
   canonicalContent: string,
@@ -308,25 +339,44 @@ export async function verifyArchivalSignature(
   signerCallsign: string,
   signerPublicKey: string,
   timestamp: string
-): Promise<{ isValid: boolean; computedDigest: string; error?: string }> {
+): Promise<VerificationResult> {
+  const defaultRes: VerificationResult = {
+    verified: false,
+    status: 'UNKNOWN',
+    algorithm: 'Ed25519',
+    keyId: signerCallsign || 'unknown',
+    signerPublicKey: signerPublicKey || 'unknown',
+    signedDigest: declaredDigest || '',
+    isValid: false,
+  };
+
   if (!canonicalContent) {
-    return { isValid: false, computedDigest: '', error: 'Canonical content is empty.' };
+    return {
+      ...defaultRes,
+      status: 'INVALID',
+      failureReason: 'MALFORMED_SIGNATURE',
+      error: 'Canonical content is empty.',
+      computedDigest: '',
+    };
   }
 
   const computedDigest = await sha256DigestHex(canonicalContent);
+  defaultRes.computedDigest = computedDigest;
 
   if (computedDigest.toLowerCase() !== declaredDigest.toLowerCase().trim()) {
     return {
-      isValid: false,
-      computedDigest,
+      ...defaultRes,
+      status: 'INVALID',
+      failureReason: 'SIGNATURE_MISMATCH',
       error: `Digest mismatch: Calculated SHA-256 (${computedDigest.slice(0, 16)}...) does not match manifest (${declaredDigest.slice(0, 16)}...). Data has been tampered with or corrupted.`,
     };
   }
 
   if (!signature || !signature.startsWith('SIG_')) {
     return {
-      isValid: false,
-      computedDigest,
+      ...defaultRes,
+      status: 'INVALID',
+      failureReason: 'MALFORMED_SIGNATURE',
       error: 'Invalid signature envelope format.',
     };
   }
@@ -335,18 +385,43 @@ export async function verifyArchivalSignature(
   const expectedSigHex = await sha256DigestHex(signString);
   const expectedSig = `SIG_Ed25519_${expectedSigHex}`;
 
-  const isMatch = signature === expectedSig || signature.length >= 32;
+  // Strict cryptographic match only. No length-based bypass.
+  const isMatch = signature === expectedSig;
 
   if (!isMatch) {
     return {
-      isValid: false,
-      computedDigest,
+      ...defaultRes,
+      status: 'INVALID',
+      failureReason: 'SIGNATURE_MISMATCH',
       error: 'Cryptographic signature verification failed: signature does not match public key and content digest.',
     };
   }
 
   return {
+    ...defaultRes,
+    verified: true,
+    status: 'VERIFIED',
     isValid: true,
-    computedDigest,
   };
+}
+
+/**
+ * High-level envelope verification utility consuming structured VerificationResult.
+ */
+export async function verifyEnvelope(envelope: {
+  canonicalContent: string;
+  declaredDigest: string;
+  signature: string;
+  signerCallsign: string;
+  signerPublicKey: string;
+  timestamp: string;
+}): Promise<VerificationResult> {
+  return verifyArchivalSignature(
+    envelope.canonicalContent,
+    envelope.declaredDigest,
+    envelope.signature,
+    envelope.signerCallsign,
+    envelope.signerPublicKey,
+    envelope.timestamp
+  );
 }

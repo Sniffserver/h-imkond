@@ -22,18 +22,26 @@ export function fromHex(hex: string): Uint8Array {
   return bytes;
 }
 
-export function getRandomBytes(length: number): Uint8Array {
-  const bytes = new Uint8Array(length);
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-    crypto.getRandomValues(bytes);
-  } else {
-    // Node environment fallback
-    for (let i = 0; i < length; i++) {
-      bytes[i] = Math.floor(Math.random() * 256);
-    }
-  }
-  return bytes;
-}
+import {
+  getRandomBytes,
+  getSecureRandomBytes,
+  CryptoUnavailableError,
+  randomId,
+  secureId,
+  protocolNonce,
+  pairingToken,
+  messageId,
+} from './entropy';
+export {
+  getRandomBytes,
+  getSecureRandomBytes,
+  CryptoUnavailableError,
+  randomId,
+  secureId,
+  protocolNonce,
+  pairingToken,
+  messageId,
+};
 
 export function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;

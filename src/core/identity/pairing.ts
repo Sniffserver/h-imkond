@@ -5,6 +5,7 @@
 
 import { canonicalTrustStore } from './trust';
 import { peerTrustStore } from './trustStore';
+import { pairingToken } from '../crypto/entropy';
 
 export interface PairingPayload {
   sessionId?: string;
@@ -18,7 +19,7 @@ export class CanonicalPairingEngine {
   public static createPairingSession(nodeIdOrTtl: string | number = 300, signingPublicKey?: string): PairingPayload {
     const nodeId = typeof nodeIdOrTtl === 'string' ? nodeIdOrTtl : 'PAIR_NODE_123';
     const pubKey = signingPublicKey || 'aa'.repeat(32);
-    const pin = Math.floor(100000 + Math.random() * 900000).toString();
+    const pin = pairingToken(6);
     const sessionId = `session_${Date.now()}_${pin}`;
 
     return {
@@ -61,7 +62,7 @@ export class CanonicalPairingEngine {
   }
 
   public static generatePairingPayload(nodeId: string, signingPublicKey: string): PairingPayload {
-    const pin = Math.floor(100000 + Math.random() * 900000).toString();
+    const pin = pairingToken(6);
     return {
       nodeId,
       signingPublicKey,

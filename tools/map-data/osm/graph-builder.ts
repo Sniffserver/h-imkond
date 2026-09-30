@@ -48,6 +48,20 @@ export interface GraphStructuralMetrics {
   bikeEdgeCount: number;
 }
 
+export interface RoutingCoverageReport {
+  nodeCount: number;
+  edgeCount: number;
+  totalWalkableKm: number;
+  connectedComponentCount: number;
+  largestComponentRatio: number;
+  intersectionCount: number;
+  deadEndCount: number;
+  stairsEdgeCount: number;
+  wheelchairEdgeCount: number;
+  districtCoverage: Record<string, number>;
+  bboxCoverage: number;
+}
+
 /**
  * High-fidelity Graph Builder implementing the requested pipeline:
  * OSM way -> walkability -> access -> oneway -> surface -> stairs -> wheelchair -> intersection splitting -> graph.
@@ -75,6 +89,7 @@ export class OsmGraphBuilder {
     routingEdges: BinaryEdge[];
     graphData: RoutingGraphData;
     metrics: GraphStructuralMetrics;
+    coverageReport: RoutingCoverageReport;
   } {
     // 1. Walkability Filter & Access Rules
     const processedWays: {
@@ -336,6 +351,49 @@ export class OsmGraphBuilder {
     // 3. Connected Components Analysis
     const metrics = this.calculateStructuralMetrics(routingNodes, routingEdges, bounds);
 
+    // Comprehensive Routing Coverage Report Calculation
+    const totalWalkableMeters = routingEdges.reduce((sum, e) => sum + e.distanceMeters, 0) / 2;
+    const totalWalkableKm = Math.round((totalWalkableMeters / 1000) * 100) / 100;
+    const largestComponentRatio = Math.round((metrics.largestComponentSize / (routingNodes.length || 1)) * 1000) / 1000;
+
+    const adj = new Map<number, number[]>();
+    for (const n of routingNodes) adj.set(n.id, []);
+    for (const e of routingEdges) {
+      adj.get(e.sourceId)?.push(e.targetId);
+      if (!(e.flags & EDGE_FLAGS.ONE_WAY)) adj.get(e.targetId)?.push(e.sourceId);
+    }
+
+    let intersectionCount = 0;
+    let deadEndCount = 0;
+    for (const [_, neighbors] of adj.entries()) {
+      if (neighbors.length >= 3) intersectionCount++;
+      else if (neighbors.length === 1) deadEndCount++;
+    }
+
+    const districtCoverage: Record<string, number> = {};
+    for (const w of walkableWays) {
+      const d = w.district || 'Tallinn';
+      districtCoverage[d] = (districtCoverage[d] || 0) + 1;
+    }
+
+    const latSpan = bounds.maxLat - bounds.minLat;
+    const lngSpan = bounds.maxLng - bounds.minLng;
+    const bboxCoverage = Math.min(1.0, Math.round(((latSpan * lngSpan) / (0.18 * 0.35)) * 100) / 100);
+
+    const coverageReport: RoutingCoverageReport = {
+      nodeCount: routingNodes.length,
+      edgeCount: routingEdges.length,
+      totalWalkableKm,
+      connectedComponentCount: metrics.connectedComponentCount,
+      largestComponentRatio,
+      intersectionCount,
+      deadEndCount,
+      stairsEdgeCount: metrics.stairsEdgeCount,
+      wheelchairEdgeCount: metrics.wheelchairEdgeCount,
+      districtCoverage,
+      bboxCoverage,
+    };
+
     const graphData: RoutingGraphData = {
       nodes: routingNodes,
       edges: routingEdges,
@@ -348,6 +406,7 @@ export class OsmGraphBuilder {
       routingEdges,
       graphData,
       metrics,
+      coverageReport,
     };
   }
 

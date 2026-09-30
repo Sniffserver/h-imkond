@@ -1,0 +1,42 @@
+{
+  "name": "Tallinn Golden Districts Fixture",
+  "version": "1.0",
+  "bioregion": "Tallinn, Estonia",
+  "districts": [
+    {
+      "name": "Tallinn Old Town (Vanalinn)",
+      "center": { "lat": 59.4370, "lng": 24.7535 },
+      "bbox": { "minLat": 59.4330, "minLng": 24.7400, "maxLat": 59.4410, "maxLng": 24.7560 },
+      "primaryLayers": ["roads", "pedestrian", "buildings", "safety", "water"],
+      "expectedMinFeatures": 5
+    },
+    {
+      "name": "Kadriorg",
+      "center": { "lat": 59.4370, "lng": 24.8035 },
+      "bbox": { "minLat": 59.4320, "minLng": 24.7850, "maxLat": 59.4440, "maxLng": 24.8150 },
+      "primaryLayers": ["roads", "pedestrian", "landuse", "health", "water"],
+      "expectedMinFeatures": 3
+    },
+    {
+      "name": "Kalamaja & Noblessner",
+      "center": { "lat": 59.4670, "lng": 24.7535 },
+      "bbox": { "minLat": 59.4450, "minLng": 24.7150, "maxLat": 59.4700, "maxLng": 24.7600 },
+      "primaryLayers": ["roads", "pedestrian", "buildings", "shelters", "community"],
+      "expectedMinFeatures": 3
+    },
+    {
+      "name": "Mustamäe & Nõmme Corridor",
+      "center": { "lat": 59.4070, "lng": 24.7535 },
+      "bbox": { "minLat": 59.3850, "minLng": 24.6600, "maxLat": 59.4150, "maxLng": 24.7600 },
+      "primaryLayers": ["roads", "pedestrian", "health", "safety", "water"],
+      "expectedMinFeatures": 3
+    },
+    {
+      "name": "Pirita Coastal Promenade",
+      "center": { "lat": 59.4680, "lng": 24.8320 },
+      "bbox": { "minLat": 59.4500, "minLng": 24.8000, "maxLat": 59.4850, "maxLng": 24.8600 },
+      "primaryLayers": ["roads", "pedestrian", "water", "safety"],
+      "expectedMinFeatures": 2
+    }
+  ]
+}

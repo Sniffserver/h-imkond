@@ -26,6 +26,8 @@ export type TelemetryCategory =
   | 'storage.write'
   | 'storage.error';
 
+import { secureId } from '../../core/crypto/entropy';
+
 export type TelemetryLevel = 'info' | 'warn' | 'error';
 
 export interface TelemetryEvent {
@@ -53,7 +55,7 @@ export class CircularTelemetryBuffer {
     nodeId?: string
   ): TelemetryEvent {
     const event: TelemetryEvent = {
-      id: `tel_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: secureId('tel'),
       timestamp: Date.now(),
       category,
       level,

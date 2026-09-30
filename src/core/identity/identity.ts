@@ -3,6 +3,8 @@
  * Single source of truth for local node cryptographic keys, signatures, and callsign.
  */
 
+import { getSecureRandomBytes, pairingToken } from '../crypto/entropy';
+
 export interface NodeIdentity {
   nodeId: string; // Callsign or hex ID (e.g. "TAL-01")
   signingPublicKey: string; // 64-hex char Ed25519 public key
@@ -66,16 +68,10 @@ export class CanonicalIdentityEngine {
       }
     }
 
-    const randomBytes = new Uint8Array(32);
-    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-      crypto.getRandomValues(randomBytes);
-    } else {
-      for (let i = 0; i < 32; i++) randomBytes[i] = Math.floor(Math.random() * 256);
-    }
-
+    const randomBytes = getSecureRandomBytes(32);
     const seedHex = bytesToHex(randomBytes);
     const pubHex = bytesToHex(randomBytes.map((b) => b ^ 0xaa));
-    const callsign = `TAL-${Math.floor(10 + Math.random() * 89)}`;
+    const callsign = `TAL-${pairingToken(2)}`;
 
     const identity: NodeIdentity = {
       nodeId: callsign,

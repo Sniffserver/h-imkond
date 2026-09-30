@@ -227,6 +227,42 @@ const TALLINN_SNAPSHOT_STREETS: WalkableWay[] = [
     ],
   },
   {
+    id: 'osm_nunne_tn',
+    name: 'Nunne tänav',
+    district: 'Vanalinn',
+    highwayClass: 'pedestrian',
+    surface: 'paved',
+    walkable: true,
+    wheelchair: true,
+    bicycle: true,
+    stairs: false,
+    flags: EDGE_FLAGS.PAVED | EDGE_FLAGS.WHEELCHAIR_ACCESSIBLE | EDGE_FLAGS.BIKE_PATH,
+    coordinates: [
+      [24.7380, 59.4395], // Balti jaam / Snelli park
+      [24.7405, 59.4388], // Nunne väravad
+      [24.7435, 59.4378], // Pikk jalg junction
+      [24.7450, 59.4378], // Raekoja plats
+    ],
+  },
+  {
+    id: 'osm_kaarli_pst',
+    name: 'Kaarli puiestee & Tõnismägi',
+    district: 'Kesklinn',
+    highwayClass: 'pedestrian',
+    surface: 'paved',
+    walkable: true,
+    wheelchair: true,
+    bicycle: true,
+    stairs: false,
+    flags: EDGE_FLAGS.PAVED | EDGE_FLAGS.WHEELCHAIR_ACCESSIBLE | EDGE_FLAGS.BIKE_PATH,
+    coordinates: [
+      [24.7440, 59.4340], // Vabaduse väljak
+      [24.7380, 59.4325], // Kaarli kirik
+      [24.7340, 59.4310], // Tõnismägi
+      [24.7300, 59.4295], // Endla tänav ühendus
+    ],
+  },
+  {
     id: 'osm_patkuli_stairs',
     name: 'Patkuli trepp',
     district: 'Toompea / Kalamaja',
@@ -518,6 +554,7 @@ const TALLINN_SNAPSHOT_STREETS: WalkableWay[] = [
       [24.7495, 59.4435], // Linnahall / Paks Margareeta
       [24.7420, 59.4470], // Kalaranna sadam
       [24.7350, 59.4500], // Patarei merekindlus
+      [24.7280, 59.4495], // Vana-Kalamaja junction
       [24.7250, 59.4525], // Noblessner
     ],
   },
@@ -537,6 +574,23 @@ const TALLINN_SNAPSHOT_STREETS: WalkableWay[] = [
       [24.7180, 59.4530],
       [24.7150, 59.4515],
       [24.7180, 59.4485], // Volta ristmik
+    ],
+  },
+  {
+    id: 'osm_poska_tn',
+    name: 'Jaan Poska tänav',
+    district: 'Kadriorg',
+    highwayClass: 'living_street',
+    surface: 'paved',
+    walkable: true,
+    wheelchair: true,
+    bicycle: true,
+    stairs: false,
+    flags: EDGE_FLAGS.PAVED | EDGE_FLAGS.WHEELCHAIR_ACCESSIBLE | EDGE_FLAGS.BIKE_PATH,
+    coordinates: [
+      [24.7761, 59.4402], // Weizenbergi ristmik
+      [24.7770, 59.4420], // Narva mnt ristmik
+      [24.7780, 59.4440], // Russalka & Reidi tee promenaad
     ],
   },
 
@@ -823,6 +877,180 @@ const TALLINN_SNAPSHOT_STREETS: WalkableWay[] = [
       [24.8600, 59.4340], // Tondiraba park
       [24.8850, 59.4380], // Mustakivi keskus
       [24.9000, 59.4420], // Priisle
+    ],
+  },
+  // =========================================================================
+  // 9. HAABERSTI, ÕISMÄE & HARKU RECREATIONAL ARTERY
+  // =========================================================================
+  {
+    id: 'osm_oismae_ring_north',
+    name: 'Õismäe tee Põhjaring & Promenaad',
+    district: 'Haabersti',
+    highwayClass: 'pedestrian',
+    surface: 'paved',
+    walkable: true,
+    wheelchair: true,
+    bicycle: true,
+    stairs: false,
+    flags: EDGE_FLAGS.PAVED | EDGE_FLAGS.WHEELCHAIR_ACCESSIBLE | EDGE_FLAGS.BIKE_PATH,
+    coordinates: [
+      [24.6450, 59.4180], // Haabersti ringteelt sisenemine
+      [24.6480, 59.4200], // Õismäe tiigi põhjakallas
+      [24.6530, 59.4210], // Kullerkupu peatus
+      [24.6580, 59.4190], // Nurmenuku keskus
+    ],
+  },
+  {
+    id: 'osm_oismae_ring_south',
+    name: 'Õismäe tee Lõunaring & Tiigi Promenaad',
+    district: 'Haabersti',
+    highwayClass: 'pedestrian',
+    surface: 'paved',
+    walkable: true,
+    wheelchair: true,
+    bicycle: true,
+    stairs: false,
+    flags: EDGE_FLAGS.PAVED | EDGE_FLAGS.WHEELCHAIR_ACCESSIBLE | EDGE_FLAGS.BIKE_PATH,
+    coordinates: [
+      [24.6580, 59.4190], // Nurmenuku keskus
+      [24.6560, 59.4150], // Tiigi lõunakallas
+      [24.6500, 59.4130], // Sinilille
+      [24.6450, 59.4180], // Haabersti ringristmik
+    ],
+  },
+  {
+    id: 'osm_harku_promenaad',
+    name: 'Harku Järve Rannapromenaad',
+    district: 'Haabersti',
+    highwayClass: 'footway',
+    surface: 'paved',
+    walkable: true,
+    wheelchair: true,
+    bicycle: true,
+    stairs: false,
+    flags: EDGE_FLAGS.PAVED | EDGE_FLAGS.WHEELCHAIR_ACCESSIBLE | EDGE_FLAGS.BIKE_PATH,
+    coordinates: [
+      [24.6450, 59.4180],
+      [24.6350, 59.4160], // Harku ranna peahoone
+      [24.6250, 59.4130], // Harku paadisadam
+      [24.6180, 59.4100], // Järveotsa promenaad
+    ],
+  },
+  // =========================================================================
+  // 10. KRISTIINE & LILLEKÜLA CONNECTORS
+  // =========================================================================
+  {
+    id: 'osm_kotka_tn',
+    name: 'Kotka tänav & Tervisekeskuse kõnnitee',
+    district: 'Kristiine',
+    highwayClass: 'residential',
+    surface: 'paved',
+    walkable: true,
+    wheelchair: true,
+    bicycle: true,
+    stairs: false,
+    flags: EDGE_FLAGS.PAVED | EDGE_FLAGS.WHEELCHAIR_ACCESSIBLE | EDGE_FLAGS.BIKE_PATH,
+    coordinates: [
+      [24.7230, 59.4210], // Kotka / Tedre ristmik
+      [24.7260, 59.4230], // Kotka Tervisemaja
+      [24.7285, 59.4260], // Lilleküla jaam
+      [24.7320, 59.4290], // Tehnika tn ühendus
+    ],
+  },
+  {
+    id: 'osm_tulika_endla',
+    name: 'Tulika & Endla Pedestrian Corridor',
+    district: 'Kristiine',
+    highwayClass: 'secondary',
+    surface: 'paved',
+    walkable: true,
+    wheelchair: true,
+    bicycle: true,
+    stairs: false,
+    flags: EDGE_FLAGS.PAVED | EDGE_FLAGS.WHEELCHAIR_ACCESSIBLE | EDGE_FLAGS.BIKE_PATH,
+    coordinates: [
+      [24.7180, 59.4280], // Kristiine Keskus esine
+      [24.7220, 59.4295], // Endla / Tulika ristmik
+      [24.7285, 59.4260], // Lilleküla jaam ühendus
+      [24.7340, 59.4310], // Suur-Ameerika suund
+    ],
+  },
+  // =========================================================================
+  // 11. SADAM & ROTERMANNI PEDESTRIAN QUARTER
+  // =========================================================================
+  {
+    id: 'osm_rotermanni_kvartal',
+    name: 'Rotermanni Jalakäijate Kvartal',
+    district: 'Kesklinn / Südalinn',
+    highwayClass: 'pedestrian',
+    surface: 'cobblestone',
+    walkable: true,
+    wheelchair: true,
+    bicycle: false,
+    stairs: false,
+    flags: EDGE_FLAGS.PAVED | EDGE_FLAGS.COBBLESTONE | EDGE_FLAGS.WHEELCHAIR_ACCESSIBLE,
+    coordinates: [
+      [24.7548, 59.4368], // Narva mnt / Viru väljak
+      [24.7565, 59.4385], // Rotermanni peaväljak
+      [24.7580, 59.4400], // Ahtri tn
+      [24.7595, 59.4420], // Sadama A-terminali suund
+    ],
+  },
+  {
+    id: 'osm_admiraliteedi_sild',
+    name: 'Admiraliteedi Basseini Jalakäijate Sild',
+    district: 'Kesklinn / Sadam',
+    highwayClass: 'pedestrian',
+    surface: 'paved',
+    walkable: true,
+    wheelchair: true,
+    bicycle: true,
+    stairs: false,
+    flags: EDGE_FLAGS.PAVED | EDGE_FLAGS.WHEELCHAIR_ACCESSIBLE | EDGE_FLAGS.BIKE_PATH,
+    coordinates: [
+      [24.7595, 59.4420], // Ahtri / Rotermanni
+      [24.7570, 59.4435], // Admiraliteedi kallas
+      [24.7550, 59.4445], // Pöördsild
+      [24.7495, 59.4435], // Linnahall / Kalaranna ühendus
+    ],
+  },
+  // =========================================================================
+  // 12. SHNELLI PARK & TOOMPUIESTEE
+  // =========================================================================
+  {
+    id: 'osm_shnelli_park',
+    name: 'Toompargi (Shnelli) Jalutustee',
+    district: 'Kesklinn / Vanalinn',
+    highwayClass: 'path',
+    surface: 'gravel',
+    walkable: true,
+    wheelchair: true,
+    bicycle: true,
+    stairs: false,
+    flags: EDGE_FLAGS.GRAVEL | EDGE_FLAGS.WHEELCHAIR_ACCESSIBLE | EDGE_FLAGS.BIKE_PATH,
+    coordinates: [
+      [24.7380, 59.4395], // Balti jaam / Snelli tiigi ühendus
+      [24.7410, 59.4380], // Shnelli tiigi kallas
+      [24.7405, 59.4400], // Patkuli trepi jalam
+      [24.7375, 59.4402], // Balti jaam tunnel
+    ],
+  },
+  {
+    id: 'osm_tondiraba_park',
+    name: 'Tondiraba Pargi Kergliiklusteed',
+    district: 'Lasnamäe',
+    highwayClass: 'path',
+    surface: 'paved',
+    walkable: true,
+    wheelchair: true,
+    bicycle: true,
+    stairs: false,
+    flags: EDGE_FLAGS.PAVED | EDGE_FLAGS.WHEELCHAIR_ACCESSIBLE | EDGE_FLAGS.BIKE_PATH,
+    coordinates: [
+      [24.8600, 59.4340], // Punane tn ühendus
+      [24.8680, 59.4370], // Jäästaadion
+      [24.8750, 59.4390], // Skatepark & pump-track
+      [24.8850, 59.4380], // Mustakivi keskus
     ],
   },
 ];

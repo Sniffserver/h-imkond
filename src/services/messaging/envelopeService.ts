@@ -7,6 +7,7 @@
 
 import { MeshMessageEnvelope } from '../../types';
 import { getSubtleCrypto, getRandomBytes, toHex, fromHex, toBase64 } from '../../core/crypto';
+import { messageId } from '../../core/crypto/entropy';
 import { canonicalize } from '../../protocol/canonical';
 
 export function getEnvelopeCanonicalString(envelope: {
@@ -39,7 +40,7 @@ export class EnvelopeService {
    */
   public async createEnvelope(params: CreateEnvelopeParams): Promise<MeshMessageEnvelope> {
     const subtle = getSubtleCrypto();
-    const id = params.messageId || `01J${Date.now().toString(36)}${Math.random().toString(36).substring(2, 8)}`;
+    const id = params.messageId || messageId();
     const createdAt = Date.now();
     const ttl = params.ttl ?? 5;
 

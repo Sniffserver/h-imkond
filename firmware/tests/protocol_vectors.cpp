@@ -65,6 +65,7 @@ int main() {
     // Verify Ed25519 C++ Cryptographic Routines
     uint8_t dummy_priv[64] = {0x12};
     uint8_t dummy_pub[32] = {0x34};
+    memcpy(dummy_priv + 32, dummy_pub, 32);
     uint8_t msg_payload[] = "HOIMU_ESP32_CROSS_RUNTIME_TEST_VECTOR_PAYLOAD";
     uint8_t sig_out[64] = {0};
 

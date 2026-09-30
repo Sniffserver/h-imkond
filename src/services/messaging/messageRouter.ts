@@ -57,6 +57,7 @@ import { messagePersistence, MessagePersistence } from './messagePersistence';
 import { meshTransportManager, MeshTransportManager } from '../mesh/transport/MeshTransportManager';
 import { seenPacketCache, SeenPacketCache } from '../mesh/routing/SeenPacketCache';
 import { crdtEventLogEngine } from '../mesh/crdt/signedEventLog';
+import { messageId, getSecureRandomBytes } from '../../core/crypto/entropy';
 
 export interface RouteMessageResult {
   message: MeshMessage;
@@ -104,7 +105,7 @@ export class MessageRouter {
     const recipientEncKey = peer?.encryptionPublicKey || recipientIdOrCallsign;
 
     // 3. X25519 + HKDF + AES-GCM + Ed25519 Signature -> Envelope
-    const messageId = `01J${Date.now().toString(36)}${Math.random().toString(36).substring(2, 7)}`;
+    const outboundMessageId = messageId();
     const env = await this.envelope.createEnvelope({
       content,
       senderCallsign: localIdentity.callsign,
@@ -112,7 +113,7 @@ export class MessageRouter {
       recipientX25519PublicKeyHex: recipientEncKey,
       senderIdentityKeyPair: identityKeyPair,
       senderIdentityPublicKeyHex: localIdentity.signingPublicKeyHex,
-      messageId,
+      messageId: outboundMessageId,
       ttl: options?.ttl ?? 5,
     });
 
@@ -120,6 +121,8 @@ export class MessageRouter {
 
     // 4. Construct canonical HoimuPacket
     const now = Date.now();
+    const seqBytes = getSecureRandomBytes(4);
+    const secureSequence = ((seqBytes[0] << 24) | (seqBytes[1] << 16) | (seqBytes[2] << 8) | seqBytes[3]) >>> 0;
     const packet: HoimuPacket<MeshMessageEnvelope> = {
       header: {
         version: 1,
@@ -127,7 +130,7 @@ export class MessageRouter {
         flags: PacketFlags.IS_ENCRYPTED,
         ttl: env.ttl,
         hopCount: 0,
-        sequence: Math.floor(Math.random() * 0xffffffff),
+        sequence: secureSequence,
         senderId: localIdentity.nodeId.slice(0, 8),
         originId: localIdentity.nodeId.slice(0, 8),
         destinationId: peer ? peer.nodeId.slice(0, 8) : recipientCallsign.slice(0, 8),

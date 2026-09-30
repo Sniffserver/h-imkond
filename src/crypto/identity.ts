@@ -10,6 +10,8 @@ import { deriveX25519FromSeed, generateX25519KeyPair, X25519KeyPair } from './x2
 import { SecureSecretsStore } from '../storage/identity/secureSecretsStore';
 import { IdentityStore } from '../storage/identity/identityStore';
 
+import { getSecureRandomBytes } from '../core/crypto/entropy';
+
 export interface HoimuIdentity {
   nodeId: string; // 16-hex char deterministic node fingerprint derived from Ed25519 public key
   callsign: string; // Human-readable callsign (e.g. 'TALLINN-01')
@@ -63,12 +65,7 @@ export async function createIdentityFromSeed(seed: string, callsign: string): Pr
  * Generates a brand new random HÕIMU identity using secure random entropy from SubtleCrypto.
  */
 export async function generateRandomIdentity(callsign: string): Promise<HoimuIdentity> {
-  const randomBytes = new Uint8Array(32);
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-    crypto.getRandomValues(randomBytes);
-  } else {
-    for (let i = 0; i < 32; i++) randomBytes[i] = Math.floor(Math.random() * 256);
-  }
+  const randomBytes = getSecureRandomBytes(32);
   const seedHex = Array.from(randomBytes).map((b) => b.toString(16).padStart(2, '0')).join('');
   return createIdentityFromSeed(seedHex, callsign);
 }
@@ -103,12 +100,7 @@ export async function loadOrCreateLocalIdentity(defaultCallsign = 'EST-NODE'): P
 
   // 3. If no seed exists, generate a 32-byte cryptographically secure random seed
   if (!secret) {
-    const randomBuf = new Uint8Array(32);
-    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-      crypto.getRandomValues(randomBuf);
-    } else {
-      for (let i = 0; i < 32; i++) randomBuf[i] = Math.floor(Math.random() * 256);
-    }
+    const randomBuf = getSecureRandomBytes(32);
     const seedHex = Array.from(randomBuf).map((b) => b.toString(16).padStart(2, '0')).join('');
     await SecureSecretsStore.saveSecret({
       keyId: 'master_identity_seed',

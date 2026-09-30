@@ -35,6 +35,8 @@
  *    }
  */
 
+import { getSecureRandomBytes, messageId } from '../../core/crypto/entropy';
+
 // RFC 8410 PKCS#8 DER prefixes for Curve25519 private keys
 const X25519_PKCS8_PREFIX = new Uint8Array([
   0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x6e, 0x04, 0x22, 0x04, 0x20,
@@ -118,15 +120,12 @@ function getSubtleCrypto(): SubtleCrypto {
 }
 
 function getRandomValues(array: Uint8Array): Uint8Array {
-  if (typeof window !== 'undefined' && window.crypto?.getRandomValues) {
-    return window.crypto.getRandomValues(array);
+  const gCrypto = typeof globalThis !== 'undefined' ? globalThis.crypto : undefined;
+  if (gCrypto?.getRandomValues) {
+    return gCrypto.getRandomValues(array);
   }
-  if (typeof globalThis !== 'undefined' && globalThis.crypto?.getRandomValues) {
-    return globalThis.crypto.getRandomValues(array);
-  }
-  for (let i = 0; i < array.length; i++) {
-    array[i] = Math.floor(Math.random() * 256);
-  }
+  const secure = getSecureRandomBytes(array.length);
+  array.set(secure);
   return array;
 }
 
@@ -471,7 +470,7 @@ export async function encryptMeshMessage(params: {
   ttl?: number;
 }): Promise<MeshMessageEnvelope> {
   const subtle = getSubtleCrypto();
-  const id = params.messageId || `01J${Date.now().toString(36)}${Math.random().toString(36).substring(2, 8)}`;
+  const id = params.messageId || messageId();
   const createdAt = Date.now();
   const ttl = params.ttl ?? 5;
 

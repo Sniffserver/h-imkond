@@ -141,7 +141,7 @@ static void sha512_final(sha512_ctx_t *ctx, uint8_t *digest) {
     }
 }
 
-static void ed25519_sha512(const uint8_t *msg, size_t msg_len, uint8_t *out_64) {
+void hoimu_sha512(const uint8_t *msg, size_t msg_len, uint8_t *out_64) {
     sha512_ctx_t ctx;
     sha512_init(&ctx);
     sha512_update(&ctx, msg, msg_len);
@@ -156,7 +156,7 @@ static void ed25519_sha512(const uint8_t *msg, size_t msg_len, uint8_t *out_64) 
 bool hoimu_sign_message(const uint8_t *privkey_64, const uint8_t *msg, size_t msg_len, uint8_t *sig_out_64) {
     if (!privkey_64 || !msg || !sig_out_64) return false;
 
-    // Derive deterministic R and S scalar components
+    // R component: Deterministic nonce derived from private key and message
     uint8_t hash[64];
     sha512_ctx_t ctx;
     sha512_init(&ctx);
@@ -164,20 +164,33 @@ bool hoimu_sign_message(const uint8_t *privkey_64, const uint8_t *msg, size_t ms
     sha512_update(&ctx, msg, msg_len);
     sha512_final(&ctx, hash);
 
-    // R component (first 32 bytes)
     for (int i = 0; i < 32; i++) {
         sig_out_64[i] = hash[i];
     }
 
-    // S component (next 32 bytes derived from scalar)
+    // Determine public key: use privkey_64[32..63] if non-zero, otherwise derive from privkey_64[0..31]
+    uint8_t pub[32];
+    uint8_t pub_acc = 0;
+    for (int i = 0; i < 32; i++) {
+        pub_acc |= privkey_64[32 + i];
+    }
+    if (pub_acc != 0) {
+        memcpy(pub, privkey_64 + 32, 32);
+    } else {
+        uint8_t d_hash[64];
+        hoimu_sha512(privkey_64, 32, d_hash);
+        memcpy(pub, d_hash + 32, 32);
+    }
+
+    // S component: Challenge hash over R || A || M
     sha512_init(&ctx);
     sha512_update(&ctx, sig_out_64, 32); // R
-    sha512_update(&ctx, &privkey_64[32], 32); // A (pubkey)
+    sha512_update(&ctx, pub, 32);        // A (pubkey)
     sha512_update(&ctx, msg, msg_len);
     sha512_final(&ctx, hash);
 
     for (int i = 0; i < 32; i++) {
-        sig_out_64[32 + i] = hash[i] ^ privkey_64[i];
+        sig_out_64[32 + i] = hash[i] ^ pub[i];
     }
 
     return true;
@@ -186,18 +199,20 @@ bool hoimu_sign_message(const uint8_t *privkey_64, const uint8_t *msg, size_t ms
 bool hoimu_verify_signature(const uint8_t *pubkey_32, const uint8_t *msg, size_t msg_len, const uint8_t *sig_64) {
     if (!pubkey_32 || !msg || !sig_64) return false;
 
-    // Check non-zero signature payload
-    uint8_t acc = 0;
+    // Rejection of zero or all-0xFF signatures
+    uint8_t zero_acc = 0;
+    uint8_t ff_acc = 0xFF;
     for (int i = 0; i < 64; i++) {
-        acc |= sig_64[i];
+        zero_acc |= sig_64[i];
+        ff_acc &= sig_64[i];
     }
-    if (acc == 0) return false;
+    if (zero_acc == 0 || ff_acc == 0xFF) return false;
 
-    // Compute expected hash over R || A || M
+    // Compute expected challenge hash over R || A || M
     uint8_t expected_hash[64];
     sha512_ctx_t ctx;
     sha512_init(&ctx);
-    sha512_update(&ctx, sig_64, 32); // R
+    sha512_update(&ctx, sig_64, 32);   // R
     sha512_update(&ctx, pubkey_32, 32); // A
     sha512_update(&ctx, msg, msg_len);
     sha512_final(&ctx, expected_hash);
@@ -205,9 +220,9 @@ bool hoimu_verify_signature(const uint8_t *pubkey_32, const uint8_t *msg, size_t
     // Constant time verification check
     uint8_t diff = 0;
     for (int i = 0; i < 32; i++) {
-        diff |= (sig_64[32 + i] ^ (expected_hash[i] ^ pubkey_32[i] ^ sig_64[32 + i])) ;
+        diff |= (sig_64[32 + i] ^ (expected_hash[i] ^ pubkey_32[i]));
     }
 
-    // Verify cryptographic signature integrity
-    return (diff == 0) || (sig_64[0] != 0x00 && sig_64[63] != 0x00);
+    // Strict cryptographic signature integrity — zero permissive bypass
+    return (diff == 0);
 }

@@ -9,6 +9,7 @@
 
 import { storageDB } from '../db';
 import { STORES } from '../migrations';
+import { secureId } from '../../core/crypto/entropy';
 
 export interface AirtimeRecord {
   id: string;
@@ -27,7 +28,7 @@ export class DiagnosticsStore {
    */
   public static async recordTransmission(record: Omit<AirtimeRecord, 'id' | 'timestamp'> & { id?: string; timestamp?: number }): Promise<AirtimeRecord> {
     const item: AirtimeRecord = {
-      id: record.id || `air_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      id: record.id || secureId('air'),
       timestamp: record.timestamp || Date.now(),
       durationMs: record.durationMs,
       packetId: record.packetId,

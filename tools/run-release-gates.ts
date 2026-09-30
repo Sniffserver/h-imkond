@@ -239,13 +239,14 @@ async function main() {
   if (!blockingGate) {
     console.log('--- [Gate 3] Artifact semantic integrity ---');
     const verifyResult = runCommand('npm run maps:verify');
-    if (!verifyResult.success) {
+    const goldenDistrictsResult = runCommand('npx vitest run src/__tests__/goldenDistrictsMapVerification.test.ts src/__tests__/routingGraphValidationAndCoverage.test.ts');
+    if (!verifyResult.success || !goldenDistrictsResult.success) {
       gates[3].passed = false;
-      gates[3].reason = `Artifact verification failed: ${verifyResult.output.slice(0, 160)}`;
+      gates[3].reason = `Artifact verification failed: ${verifyResult.output.slice(0, 160)} ${goldenDistrictsResult.output.slice(0, 160)}`;
       blockingGate = gates[3];
     } else {
       gates[3].passed = true;
-      console.log('  ✓ Artifact semantic integrity verified (PMTiles v3, MVT tiles, routing graph, indices)\n');
+      console.log('  ✓ Artifact semantic integrity verified (PMTiles v3, MVT tiles, routing graph, indices, golden districts)\n');
     }
   }
 
@@ -315,18 +316,19 @@ async function main() {
   }
 
   // -------------------------------------------------------------------------
-  // GATE 8 — Security (Dependency audit, secret scan, SBOM)
+  // GATE 8 — Security (Dependency audit, secret scan, SBOM, entropy lint)
   // -------------------------------------------------------------------------
   if (!blockingGate) {
     console.log('--- [Gate 8] Security ---');
+    const entropyResult = runCommand('node scripts/lint-entropy.cjs');
     const secResult = runCommand('node scripts/security-audit.cjs');
-    if (!secResult.success) {
+    if (!entropyResult.success || !secResult.success) {
       gates[8].passed = false;
-      gates[8].reason = `Security audit failed: ${secResult.output.slice(0, 160)}`;
+      gates[8].reason = `Security audit failed: ${entropyResult.output.slice(0, 80)} ${secResult.output.slice(0, 80)}`;
       blockingGate = gates[8];
     } else {
       gates[8].passed = true;
-      console.log('  ✓ Security audit, secret scan, and environment credential checks passed\n');
+      console.log('  ✓ Security audit, secret scan, entropy rules, and environment credential checks passed\n');
     }
   }
 

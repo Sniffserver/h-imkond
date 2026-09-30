@@ -1,6 +1,7 @@
 import { HoimuPacket } from '../protocol/types';
 import { storageDB } from './db';
 import { STORES } from './migrations';
+import { secureId } from '../core/crypto/entropy';
 
 /**
  * Outbox State Machine Lifecycle:
@@ -136,7 +137,7 @@ export class OutboxStore {
 
     item.status = 'claimed';
     item.workerId = workerId;
-    item.attemptId = `att_${now}_${Math.random().toString(36).slice(2, 7)}`;
+    item.attemptId = secureId('att');
     item.leaseUntil = now + leaseDurationMs;
     item.lastAttemptAt = now;
 

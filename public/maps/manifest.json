@@ -1,15 +1,105 @@
 {
   "id": "tallinn",
-  "name": "TALLINN",
+  "generationId": "gen-tallinn-2026.09.27-A",
+  "region": "tallinn",
+  "version": "2026.09.27-A",
+  "generatedAt": "2026-09-30T15:46:16.485Z",
+  "sources": [
+    {
+      "provider": "osm",
+      "snapshot": "37e572fb1a6e8fb7",
+      "license": "ODbL / CC-BY"
+    },
+    {
+      "provider": "tallinn",
+      "snapshot": "5c9a24a49cf30eb9",
+      "license": "ODbL / CC-BY"
+    },
+    {
+      "provider": "paasteamet",
+      "snapshot": "0c904aa0c9b0f495",
+      "license": "ODbL / CC-BY"
+    },
+    {
+      "provider": "ads",
+      "snapshot": "3b97e3a681bfea25",
+      "license": "ODbL / CC-BY"
+    }
+  ],
+  "artifacts": {
+    "basemap": {
+      "filename": "tallinn-basemap.pmtiles",
+      "path": "tallinn-basemap.pmtiles",
+      "sha256": "01458ca58bcac0093a1f7a80f89a564d5b9391ff677103f9f5e236ad50d9b70a",
+      "sizeBytes": 31206
+    },
+    "poi": {
+      "filename": "tallinn-poi.pmtiles",
+      "path": "tallinn-poi.pmtiles",
+      "sha256": "5c1c24a77d9e23419e7c08c741bcb7dee7db00bf8b87d6c06547f0e7ec436ed5",
+      "sizeBytes": 10423,
+      "count": 31
+    },
+    "routing": {
+      "filename": "routing.graph",
+      "path": "routing.graph",
+      "sha256": "efe7b5619ae4d77f81533cfc90abcb1d06846778a3b47571ba4ae49e3b8508bb",
+      "sizeBytes": 9330,
+      "nodes": 148,
+      "edges": 159
+    },
+    "streetIndex": {
+      "filename": "street-index.bin",
+      "path": "street-index.bin",
+      "sha256": "cfd744cbb8a04dfb09d917463fdda546f4fd16c667e1f77d8ba715aad226c46f",
+      "sizeBytes": 3302,
+      "streetCount": 56
+    },
+    "searchIndex": {
+      "filename": "search-index.bin",
+      "path": "search-index.bin",
+      "sha256": "1a594d237070b8129964080a568a646b7e99ed527c168e52b042999aabe03454",
+      "sizeBytes": 3246
+    }
+  },
+  "basemap": {
+    "path": "tallinn-basemap.pmtiles",
+    "sha256": "01458ca58bcac0093a1f7a80f89a564d5b9391ff677103f9f5e236ad50d9b70a",
+    "sizeBytes": 31206
+  },
+  "poi": {
+    "path": "tallinn-poi.pmtiles",
+    "sha256": "5c1c24a77d9e23419e7c08c741bcb7dee7db00bf8b87d6c06547f0e7ec436ed5",
+    "sizeBytes": 10423,
+    "count": 31
+  },
+  "routing": {
+    "path": "routing.graph",
+    "sha256": "efe7b5619ae4d77f81533cfc90abcb1d06846778a3b47571ba4ae49e3b8508bb",
+    "sizeBytes": 9330,
+    "nodes": 148,
+    "edges": 159
+  },
+  "streetIndex": {
+    "path": "street-index.bin",
+    "sha256": "cfd744cbb8a04dfb09d917463fdda546f4fd16c667e1f77d8ba715aad226c46f",
+    "sizeBytes": 3302,
+    "streetCount": 56
+  },
+  "searchIndex": {
+    "path": "search-index.bin",
+    "sha256": "1a594d237070b8129964080a568a646b7e99ed527c168e52b042999aabe03454",
+    "sizeBytes": 3246
+  },
+  "compatibility": {
+    "mapSchema": 3,
+    "routingSchema": 1,
+    "streetSchema": 1,
+    "searchSchema": 1
+  },
   "cityName": "TALLINN",
   "cityId": "tallinn",
-  "region": "tallinn",
-  "regionName": "Tallinn & Harjumaa Bioregion",
   "countryCode": "EE",
-  "version": "2026.09.27-A",
-  "routingSnapshotVersion": "2026.09.27-A",
-  "generatedAt": "2026-09-29T00:00:00.000Z",
-  "updatedAt": "2026-09-29T00:00:00.000Z",
   "bbox": [
     24.5,
     59.32,
@@ -28,138 +118,12 @@
   },
   "minZoom": 10,
   "maxZoom": 16,
-  "fileName": "tallinn.pmtiles",
   "pmtiles": "/maps/tallinn.pmtiles",
   "pmtilesUrl": "/maps/tallinn.pmtiles",
   "downloadUrl": "/maps/tallinn.pmtiles",
-  "remoteUrl": "/maps/tallinn.pmtiles",
-  "routing": {
-    "filename": "routing.graph",
-    "path": "routing.graph",
-    "sha256": "d302ee2ea9d2f5b10014aae77bbe72ef057b04441e096356d0dad2e51c8789c9",
-    "sizeBytes": 7165
-  },
+  "fileName": "tallinn.pmtiles",
   "routingUrl": "/routing/tallinn.graph",
   "streetIndexUrl": "/maps/street-index.bin",
-  "sizeBytes": 26946,
-  "formattedSize": "0.0 MB",
-  "sizeFormatted": "0.0 MB",
-  "source": "OSM + Tallinn Geoportal",
-  "license": "ODbL / Tallinn Open Data",
-  "attribution": "HÕIMU Bioregional Resilience Data",
-  "description": "Tallinn & Harjumaa Bioregional Vector Basemap & Routing Graph",
-  "releaseDate": "2026-09-29",
-  "features": [
-    "Basemap Vector",
-    "POI Resilience",
-    "Offline Routing",
-    "Street Index",
-    "Full-Text Search",
-    "Estonian Localization (name:et)"
-  ],
-  "featureFlags": {
-    "streetLabels": true,
-    "buildings": true,
-    "parks": true,
-    "poi": true,
-    "offline": true,
-    "tacticalThemes": true,
-    "routingGraph": true
-  },
-  "artifacts": {
-    "basemap": {
-      "path": "tallinn-basemap.pmtiles",
-      "sha256": "da4a953d2ffcb36f05ff7ae59987286d5fb53797f0a77708d9eed436565febbe",
-      "sizeBytes": 26946
-    },
-    "poi": {
-      "path": "tallinn-poi.pmtiles",
-      "sha256": "dd6931600f71e4f30377093011fa933f9030f9f54fa1ab96bbeac4064caa3c5a",
-      "sizeBytes": 33564,
-      "count": 31
-    },
-    "routing": {
-      "path": "routing.graph",
-      "sha256": "d302ee2ea9d2f5b10014aae77bbe72ef057b04441e096356d0dad2e51c8789c9",
-      "sizeBytes": 7165,
-      "nodes": 119,
-      "edges": 123
-    },
-    "streetIndex": {
-      "path": "street-index.bin",
-      "sha256": "922a0df69f423b17de3e2ea31e28f914c49fd216f83085c5e5dca969e1f8aca5",
-      "sizeBytes": 36771,
-      "streetCount": 44
-    },
-    "searchIndex": {
-      "path": "search-index.bin",
-      "sha256": "ce4154f942a1a89b4712f9afc841cdda99572a7d2d0f6ffc505fe40c326eb8c2",
-      "sizeBytes": 74
-    }
-  },
-  "sources": [
-    {
-      "provider": "osm",
-      "mode": "SNAPSHOT",
-      "snapshotId": "osm-tln-37e572fb1a6e",
-      "inputSha256": "37e572fb1a6e8fb778312d9adbaecdcc448a2691c8be12504ddbb2ec6393307f",
-      "recordCount": 14,
-      "fetchedAt": "2026-09-29T00:00:00.000Z",
-      "license": "ODbL 1.0 (OpenStreetMap contributors)"
-    },
-    {
-      "provider": "tallinn",
-      "mode": "SNAPSHOT",
-      "snapshotId": "tln-mun-5c9a24a49cf3",
-      "inputSha256": "5c9a24a49cf30eb97dfd94b581d87c94e425c941657673ab81446996a3aacebd",
-      "recordCount": 8,
-      "fetchedAt": "2026-09-29T00:00:00.000Z",
-      "license": "Tallinna Avaandmete Litsents"
-    },
-    {
-      "provider": "paasteamet",
-      "mode": "SNAPSHOT",
-      "snapshotId": "rescue-tln-0c904aa0c9b0",
-      "inputSha256": "0c904aa0c9b0f495017c377da228091cc1005c325061be6444fde9fd7ad2e662",
-      "recordCount": 6,
-      "fetchedAt": "2026-09-29T00:00:00.000Z",
-      "license": "CC BY 4.0"
-    },
-    {
-      "provider": "ads",
-      "mode": "SNAPSHOT",
-      "snapshotId": "ads-tln-3b97e3a681bf",
-      "inputSha256": "3b97e3a681bfea2576565423dfd6190f1810bfecf86fbef95d421280680b7542",
-      "recordCount": 6,
-      "fetchedAt": "2026-09-29T00:00:00.000Z",
-      "license": "Maa-ameti Avaandmete Litsents"
-    }
-  ],
-  "sha256": "da4a953d2ffcb36f05ff7ae59987286d5fb53797f0a77708d9eed436565febbe",
-  "checksumSha256": "da4a953d2ffcb36f05ff7ae59987286d5fb53797f0a77708d9eed436565febbe",
-  "basemap": {
-    "filename": "tallinn-basemap.pmtiles",
-    "path": "tallinn-basemap.pmtiles",
-    "sha256": "da4a953d2ffcb36f05ff7ae59987286d5fb53797f0a77708d9eed436565febbe",
-    "sizeBytes": 26946
-  },
-  "poi": {
-    "filename": "tallinn-poi.pmtiles",
-    "path": "tallinn-poi.pmtiles",
-    "sha256": "dd6931600f71e4f30377093011fa933f9030f9f54fa1ab96bbeac4064caa3c5a",
-    "sizeBytes": 33564,
-    "index": "tallinn-poi.index"
-  },
-  "streetIndex": {
-    "filename": "street-index.bin",
-    "path": "street-index.bin",
-    "sha256": "922a0df69f423b17de3e2ea31e28f914c49fd216f83085c5e5dca969e1f8aca5",
-    "sizeBytes": 36771
-  },
-  "searchIndex": {
-    "filename": "search-index.bin",
-    "path": "search-index.bin",
-    "sha256": "ce4154f942a1a89b4712f9afc841cdda99572a7d2d0f6ffc505fe40c326eb8c2",
-    "sizeBytes": 74
-  }
+  "searchIndexUrl": "/maps/search-index.bin",
+  "sizeBytes": 31206
 }

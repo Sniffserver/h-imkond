@@ -25,6 +25,7 @@ import { createHoimuPacket } from '../protocol/packet';
 import { HoimuPacketType, PacketFlags } from '../protocol/constants';
 import { signPacket } from '../crypto/signatures';
 import { HoimuIdentity } from '../crypto/identity';
+import { secureId } from '../core/crypto/entropy';
 
 export type StateChangeListener = (state: ResilientEngineState, latestEvent?: SignedCRDTEvent) => void;
 
@@ -139,7 +140,7 @@ export class LocalStateEngine {
 
   // Mutual Aid Helpers
   public async postMutualAidNeed(need: Omit<MutualAidNeed, 'id' | 'createdAt' | 'updatedAt' | 'authorNodeId' | 'authorCallsign'>): Promise<string> {
-    const id = `need_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const id = secureId('need');
     await this.mutateEntity('mutual_aid', id, 'create', need);
     return id;
   }
@@ -153,7 +154,7 @@ export class LocalStateEngine {
 
   // Resources Helpers
   public async addResourceItem(item: Omit<ResourceItem, 'id' | 'createdAt' | 'updatedAt' | 'authorNodeId' | 'authorCallsign'>): Promise<string> {
-    const id = `res_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const id = secureId('res');
     await this.mutateEntity('resource', id, 'create', item);
     return id;
   }
@@ -194,7 +195,7 @@ export class LocalStateEngine {
 
   // Governance Helpers
   public async createProposal(proposal: Omit<GovernanceProposal, 'id' | 'createdAt' | 'updatedAt' | 'authorNodeId' | 'authorCallsign' | 'status'>): Promise<string> {
-    const id = `prop_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const id = secureId('prop');
     await this.mutateEntity('governance_proposal', id, 'create', {
       ...proposal,
       status: 'active',
@@ -213,14 +214,14 @@ export class LocalStateEngine {
 
   // Journal Helpers
   public async addJournalEntry(entry: Omit<JournalEntry, 'id' | 'createdAt' | 'updatedAt' | 'authorNodeId' | 'authorCallsign'>): Promise<string> {
-    const id = `jrn_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const id = secureId('jrn');
     await this.mutateEntity('journal_entry', id, 'create', entry);
     return id;
   }
 
   // Offline Maps Helpers
   public async addMapMarker(marker: Omit<MapMarker, 'id' | 'createdAt' | 'updatedAt' | 'authorNodeId' | 'authorCallsign'>): Promise<string> {
-    const id = `map_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const id = secureId('map');
     await this.mutateEntity('map_marker', id, 'create', marker);
     return id;
   }

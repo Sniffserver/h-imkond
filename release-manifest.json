@@ -36,23 +36,23 @@
   ],
   "artifacts": {
     "basemap": {
-      "sha256": "da4a953d2ffcb36f05ff7ae59987286d5fb53797f0a77708d9eed436565febbe",
-      "sizeBytes": 26946,
+      "sha256": "eb22bbcf870f930b9287edb1a0be9675389d4e8ba46872d8bbed2a4950e823d2",
+      "sizeBytes": 30415,
       "schemaVersion": 1
     },
     "poiPmtiles": {
-      "sha256": "dd6931600f71e4f30377093011fa933f9030f9f54fa1ab96bbeac4064caa3c5a",
-      "sizeBytes": 33564,
+      "sha256": "5c1c24a77d9e23419e7c08c741bcb7dee7db00bf8b87d6c06547f0e7ec436ed5",
+      "sizeBytes": 10423,
       "schemaVersion": 1
     },
     "routingGraph": {
-      "sha256": "d302ee2ea9d2f5b10014aae77bbe72ef057b04441e096356d0dad2e51c8789c9",
-      "sizeBytes": 7165,
+      "sha256": "63f9bb661aa7716d0c6d1bab6860cf8b10103d9fbddc69fcb75a83961847ca07",
+      "sizeBytes": 8948,
       "format": "HMRG"
     },
     "streetIndex": {
-      "sha256": "922a0df69f423b17de3e2ea31e28f914c49fd216f83085c5e5dca969e1f8aca5",
-      "sizeBytes": 36771,
+      "sha256": "3ea0b46238c32b3f3c9e658eb8005196c4c200466969506a6729d2a235d9f90b",
+      "sizeBytes": 3160,
       "format": "HSTRIDX"
     }
   },

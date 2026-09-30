@@ -13,6 +13,7 @@ import { routingRepository } from '../routing/routingRepository';
 import { searchWorkerClient } from '../../features/search/searchWorkerClient';
 import { useMeshStore } from '../../store/meshStore';
 import { CapabilityEvidence } from '../capabilities/offlineCapabilityService';
+import { EvidenceLevel, CapabilityReadiness, TruthFirewall } from '../../core/truth/truthFirewall';
 
 export type HealthStatus = 'ready' | 'starting' | 'degraded' | 'failed' | 'missing' | 'unavailable' | 'unknown';
 
@@ -21,6 +22,8 @@ export interface SystemSubsystemCapability {
   title: string;
   state: HealthStatus;
   status: HealthStatus;
+  evidenceLevel?: EvidenceLevel;
+  readiness?: CapabilityReadiness;
   evidence: CapabilityEvidence;
   updatedAt: number;
   source: string;
@@ -125,29 +128,21 @@ export class SystemCapabilityService {
       details: { accuracyMeters: locAccuracy, provider: locationState.activeProvider },
     };
 
-    // 2. Map Subsystem (Observed from GenerationRepository)
+    // 2. Map Subsystem (Observed from GenerationRepository with Truth Firewall enforcement)
     const activePointer = typeof localStorage !== 'undefined' ? localStorage.getItem('hoimu_map_active_generation_pointer') : null;
-    let mapGenId: string | undefined;
-    let mapReady = false;
-    let mapArtifactSha: string | undefined;
-    if (activePointer && typeof localStorage !== 'undefined') {
-      try {
-        const raw = localStorage.getItem(`hoimu_generation_${activePointer}_meta`);
-        const meta = raw ? JSON.parse(raw) as { generationId?: string; status?: string; artifactHashes?: Record<string, string> } : null;
-        if (meta?.generationId === activePointer && meta.status === 'ACTIVE') {
-          mapGenId = activePointer;
-          mapArtifactSha = meta.artifactHashes?.basemap;
-          mapReady = Boolean(mapArtifactSha);
-        }
-      } catch {
-        mapReady = false;
-      }
-    }
+    const rawMeta = activePointer && typeof localStorage !== 'undefined' ? localStorage.getItem(`hoimu_generation_${activePointer}_meta`) : null;
+    const mapEval = TruthFirewall.evaluateGenerationIntegrity(activePointer, rawMeta);
+    const mapReady = mapEval.readiness === 'READY';
+    const mapGenId = mapEval.data?.generationId;
+    const mapArtifactSha = mapEval.data?.artifactSha256;
+
     const mapCapability: SystemSubsystemCapability = {
       id: 'map',
       title: 'Map',
       state: mapReady ? 'ready' : 'missing',
       status: mapReady ? 'ready' : 'missing',
+      evidenceLevel: mapEval.level,
+      readiness: mapEval.readiness,
       updatedAt: now,
       source: 'GenerationRepository',
       label: mapReady ? `READY (${mapGenId})` : 'MAP NOT VERIFIED',
@@ -158,6 +153,7 @@ export class SystemCapabilityService {
         evidence: {
           generationId: mapGenId,
           artifactSha256: mapArtifactSha,
+          evidenceLevel: mapEval.level,
         },
       },
       details: { format: 'pmtiles', layers: ['basemap', 'poi'], generationId: mapGenId },
@@ -167,13 +163,16 @@ export class SystemCapabilityService {
     const engine = routingRepository.getEngine();
     const routingNodes = this.testOverrides.routingNodes ?? (engine ? engine.getNodeCount() : 0);
     const routingEdges = this.testOverrides.routingEdges ?? (engine ? engine.getEdgeCount() : 0);
-    const routingReady = routingNodes > 0 && routingEdges > 0;
+    const routingEval = TruthFirewall.evaluateRoutingGraph(Boolean(engine || routingNodes > 0), routingNodes, routingEdges);
+    const routingReady = routingEval.readiness === 'READY';
     const routingStatus: HealthStatus = routingReady ? 'ready' : (engine ? 'starting' : 'missing');
     const routingCapability: SystemSubsystemCapability = {
       id: 'routing',
       title: 'Routing',
       state: routingStatus,
       status: routingStatus,
+      evidenceLevel: routingEval.level,
+      readiness: routingEval.readiness,
       updatedAt: now,
       source: 'RoutingRepository',
       label: routingReady ? `READY (${routingNodes} nodes, ${routingEdges} edges)` : 'GRAPH UNLOADED',
@@ -184,6 +183,7 @@ export class SystemCapabilityService {
         evidence: {
           recordCount: routingNodes,
           edgeCount: routingEdges,
+          evidenceLevel: routingEval.level,
         },
         error: routingReady ? undefined : 'No active pedestrian routing graph in memory',
         recovery: routingReady ? undefined : 'Install or load regional routing graph pack',
@@ -278,20 +278,23 @@ export class SystemCapabilityService {
       details: { historyCount: obsCount },
     };
 
-    // 8. Offline Subsystem (Observed from navigator.onLine)
+    // 8. Offline Subsystem (Evaluated through Truth Firewall)
     const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
-    const localDataReady =
-      mapCapability.state === 'ready' &&
-      routingCapability.state === 'ready' &&
-      searchCapability.state === 'ready';
-    const offlineState: HealthStatus = isOnline
-      ? (localDataReady ? 'ready' : 'degraded')
-      : (localDataReady ? 'ready' : 'degraded');
+    const offlineEval = TruthFirewall.evaluateOfflineReadiness(
+      isOnline,
+      mapCapability.state === 'ready',
+      routingCapability.state === 'ready',
+      searchCapability.state === 'ready'
+    );
+    const localDataReady = Boolean(offlineEval.data?.localDataReady);
+    const offlineState: HealthStatus = offlineEval.readiness === 'READY' ? 'ready' : 'degraded';
     const offlineCapability: SystemSubsystemCapability = {
       id: 'offline',
       title: 'Offline',
       state: offlineState,
       status: offlineState,
+      evidenceLevel: offlineEval.level,
+      readiness: offlineEval.readiness,
       updatedAt: now,
       source: 'NetworkMonitor + local capability evidence',
       label: isOnline
@@ -306,6 +309,7 @@ export class SystemCapabilityService {
           mapReady: mapCapability.state === 'ready',
           routingReady: routingCapability.state === 'ready',
           searchReady: searchCapability.state === 'ready',
+          evidenceLevel: offlineEval.level,
         },
         recovery: localDataReady ? undefined : 'Install and verify the local map, routing, and search artifacts',
       },

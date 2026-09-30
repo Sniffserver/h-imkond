@@ -9,3 +9,5 @@ export * from './ed25519';
 export * from './x25519';
 export * from './aead';
 export * from './crc32';
+export * from './canonical';
+export * from './hkdf';

@@ -9,6 +9,7 @@
 
 import { storageDB } from '../db';
 import { STORES } from '../migrations';
+import { secureId } from '../../core/crypto/entropy';
 
 export interface MeshEventRecord {
   id: string;
@@ -23,7 +24,7 @@ const memoryEvents: MeshEventRecord[] = [];
 export class MeshEventStore {
   public static async recordEvent(event: Omit<MeshEventRecord, 'id' | 'timestamp'> & { id?: string; timestamp?: number }): Promise<MeshEventRecord> {
     const record: MeshEventRecord = {
-      id: event.id || `evt_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      id: event.id || secureId('evt'),
       timestamp: event.timestamp || Date.now(),
       type: event.type,
       nodeId: event.nodeId,

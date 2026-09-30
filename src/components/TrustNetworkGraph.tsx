@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as d3 from 'd3';
 import { UserProfile, MeshNode, TrustEndorsement, Transaction } from '../types';
 import { soundFeedback } from '../services/utils/soundFeedback';
+import { TrustState } from '../utils/cryptoHelper';
 import {
   ShieldCheck,
   Sparkles,
@@ -42,7 +43,7 @@ export interface TrustGraphLink extends d3.SimulationLinkDatum<TrustGraphNode> {
   weight: number;
   type: 'direct_endorsement' | 'mutual_exchange' | 'dual_attestation' | 'relay_trust';
   comment?: string;
-  signatureVerified: boolean;
+  trustState: TrustState;
 }
 
 interface TrustNetworkGraphProps {
@@ -182,7 +183,7 @@ export const TrustNetworkGraph: React.FC<TrustNetworkGraphProps> = ({
               : connectionType === 'direct_endorsement'
               ? 'Cryptographically signed direct trust endorsement'
               : 'Verified mutual exchange interaction',
-          signatureVerified: true,
+          trustState: 'VERIFIED' as TrustState,
         });
       }
     });
@@ -202,7 +203,7 @@ export const TrustNetworkGraph: React.FC<TrustNetworkGraphProps> = ({
             weight: 1.5,
             type: 'relay_trust',
             comment: 'Transitive cryptographic relay endorsement',
-            signatureVerified: true,
+            trustState: 'VERIFIED' as TrustState,
           });
         }
       }

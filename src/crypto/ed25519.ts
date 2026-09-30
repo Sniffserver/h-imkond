@@ -34,6 +34,37 @@ export async function generateEd25519KeyPair(extractable: boolean = false): Prom
   };
 }
 
+export async function deriveEd25519FromRawSeed(seedBytes: Uint8Array): Promise<Ed25519KeyPair> {
+  const subtle = getSubtle();
+  if (seedBytes.length !== 32) {
+    throw new Error('Raw Ed25519 seed must be exactly 32 bytes');
+  }
+
+  // PKCS#8 DER envelope for Ed25519 private key (RFC 8410 / RFC 8032)
+  const pkcs8Der = new Uint8Array(48);
+  pkcs8Der.set([
+    0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
+  ], 0);
+  pkcs8Der.set(seedBytes, 16);
+
+  const privateKey = await subtle.importKey('pkcs8', pkcs8Der, { name: 'Ed25519' }, true, ['sign']);
+
+  const jwk = await subtle.exportKey('jwk', privateKey);
+  const rawPubBytes = fromHex(
+    Array.from(atob(jwk.x!.replace(/-/g, '+').replace(/_/g, '/')))
+      .map((c) => c.charCodeAt(0).toString(16).padStart(2, '0'))
+      .join('')
+  );
+
+  const publicKey = await subtle.importKey('raw', rawPubBytes, { name: 'Ed25519' }, true, ['verify']);
+
+  return {
+    publicKey,
+    privateKey,
+    publicKeyHex: toHex(rawPubBytes),
+  };
+}
+
 export async function deriveEd25519FromSeed(seed: string): Promise<Ed25519KeyPair> {
   const subtle = getSubtle();
   const seedBuffer = await subtle.digest('SHA-256', new TextEncoder().encode(`hoimu_ed25519_${seed}`));

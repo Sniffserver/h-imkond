@@ -1,4 +1,5 @@
 import { HoimuPacket, HoimuPacketHeader, HoimuPayload } from './types';
+import { getSecureRandomBytes } from '../core/crypto/entropy';
 import {
   HoimuPacketType,
   PacketFlags,
@@ -35,12 +36,7 @@ export function generatePacketId(senderId?: string, sequence?: number, timestamp
   const s = (sequence ?? 1) & 0xffff;
   const hexSeq = s.toString(16).padStart(4, '0');
   
-  const rand = new Uint8Array(10);
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-    crypto.getRandomValues(rand);
-  } else {
-    for (let i = 0; i < 10; i++) rand[i] = Math.floor(Math.random() * 256);
-  }
+  const rand = getSecureRandomBytes(10);
   const hexRand = Array.from(rand).map(b => b.toString(16).padStart(2, '0')).join('');
   return `${hexTime}${hexSeq}${hexRand}`;
 }
